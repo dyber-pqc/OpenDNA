@@ -1,0 +1,43 @@
+# Rust
+target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.venv/
+*.so
+
+# Node/UI
+node_modules/
+ui/dist/
+ui/src-tauri/target/
+
+# ML Models (large files)
+models/*.bin
+models/*.pt
+models/*.onnx
+models/*.safetensors
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# OpenDNA local data
+.opendna/
+
+# Claude
+.claude/
+
+# Environment
+.env
+.env.local

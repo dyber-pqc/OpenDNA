@@ -1,0 +1,35 @@
+# OpenDNA Model Manifest
+# Models are downloaded on first use via HuggingFace Hub
+
+models:
+  esmfold:
+    name: "ESMFold v1"
+    source: "facebook/esmfold_v1"
+    size_gb: 2.5
+    purpose: "Protein structure prediction from sequence"
+    tier: gaming  # Minimum tier required
+    required: true
+
+  proteinmpnn:
+    name: "ProteinMPNN"
+    source: "proteinmpnn/proteinmpnn_v_48_020"
+    size_gb: 0.15
+    purpose: "Protein sequence design from backbone"
+    tier: potato
+    required: true
+
+  esm2_650m:
+    name: "ESM-2 (650M)"
+    source: "facebook/esm2_t33_650M_UR50D"
+    size_gb: 2.5
+    purpose: "Protein sequence embeddings"
+    tier: gaming
+    required: false
+
+  esm2_8m:
+    name: "ESM-2 (8M)"
+    source: "facebook/esm2_t6_8M_UR50D"
+    size_gb: 0.03
+    purpose: "Lightweight sequence embeddings"
+    tier: potato
+    required: false

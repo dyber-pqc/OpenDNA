@@ -1,0 +1,16 @@
+[package]
+name = "opendna-bindings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Python bindings for OpenDNA core"
+
+[lib]
+name = "opendna_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+opendna-core = { path = "../opendna-core" }
+opendna-hal = { path = "../opendna-hal" }
+pyo3 = { version = "0.24", features = ["extension-module"] }
+serde_json.workspace = true

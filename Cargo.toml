@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/opendna-core",
+    "crates/opendna-hal",
+    "crates/opendna-bindings",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/opendna/opendna"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+anyhow = "1"
