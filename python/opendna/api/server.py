@@ -571,6 +571,107 @@ async def smart_chat_endpoint(request: SmartChatRequest):
 
 
 # =====================================================
+# v0.4 - Multimer, benchmark, MD with explicit solvent
+# =====================================================
+
+class MultimerRequest(BaseModel):
+    sequences: list[str]
+    chain_ids: Optional[list[str]] = None
+
+
+@app.post("/v1/multimer", response_model=JobResponse)
+async def multimer_endpoint(request: MultimerRequest):
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "multimer", "started_at": time.time(),
+    }
+    asyncio.get_event_loop().run_in_executor(
+        executor, _run_multimer, job_id, request.sequences, request.chain_ids
+    )
+    return JobResponse(job_id=job_id, status="running")
+
+
+def _run_multimer(job_id, sequences, chain_ids):
+    try:
+        from opendna.engines.multimer import fold_multimer
+        def on_progress(stage, frac):
+            jobs[job_id]["progress"] = frac
+        result = fold_multimer(sequences, chain_ids, on_progress=on_progress)
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = {
+            "pdb": result.pdb_string,
+            "chains": result.chains,
+            "mean_confidence": result.mean_confidence,
+            "interface_residues": result.interface_residues,
+            "method": result.method,
+            "notes": result.notes,
+        }
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
+
+class MdSolventRequest(BaseModel):
+    pdb_string: str
+    duration_ps: float = 100
+    explicit_solvent: bool = True
+
+
+@app.post("/v1/md_full", response_model=JobResponse)
+async def md_full_endpoint(request: MdSolventRequest):
+    """Full MD with explicit solvent (real OpenMM if installed)."""
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "md_full", "started_at": time.time(),
+    }
+    asyncio.get_event_loop().run_in_executor(
+        executor, _run_md_full, job_id, request.pdb_string, request.duration_ps, request.explicit_solvent
+    )
+    return JobResponse(job_id=job_id, status="running")
+
+
+def _run_md_full(job_id, pdb_string, duration_ps, explicit_solvent):
+    try:
+        from opendna.engines.dynamics import quick_md
+        def on_progress(stage, frac):
+            jobs[job_id]["progress"] = frac
+        result = quick_md(pdb_string, duration_ps, explicit_solvent, on_progress=on_progress)
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = _to_dict(result)
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
+
+@app.post("/v1/benchmark", response_model=JobResponse)
+async def benchmark_endpoint():
+    """Run the OpenDNA self-benchmark suite."""
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "benchmark", "started_at": time.time(),
+    }
+    asyncio.get_event_loop().run_in_executor(executor, _run_benchmark, job_id)
+    return JobResponse(job_id=job_id, status="running")
+
+
+def _run_benchmark(job_id):
+    try:
+        from opendna.benchmarks import run_benchmark_suite
+        suite = run_benchmark_suite()
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = suite.to_dict()
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
+
+# =====================================================
 # v0.4 - Workflows, project export, first-run wizard
 # =====================================================
 

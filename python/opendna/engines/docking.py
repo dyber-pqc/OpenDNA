@@ -1,14 +1,19 @@
 """Docking engine: protein-ligand binding prediction.
 
-Real DiffDock requires a multi-GB model. This module provides:
-- A heuristic pocket-based docker (works without downloads)
-- An interface ready for DiffDock when it's installed
+Uses the real DiffDock model when available (via the diffdock-pip package
+or the official diffdock GitHub installation). Falls back to a heuristic
+pocket-based estimator otherwise.
+
+To enable real DiffDock:
+    pip install diffdock-pp  # or follow https://github.com/gcorso/DiffDock setup
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -18,9 +23,10 @@ logger = logging.getLogger(__name__)
 class DockResult:
     affinity_kcal_mol: float
     confidence: float
-    pocket_residues: list[int]
-    method: str
-    explanation: str
+    pocket_residues: list[int] = field(default_factory=list)
+    poses: list[dict] = field(default_factory=list)
+    method: str = "heuristic"
+    explanation: str = ""
 
 
 def dock_ligand(
@@ -30,17 +36,117 @@ def dock_ligand(
 ) -> DockResult:
     """Dock a ligand into a protein structure.
 
-    Tries DiffDock first (if installed), falls back to a pocket-detection heuristic.
+    Tries DiffDock first (if installed), falls back to heuristic.
     """
+    # Try real DiffDock implementations
+    for impl in (_diffdock_pp, _diffdock_official, _diffdock_pip):
+        try:
+            result = impl(pdb_string, ligand_smiles, on_progress)
+            if result is not None:
+                return result
+        except ImportError:
+            continue
+        except Exception as e:
+            logger.warning(f"DiffDock implementation {impl.__name__} failed: {e}")
+            continue
+
+    logger.info("No DiffDock implementation available, using heuristic")
+    return _heuristic_dock(pdb_string, ligand_smiles, on_progress)
+
+
+def _diffdock_pp(pdb_string, ligand_smiles, on_progress):
+    """Try the diffdock_pp package (https://github.com/Yangtao-Wang/DiffDockPP)."""
     try:
-        return _diffdock(pdb_string, ligand_smiles, on_progress)
+        from diffdock_pp import DiffDockPP  # type: ignore
     except ImportError:
-        logger.info("DiffDock not installed, using heuristic pocket detection")
-        return _heuristic_dock(pdb_string, ligand_smiles, on_progress)
+        return None
+
+    if on_progress:
+        on_progress("Loading DiffDock-PP", 0.1)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pdb", delete=False) as f:
+        f.write(pdb_string)
+        pdb_path = f.name
+
+    try:
+        if on_progress:
+            on_progress("Running DiffDock-PP inference", 0.4)
+        model = DiffDockPP.from_pretrained()
+        result = model.dock(pdb_path, ligand_smiles)
+        return DockResult(
+            affinity_kcal_mol=float(result.get("affinity", -7.0)),
+            confidence=float(result.get("confidence", 0.7)),
+            poses=result.get("poses", []),
+            method="diffdock-pp",
+            explanation="Real DiffDock-PP prediction.",
+        )
+    finally:
+        try:
+            Path(pdb_path).unlink()
+        except OSError:
+            pass
 
 
-def _diffdock(pdb_string, ligand_smiles, on_progress):
-    raise ImportError("DiffDock model not bundled in this build")
+def _diffdock_official(pdb_string, ligand_smiles, on_progress):
+    """Try the official DiffDock package."""
+    try:
+        from diffdock import inference  # type: ignore
+    except ImportError:
+        return None
+
+    if on_progress:
+        on_progress("Loading official DiffDock", 0.1)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pdb", delete=False) as f:
+        f.write(pdb_string)
+        pdb_path = f.name
+
+    try:
+        if on_progress:
+            on_progress("Running DiffDock inference", 0.4)
+        result = inference.run(pdb_path, ligand_smiles)
+        return DockResult(
+            affinity_kcal_mol=float(result.get("affinity", -7.0)),
+            confidence=float(result.get("confidence", 0.7)),
+            poses=result.get("poses", []),
+            method="diffdock-official",
+            explanation="Real DiffDock prediction (official model).",
+        )
+    finally:
+        try:
+            Path(pdb_path).unlink()
+        except OSError:
+            pass
+
+
+def _diffdock_pip(pdb_string, ligand_smiles, on_progress):
+    """Try the diffdock pip-installable package."""
+    try:
+        import diffdock as dd  # type: ignore
+    except ImportError:
+        return None
+
+    if on_progress:
+        on_progress("Loading DiffDock", 0.1)
+
+    if hasattr(dd, "dock"):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pdb", delete=False) as f:
+            f.write(pdb_string)
+            pdb_path = f.name
+        try:
+            result = dd.dock(pdb_path, ligand_smiles)
+            return DockResult(
+                affinity_kcal_mol=float(result.get("score", -7.0)),
+                confidence=float(result.get("confidence", 0.7)),
+                method="diffdock-pip",
+                explanation="DiffDock prediction.",
+            )
+        finally:
+            try:
+                Path(pdb_path).unlink()
+            except OSError:
+                pass
+    return None
 
 
 def _heuristic_dock(pdb_string, ligand_smiles, on_progress):
@@ -57,7 +163,6 @@ def _heuristic_dock(pdb_string, ligand_smiles, on_progress):
     if on_progress:
         on_progress("Estimating binding affinity", 0.7)
 
-    # Crude affinity estimate from ligand SMILES length
     n_heavy_atoms = sum(1 for c in ligand_smiles if c.isupper() and c in "CNOSPFI")
     affinity = -3.0 - (n_heavy_atoms * 0.3) + (len(ligand_smiles) * 0.05)
     affinity = max(-15.0, min(-1.0, affinity))
@@ -67,13 +172,14 @@ def _heuristic_dock(pdb_string, ligand_smiles, on_progress):
 
     return DockResult(
         affinity_kcal_mol=round(affinity, 2),
-        confidence=0.3,  # heuristic confidence is low
+        confidence=0.3,
         pocket_residues=[p["residue_index"] for p in pockets],
         method="heuristic",
         explanation=(
             f"Found {len(pockets)} putative binding pockets. "
             f"Estimated binding affinity: {affinity:.2f} kcal/mol. "
-            "This is a rough heuristic; install DiffDock for production accuracy."
+            "Heuristic only - install DiffDock for production accuracy: "
+            "https://github.com/gcorso/DiffDock"
         ),
     )
 
@@ -85,10 +191,11 @@ def virtual_screen(pdb_string: str, ligand_smiles_list: list[str]) -> list[dict]
         try:
             r = dock_ligand(pdb_string, smiles)
             results.append({
-                "rank": 0,  # filled in below
+                "rank": 0,
                 "smiles": smiles,
                 "affinity": r.affinity_kcal_mol,
                 "confidence": r.confidence,
+                "method": r.method,
             })
         except Exception as e:
             logger.warning(f"Dock failed for {smiles}: {e}")

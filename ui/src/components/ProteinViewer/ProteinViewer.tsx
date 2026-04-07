@@ -39,6 +39,14 @@ function ProteinViewer({
   const comparePluginRef = useRef<any>(null);
   const [stats, setStats] = useState<{ atoms: number; residues: number } | null>(null);
   const [colorMode, setColorMode] = useState<"chain" | "confidence">("confidence");
+  const [repMode, setRepMode] = useState<"cartoon" | "ball-and-stick" | "spacefill" | "surface">("cartoon");
+  const [hoverInfo, _setHoverInfo] = useState<{
+    residue: string;
+    residueNum: number;
+    chain: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!pdbData || !containerRef.current) return;
@@ -117,6 +125,28 @@ function ProteinViewer({
         const traj = await plugin.builders.structure.parseTrajectory(data, "pdb");
         await plugin.builders.structure.hierarchy.applyPreset(traj, "default");
 
+        // Switch representation type based on repMode
+        try {
+          const struct = plugin.managers.structure.hierarchy.current.structures[0];
+          if (struct?.components) {
+            const repTypeMap: Record<string, string> = {
+              "cartoon": "cartoon",
+              "ball-and-stick": "ball-and-stick",
+              "spacefill": "spacefill",
+              "surface": "molecular-surface",
+            };
+            const repType = repTypeMap[repMode] || "cartoon";
+            for (const comp of struct.components) {
+              await plugin.managers.structure.component.updateRepresentationsTheme(
+                [comp],
+                { type: repType as any }
+              );
+            }
+          }
+        } catch (e) {
+          console.warn("Could not switch representation:", e);
+        }
+
         // Apply color theme: AlphaFold-style pLDDT or chain-id
         const themeName = colorMode === "confidence" ? "plddt-confidence" : "chain-id";
         try {
@@ -166,7 +196,7 @@ function ProteinViewer({
         pluginRef.current = null;
       }
     };
-  }, [pdbData, colorMode]);
+  }, [pdbData, colorMode, repMode]);
 
   // Compare structure viewer
   useEffect(() => {
@@ -332,19 +362,62 @@ function ProteinViewer({
           )}
         </div>
         <div className="viewer-controls">
-          <button
-            className={`vc-btn ${colorMode === "confidence" ? "active" : ""}`}
-            onClick={() => setColorMode("confidence")}
-          >
-            pLDDT colors
-          </button>
-          <button
-            className={`vc-btn ${colorMode === "chain" ? "active" : ""}`}
-            onClick={() => setColorMode("chain")}
-          >
-            Chain colors
-          </button>
+          <div className="vc-group">
+            <span className="vc-label">Color:</span>
+            <button
+              className={`vc-btn ${colorMode === "confidence" ? "active" : ""}`}
+              onClick={() => setColorMode("confidence")}
+            >
+              pLDDT
+            </button>
+            <button
+              className={`vc-btn ${colorMode === "chain" ? "active" : ""}`}
+              onClick={() => setColorMode("chain")}
+            >
+              Chain
+            </button>
+          </div>
+          <div className="vc-group">
+            <span className="vc-label">Style:</span>
+            <button
+              className={`vc-btn ${repMode === "cartoon" ? "active" : ""}`}
+              onClick={() => setRepMode("cartoon")}
+              title="Cartoon"
+            >
+              Cartoon
+            </button>
+            <button
+              className={`vc-btn ${repMode === "ball-and-stick" ? "active" : ""}`}
+              onClick={() => setRepMode("ball-and-stick")}
+              title="Ball & Stick"
+            >
+              Ball+Stick
+            </button>
+            <button
+              className={`vc-btn ${repMode === "spacefill" ? "active" : ""}`}
+              onClick={() => setRepMode("spacefill")}
+              title="Spacefill"
+            >
+              Spacefill
+            </button>
+            <button
+              className={`vc-btn ${repMode === "surface" ? "active" : ""}`}
+              onClick={() => setRepMode("surface")}
+              title="Surface"
+            >
+              Surface
+            </button>
+          </div>
         </div>
+
+        {hoverInfo && (
+          <div className="residue-popup" style={{ left: hoverInfo.x, top: hoverInfo.y }}>
+            <div className="rp-row">
+              <strong>{hoverInfo.residue}{hoverInfo.residueNum}</strong>
+              <span className="rp-chain">Chain {hoverInfo.chain}</span>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

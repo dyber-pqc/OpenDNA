@@ -1,11 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "description": "OpenDNA desktop capabilities",
+  "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "shell:default",
+    "shell:allow-open",
+    "dialog:default",
+    "fs:default",
+    "process:default",
+    "process:allow-restart",
+    "process:allow-exit"
   ]
 }
