@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   python-package:
@@ -17,10 +18,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build sdist and wheel
+      - name: Install build tooling
         run: |
-          pip install --upgrade pip build
-          python -m build
+          python -m pip install --upgrade pip
+          python -m pip install build hatchling
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Verify build outputs
+        run: ls -la dist/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -29,7 +36,7 @@ jobs:
           path: dist/*
 
   ui-bundle:
-    name: Build UI bundle
+    name: Build UI static bundle
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +57,9 @@ jobs:
         run: npm run build
 
       - name: Tar dist
-        run: tar -czf opendna-ui-${{ github.ref_name }}.tar.gz -C ui dist
+        run: |
+          cd ui
+          tar -czf ../opendna-ui-${{ github.ref_name }}.tar.gz dist
 
       - name: Upload UI bundle
         uses: actions/upload-artifact@v4
@@ -62,6 +71,7 @@ jobs:
     name: Create GitHub Release
     needs: [python-package, ui-bundle]
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
@@ -81,3 +91,5 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

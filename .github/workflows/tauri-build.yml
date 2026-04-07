@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: "--target universal-apple-darwin"
+            args: ""
           - platform: ubuntu-22.04
             args: ""
           - platform: windows-latest
@@ -37,12 +37,11 @@ jobs:
             libxdo-dev \
             libssl-dev \
             libayatana-appindicator3-dev \
-            librsvg2-dev
+            librsvg2-dev \
+            patchelf
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -60,35 +59,48 @@ jobs:
         working-directory: ui
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Build UI
+        working-directory: ui
+        run: npm run build
+
+      - name: Build Tauri app (unsigned)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional code signing - leave empty for unsigned builds
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: ui
           tagName: ${{ github.ref_name }}
           releaseName: "OpenDNA ${{ github.ref_name }}"
           releaseBody: |
-            See the assets below to download and install OpenDNA for your platform.
+            ## OpenDNA ${{ github.ref_name }}
 
-            **Windows**: Download the `.msi` or `.exe` installer
-            **macOS**: Download the `.dmg` (universal binary, works on Intel and Apple Silicon)
-            **Linux**: Download the `.AppImage` or `.deb` package
+            Cross-platform desktop installers for the OpenDNA protein engineering platform.
+
+            ### Downloads
+
+            - **Windows**: `.msi` or `.exe` installer (NSIS)
+            - **macOS**: `.dmg` (Apple Silicon and Intel)
+            - **Linux**: `.AppImage` or `.deb` package
 
             ### Requirements
-            - Python 3.10+ must be installed (download from https://python.org)
-            - On first launch, OpenDNA will install its Python dependencies automatically
+
+            - Python 3.10+ installed (https://python.org)
+            - On first launch, run `pip install opendna` to install the Python backend
+
+            **Note:** These builds are unsigned. On macOS you may need to right-click → Open the first time. On Windows you may see a SmartScreen warning.
+
+            ### Changes
+
+            See [CHANGELOG.md](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/CHANGELOG.md)
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}
 
-      - name: Upload artifacts (manual triggers)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Upload bundle artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: opendna-${{ matrix.platform }}
           path: |
             ui/src-tauri/target/release/bundle/**/*
+          if-no-files-found: warn

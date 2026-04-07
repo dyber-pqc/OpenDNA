@@ -4,6 +4,7 @@ site_url: https://dyber-pqc.github.io/OpenDNA/
 repo_url: https://github.com/dyber-pqc/OpenDNA
 repo_name: dyber-pqc/OpenDNA
 edit_uri: edit/main/docs/
+docs_dir: docs
 
 theme:
   name: material
@@ -38,7 +39,7 @@ theme:
     repo: fontawesome/brands/github
 
 nav:
-  - Home: README.md
+  - Home: index.md
   - Getting Started:
       - Installation: GETTING_STARTED.md
       - Tutorials: TUTORIALS.md

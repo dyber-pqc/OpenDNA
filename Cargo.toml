@@ -5,6 +5,9 @@ members = [
     "crates/opendna-hal",
     "crates/opendna-bindings",
 ]
+exclude = [
+    "ui/src-tauri",
+]
 
 [workspace.package]
 version = "0.1.0"

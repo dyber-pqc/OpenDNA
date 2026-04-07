@@ -2,7 +2,7 @@
 title: "OpenDNA: A Free, Open-Source Protein Engineering Platform for Consumer Hardware"
 authors:
   - name: Zachary Kleckner
-    affiliation: Dyber PQC
+    affiliation: Dyber, Inc.
     email: zkleckner@dyber.org
     orcid: ""
 date: 2026-04-06

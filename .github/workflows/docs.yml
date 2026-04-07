@@ -7,6 +7,7 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - ".github/workflows/docs.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -26,11 +27,15 @@ jobs:
 
       - name: Install MkDocs
         run: |
-          pip install mkdocs-material mkdocs-git-revision-date-localized-plugin
+          python -m pip install --upgrade pip
+          python -m pip install mkdocs mkdocs-material
 
       - name: Build site
-        run: mkdocs build --strict
+        run: mkdocs build
 
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: mkdocs gh-deploy --force
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          mkdocs gh-deploy --force

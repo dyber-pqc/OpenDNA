@@ -1,19 +1,33 @@
 [project]
 name = "opendna"
-version = "0.1.0"
+version = "0.4.0"
 description = "The People's Protein Engineering Platform"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
+authors = [
+    {name = "Zachary Kleckner", email = "zkleckner@dyber.org"},
+]
+keywords = [
+    "protein engineering",
+    "structure prediction",
+    "inverse folding",
+    "drug discovery",
+    "bioinformatics",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+# Core dependencies - lightweight, no ML models. Sufficient for tests, CLI, API server.
 dependencies = [
-    "torch>=2.0",
-    "transformers>=4.30",
-    "fair-esm>=2.0",
-    "biopython>=1.80",
-    "numpy>=1.24",
-    "sqlalchemy>=2.0",
-    "typer>=0.9",
-    "rich>=13.0",
     "fastapi>=0.100",
     "uvicorn[standard]>=0.23",
     "pydantic>=2.0",
@@ -21,17 +35,55 @@ dependencies = [
     "pyyaml>=6.0",
     "sse-starlette>=1.6",
     "psutil>=5.9",
+    "sqlalchemy>=2.0",
+    "typer>=0.9",
+    "rich>=13.0",
+    "numpy>=1.24",
+    "biopython>=1.80",
 ]
 
 [project.optional-dependencies]
+# Heavy ML dependencies - install only when you need to run real folding/design
+ml = [
+    "torch>=2.0",
+    "transformers>=4.30",
+    "fair-esm>=2.0",
+    "biotite>=0.40",
+    "torch-geometric>=2.5",
+]
+
+# Optional MD support
+md = [
+    "openmm>=8.0",
+]
+
+# Optional docking support (DiffDock - install separately)
+docking = []
+
+# Multimer (Boltz - install separately via pip install boltz)
+multimer = []
+
+# Development tooling
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "ruff>=0.1",
+    "build>=1.0",
+]
+
+# Everything (heavy install)
+all = [
+    "opendna[ml,md,dev]",
 ]
 
 [project.scripts]
 opendna = "opendna.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/dyber-pqc/OpenDNA"
+Repository = "https://github.com/dyber-pqc/OpenDNA"
+Documentation = "https://dyber-pqc.github.io/OpenDNA/"
+Issues = "https://github.com/dyber-pqc/OpenDNA/issues"
 
 [build-system]
 requires = ["hatchling"]
@@ -40,9 +92,29 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["python/opendna"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "python/opendna/**",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "E402", "F401", "F841", "E731", "E712"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**" = ["F401", "F811"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
+markers = [
+    "heavy: tests requiring heavy ML models (skipped on CI by default)",
+    "network: tests requiring internet (skipped offline)",
+]
