@@ -56,9 +56,15 @@ export default function BackendStatus() {
         {status === "disconnected" && (
           <div className="bs-body">
             The Python API server isn't running. Open a terminal and run:
-            <pre>pip install opendna && opendna serve --port 8765</pre>
-            Or, if you've already installed it, just:
             <pre>opendna serve --port 8765</pre>
+            If you haven't installed OpenDNA yet:
+            <pre>pip install opendna</pre>
+            <span className="bs-hint">
+              (Run them as separate commands — PowerShell doesn't support
+              &amp;&amp; before v7. On Mac/Linux/PowerShell 7+ you can chain
+              with &amp;&amp;.)
+            </span>
+            <br />
             The page will reconnect automatically once the server is up.
           </div>
         )}

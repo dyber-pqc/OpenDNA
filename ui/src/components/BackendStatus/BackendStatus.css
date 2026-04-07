@@ -73,6 +73,14 @@
   word-break: break-word;
 }
 
+.bs-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-top: 4px;
+}
+
 .bs-actions {
   display: flex;
   flex-direction: column;
