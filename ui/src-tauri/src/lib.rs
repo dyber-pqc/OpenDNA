@@ -6,6 +6,27 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::Manager;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+// Windows-specific flag to hide the console window when spawning a child process.
+// Without this, every Python sidecar launch pops up a black cmd.exe window.
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+/// Apply platform-specific spawn settings to a Command:
+/// - Use Stdio::null() so the child can't deadlock on pipe buffers
+/// - Hide the console window on Windows
+fn configure_child_command(cmd: &mut Command) {
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(target_os = "windows")]
+    {
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+}
+
 struct PythonSidecar(Mutex<Option<Child>>);
 
 #[tauri::command]
@@ -20,10 +41,16 @@ fn find_python_interpreters() -> Vec<String> {
 
     // First, try standard PATH-based names
     let path_candidates = ["python", "python3", "python3.12", "python3.11", "python3.10", "py"];
-    for cmd in &path_candidates {
-        if let Ok(output) = Command::new(cmd).arg("--version").output() {
+    for cmd_name in &path_candidates {
+        let mut cmd = Command::new(cmd_name);
+        cmd.arg("--version");
+        #[cfg(target_os = "windows")]
+        {
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        if let Ok(output) = cmd.output() {
             if output.status.success() {
-                found.push(cmd.to_string());
+                found.push(cmd_name.to_string());
             }
         }
     }
@@ -117,11 +144,16 @@ fn find_python_interpreters() -> Vec<String> {
     found
 }
 
-/// Verify that a python interpreter has opendna >= 0.2 installed.
+/// Verify that a python interpreter has opendna installed.
 /// Returns the version string on success.
 fn verify_opendna(python: &str) -> Result<String, String> {
-    let output = Command::new(python)
-        .args(["-c", "import opendna, sys; print(opendna.__version__); sys.exit(0)"])
+    let mut cmd = Command::new(python);
+    cmd.args(["-c", "import opendna, sys; print(opendna.__version__); sys.exit(0)"]);
+    #[cfg(target_os = "windows")]
+    {
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to run {}: {}", python, e))?;
     if !output.status.success() {
@@ -194,11 +226,10 @@ fn start_api_server(state: tauri::State<PythonSidecar>) -> Result<String, String
         }
 
         for args in &invocation_styles {
-            let result = Command::new(python)
-                .args(args)
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn();
+            let mut cmd = Command::new(python);
+            cmd.args(args);
+            configure_child_command(&mut cmd);
+            let result = cmd.spawn();
             if let Ok(child) = result {
                 *child_lock = Some(child);
                 return Ok(format!("Started API server: {} {}", python, args.join(" ")));
