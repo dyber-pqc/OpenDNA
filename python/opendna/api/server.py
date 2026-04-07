@@ -1169,10 +1169,31 @@ def _run_md(job_id, pdb_string, duration_ps):
         jobs[job_id]["error"] = str(e)
 
 
-def start_server(host: str = "0.0.0.0", port: int = 8000):
+def start_server(host: str = "127.0.0.1", port: int = 8765):
     import uvicorn
     uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
-    start_server()
+    import os
+    import sys
+
+    # Allow port override via env var (used by Tauri sidecar) or CLI arg
+    port = int(os.environ.get("OPENDNA_PORT", "8765"))
+    host = os.environ.get("OPENDNA_HOST", "127.0.0.1")
+
+    # Simple CLI: python -m opendna.api.server [--port N] [--host H]
+    args = sys.argv[1:]
+    i = 0
+    while i < len(args):
+        if args[i] == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+            i += 2
+        elif args[i] == "--host" and i + 1 < len(args):
+            host = args[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    print(f"Starting OpenDNA API server on http://{host}:{port}")
+    start_server(host=host, port=port)
