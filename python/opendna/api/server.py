@@ -444,7 +444,12 @@ async def md_endpoint(request: MdRequest):
 
 @app.post("/v1/fetch_uniprot")
 async def fetch_uniprot_endpoint(request: FetchUniProtRequest):
-    from opendna.data.sources import fetch_uniprot, FAMOUS_PROTEINS
+    """Fetch UniProt entry AND try AlphaFold DB structure in one call.
+
+    Returns the sequence info plus a `pdb_string` and `structure_source` if
+    a high-quality AlphaFold prediction exists for this UniProt entry.
+    """
+    from opendna.data.sources import fetch_uniprot, fetch_alphafold, FAMOUS_PROTEINS
     accession = request.accession.strip()
     # Allow famous-name shortcuts
     if accession.lower() in FAMOUS_PROTEINS:
@@ -452,7 +457,15 @@ async def fetch_uniprot_endpoint(request: FetchUniProtRequest):
     entry = fetch_uniprot(accession)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"UniProt entry not found: {accession}")
-    return _to_dict(entry)
+
+    # Try to fetch AlphaFold DB structure for this entry
+    pdb_string = fetch_alphafold(accession)
+    structure_source = "alphafold" if pdb_string else None
+
+    result = _to_dict(entry)
+    result["pdb_string"] = pdb_string
+    result["structure_source"] = structure_source
+    return result
 
 
 @app.post("/v1/fetch_pdb")

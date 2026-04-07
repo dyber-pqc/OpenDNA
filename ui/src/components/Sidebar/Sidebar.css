@@ -209,13 +209,43 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-family: "JetBrains Mono", monospace;
   min-width: 0;
 }
+
+.structure-row1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.structure-name {
+  font-family: "JetBrains Mono", monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.source-esmfold { background: #00b4d8; color: white; }
+.source-alphafold { background: #ff8c00; color: white; }
+.source-pdb { background: #4caf50; color: white; }
+.source-designed { background: #9c27b0; color: white; }
+.source-imported { background: #607d8b; color: white; }
 
 .structure-conf {
   font-size: 10px;
   color: var(--text-secondary);
+  font-family: "JetBrains Mono", monospace;
 }
 
 .compare-btn {

@@ -21,12 +21,15 @@ interface Job {
   progress: number;
 }
 
+export type StructureSource = "esmfold" | "alphafold" | "pdb" | "designed" | "imported";
+
 export interface StoredStructure {
   id: string;
   label: string;
   sequence: string;
   pdbData: string;
   meanConfidence: number;
+  source: StructureSource;
 }
 
 interface DesignCandidate {
@@ -225,29 +228,69 @@ function App() {
         const r = await api.fetchUniprot(id);
         setCurrentSequence(r.sequence);
         setSwitchToToolsTrigger((n) => n + 1);
-        addToast({
-          kind: "success",
-          title: r.name,
-          message: `Loaded ${r.length} aa from ${r.organism}. Sequence is in the Tools tab.`,
-        });
+
+        // If AlphaFold DB has a structure for this entry, load it directly
+        if (r.pdb_string && r.structure_source === "alphafold") {
+          const id2 = `s${Date.now()}`;
+          const struct: StoredStructure = {
+            id: id2,
+            label: `${r.name} (AlphaFold)`,
+            sequence: r.sequence,
+            pdbData: r.pdb_string,
+            meanConfidence: _meanPlddtFromPdb(r.pdb_string),
+            source: "alphafold",
+          };
+          setStructures((p) => [...p, struct]);
+          setActiveStructureId(id2);
+          addToast({
+            kind: "success",
+            title: r.name,
+            message: `Loaded ${r.length} aa from ${r.organism} + AlphaFold DB structure (high quality, no folding needed)`,
+          });
+        } else {
+          addToast({
+            kind: "success",
+            title: r.name,
+            message: `Loaded ${r.length} aa from ${r.organism}. No AlphaFold structure available - click Predict Structure to fold.`,
+          });
+        }
       } else {
         const r = await api.fetchPdb(id);
         const id2 = `s${Date.now()}`;
         const struct: StoredStructure = {
           id: id2,
-          label: `${r.pdb_id} (imported)`,
+          label: `${r.pdb_id} (RCSB)`,
           sequence: "",
           pdbData: r.pdb_string,
           meanConfidence: 1.0,
+          source: "pdb",
         };
         setStructures((p) => [...p, struct]);
         setActiveStructureId(id2);
-        addToast({ kind: "success", message: `Loaded PDB ${r.pdb_id}` });
+        addToast({ kind: "success", message: `Loaded PDB ${r.pdb_id} (experimental structure)` });
       }
     } catch (e: any) {
       addToast({ kind: "error", message: e.message });
     }
   };
+
+  // Compute mean pLDDT from B-factor column of a PDB string (AlphaFold convention).
+  function _meanPlddtFromPdb(pdb: string): number {
+    const lines = pdb.split("\n");
+    const values: number[] = [];
+    for (const line of lines) {
+      if ((line.startsWith("ATOM") || line.startsWith("HETATM")) && line.length >= 66) {
+        if (line.substring(12, 16).trim() === "CA") {
+          const v = parseFloat(line.substring(60, 66).trim());
+          if (!isNaN(v)) values.push(v);
+        }
+      }
+    }
+    if (values.length === 0) return 1.0;
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    // AlphaFold pLDDT is 0-100, normalize to 0-1
+    return mean > 1 ? mean / 100 : mean;
+  }
 
   const handleChat = async (message: string): Promise<string> => {
     try {
@@ -311,6 +354,7 @@ function App() {
                 sequence,
                 pdbData: data.result.pdb,
                 meanConfidence: data.result.mean_confidence,
+                source: "esmfold",
               },
             ]);
             setActiveStructureId(id);
@@ -376,6 +420,7 @@ function App() {
                 sequence: last.sequence,
                 pdbData: last.pdb,
                 meanConfidence: last.confidence,
+                source: "designed",
               },
             ]);
             setActiveStructureId(id);

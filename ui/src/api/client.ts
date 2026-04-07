@@ -178,6 +178,8 @@ export const fetchUniprot = (accession: string) =>
     organism: string;
     length: number;
     description: string;
+    pdb_string: string | null;
+    structure_source: "alphafold" | null;
   }>("/v1/fetch_uniprot", { accession });
 
 export const fetchPdb = (pdb_id: string) =>

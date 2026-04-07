@@ -71,16 +71,30 @@ def fetch_pdb(pdb_id: str, timeout: float = 15.0) -> Optional[str]:
 
 
 def fetch_alphafold(uniprot_id: str, timeout: float = 30.0) -> Optional[str]:
-    """Fetch an AlphaFold DB predicted structure."""
-    url = f"https://alphafold.ebi.ac.uk/files/AF-{uniprot_id}-F1-model_v4.pdb"
+    """Fetch an AlphaFold DB predicted structure for a UniProt accession.
+
+    Uses the AlphaFold DB API to find the latest model version, then downloads
+    the PDB file. Returns None if no structure exists for this entry.
+    """
+    api_url = f"https://alphafold.ebi.ac.uk/api/prediction/{uniprot_id}"
     try:
         with httpx.Client(timeout=timeout) as client:
-            r = client.get(url)
-            if r.status_code != 200:
+            api_r = client.get(api_url)
+            if api_r.status_code != 200:
                 return None
-            return r.text
+            data = api_r.json()
+            if not isinstance(data, list) or len(data) == 0:
+                return None
+            entry = data[0]
+            pdb_url = entry.get("pdbUrl")
+            if not pdb_url:
+                return None
+            pdb_r = client.get(pdb_url)
+            if pdb_r.status_code != 200:
+                return None
+            return pdb_r.text
     except Exception as e:
-        logger.warning(f"AlphaFold fetch failed: {e}")
+        logger.warning(f"AlphaFold fetch failed for {uniprot_id}: {e}")
         return None
 
 
