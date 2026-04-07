@@ -91,5 +91,181 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          name: "OpenDNA ${{ github.ref_name }}"
+          body: |
+            # OpenDNA ${{ github.ref_name }}
+
+            **The People's Protein Engineering Platform** — free, open-source protein structure prediction, sequence design, and analysis that runs on consumer hardware.
+
+            ---
+
+            ## 📦 What's in this release
+
+            ### Python package (Server + SDK + CLI)
+            - `opendna-X.Y.Z.tar.gz` — source distribution
+            - `opendna-X.Y.Z-py3-none-any.whl` — pre-built wheel (Python 3.10+, all platforms)
+
+            ### UI bundle (Web frontend)
+            - `opendna-ui-${{ github.ref_name }}.tar.gz` — pre-built React + Vite static bundle, ready to serve from any HTTP server
+
+            ### Desktop installers
+            Native desktop installers are built separately by the **Tauri Desktop Build** workflow and attached to a different release. Look for `.exe`, `.msi`, `.dmg`, `.AppImage`, and `.deb` files in [Releases](https://github.com/dyber-pqc/OpenDNA/releases).
+
+            ---
+
+            ## 🚀 Quick install
+
+            ### Option 1: Python package (CLI + API server + SDK)
+
+            ```bash
+            # Core install (lightweight, no ML models)
+            pip install opendna
+
+            # With ML stack (ESMFold, ESM-IF1, ~3 GB of dependencies)
+            pip install opendna[ml]
+
+            # With everything (ML + MD + dev tooling)
+            pip install opendna[all]
+            ```
+
+            Then start the server:
+            ```bash
+            opendna serve --port 8765
+            ```
+
+            ### Option 2: Web UI bundle
+
+            ```bash
+            tar -xzf opendna-ui-${{ github.ref_name }}.tar.gz
+            cd dist
+            python -m http.server 5173
+            # or use any static file server
+            ```
+
+            Then open http://localhost:5173 in your browser. The UI expects the API server at `http://localhost:8765`.
+
+            ### Option 3: Python SDK from your own scripts
+
+            ```python
+            from opendna.sdk import Client
+
+            with Client("http://localhost:8765") as c:
+                # Score a sequence (instant, no model download)
+                result = c.evaluate("MKTVRQERLKSIVRILER")
+                print(f"Score: {result.overall:.2f}")
+
+                # Fold a protein (downloads ESMFold ~8 GB on first run)
+                fold = c.fold("MKTVRQERLK")
+                fold.save("output.pdb")
+
+                # Run the AI agent on a high-level goal
+                result = c.agent("Import ubiquitin and tell me about it")
+                print(result["final_answer"])
+            ```
+
+            ---
+
+            ## 🧪 What you can do with this release
+
+            - **Predict 3D protein structures** with ESMFold (state-of-the-art, no MSA needed)
+            - **Design alternative sequences** with ESM-IF1 inverse folding
+            - **Run automated optimization loops** (fold → design → fold → keep best → repeat)
+            - **Compute ~50 sequence and structure analyses**: Lipinski, hydropathy, disorder, transmembrane, signal peptides, aggregation, phosphorylation/glycosylation sites, secondary structure, Ramachandran, binding pockets, H-bonds, salt bridges, disulfides, pKa, QSAR descriptors, antibody CDR detection, MolProbity-style validation, and more
+            - **Predict mutation effects** (ΔΔG estimation)
+            - **Estimate synthesis cost** (Twist Bioscience, IDT, GenScript) and carbon footprint
+            - **Import proteins** from UniProt, RCSB PDB, and AlphaFold DB
+            - **Compare structures** with Kabsch RMSD
+            - **Run molecular dynamics** with OpenMM (when installed) and explicit TIP3P solvent
+            - **Use the LLM agent** for natural-language workflows (with Ollama/Anthropic/OpenAI support)
+            - **Run the self-benchmark** against AlphaFold DB references
+
+            ---
+
+            ## 📋 System requirements
+
+            ### Minimum (CPU mode, slow but works)
+            - Python 3.10 or later
+            - 8 GB RAM
+            - 20 GB free disk
+            - Any 64-bit OS (Windows 10+, macOS 11+, Ubuntu 20.04+)
+
+            ### Recommended (GPU mode, fast)
+            - 16 GB RAM
+            - NVIDIA RTX 3060+ (8 GB VRAM) **OR** Apple Silicon M1+
+            - 50 GB free disk
+            - CUDA-enabled PyTorch for NVIDIA: `pip install torch --index-url https://download.pytorch.org/whl/cu124`
+
+            ### Optimal (workstation)
+            - 32+ GB RAM
+            - NVIDIA RTX 4090 (24 GB VRAM) or A6000
+            - 200 GB free disk
+
+            ---
+
+            ## 📚 Documentation
+
+            - **[Getting Started](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/GETTING_STARTED.md)** — installation and first run
+            - **[User Guide](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/USER_GUIDE.md)** — every feature explained
+            - **[Tutorials](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/TUTORIALS.md)** — 10 step-by-step walkthroughs
+            - **[Cookbook](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/COOKBOOK.md)** — 20 copy-paste recipes
+            - **[API Reference](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/API_REFERENCE.md)** — every endpoint
+            - **[Architecture](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/ARCHITECTURE.md)** — how the system works
+            - **[Science](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/SCIENCE.md)** — what each algorithm does
+            - **[FAQ](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/FAQ.md)** — common questions
+            - **[Troubleshooting](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/TROUBLESHOOTING.md)** — when things break
+            - **[Roadmap](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/ROADMAP.md)** — what's coming next
+            - **[Model Cards](https://github.com/dyber-pqc/OpenDNA/blob/main/MODEL_CARD.md)** — ML model details and limitations
+
+            ---
+
+            ## 🔬 For citation
+
+            If you use OpenDNA in published work, please cite:
+
+            ```
+            Kleckner, Z. (2026). OpenDNA: A Free, Open-Source Protein Engineering Platform
+            for Consumer Hardware. https://github.com/dyber-pqc/OpenDNA
+            ```
+
+            See [`CITATION.cff`](https://github.com/dyber-pqc/OpenDNA/blob/main/CITATION.cff) for full citation metadata.
+
+            ---
+
+            ## 🐛 Reporting issues
+
+            - **Bug reports**: [Open an issue](https://github.com/dyber-pqc/OpenDNA/issues/new?template=bug_report.md)
+            - **Feature requests**: [Open an issue](https://github.com/dyber-pqc/OpenDNA/issues/new?template=feature_request.md)
+            - **Questions**: [Open a discussion](https://github.com/dyber-pqc/OpenDNA/discussions)
+            - **Security**: see [SECURITY.md](https://github.com/dyber-pqc/OpenDNA/blob/main/SECURITY.md)
+
+            ---
+
+            ## 📜 License
+
+            **Apache 2.0 + Commons Clause** for the core platform.
+            **MIT** for community modules.
+            **CC-BY-4.0** for documentation.
+
+            See [LICENSE](https://github.com/dyber-pqc/OpenDNA/blob/main/LICENSE) for full terms.
+
+            ---
+
+            ## ⚠️ Status
+
+            OpenDNA is in **active development**. Use for research, education, and exploration. Always validate critical results experimentally and with established reference tools (AlphaFold2, Rosetta, Schrödinger). Do not use for clinical decisions without independent expert review.
+
+            ---
+
+            ## 💝 Support the project
+
+            - ⭐ Star the repo
+            - 🐛 Report bugs you find
+            - 📖 Improve the documentation
+            - 💻 Contribute code (see [CONTRIBUTING.md](https://github.com/dyber-pqc/OpenDNA/blob/main/CONTRIBUTING.md))
+            - 💬 Share your discoveries
+
+            ---
+
+            **Auto-generated changelog and full diff below ⬇**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
