@@ -29,8 +29,88 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Friendly error handling: catch all exceptions and return user-readable JSON.
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+
+@app.exception_handler(Exception)
+async def opendna_exception_handler(request: Request, exc: Exception):
+    from opendna.exceptions import to_friendly
+    # Don't override HTTPException - let FastAPI handle it
+    if isinstance(exc, HTTPException):
+        raise exc
+    payload = to_friendly(exc)
+    return JSONResponse(status_code=500, content=payload)
+
 executor = ThreadPoolExecutor(max_workers=4)
-jobs: dict[str, dict] = {}
+
+
+class HybridJobStore:
+    """Wraps SQLite JobStore with an in-memory cache for fast UI polling.
+
+    On startup, marks any "running" jobs as failed (server restart killed them).
+    All API code uses this with a dict-like interface for backwards compat.
+    """
+
+    def __init__(self):
+        from opendna.storage.jobs import get_job_store
+        self._mem: dict[str, dict] = {}
+        self._db = get_job_store()
+        # Mark stale running jobs as failed
+        for j in self._db.list_recent(limit=200):
+            if j["status"] == "running":
+                self._db.update(j["id"], status="failed", error="Server restarted while job was running")
+
+    def __contains__(self, job_id: str) -> bool:
+        return job_id in self._mem or self._db.get(job_id) is not None
+
+    def __getitem__(self, job_id: str) -> dict:
+        if job_id in self._mem:
+            return self._mem[job_id]
+        j = self._db.get(job_id)
+        if j is None:
+            raise KeyError(job_id)
+        self._mem[job_id] = j
+        return j
+
+    def __setitem__(self, job_id: str, data: dict) -> None:
+        self._mem[job_id] = data
+        if self._db.get(job_id) is None:
+            self._db.create(job_id, data.get("type", "unknown"))
+        self._db.update(
+            job_id,
+            status=data.get("status"),
+            progress=data.get("progress"),
+            result=data.get("result") if data.get("status") in ("completed", "failed") else None,
+            error=data.get("error"),
+        )
+
+    def items(self):
+        # Combine memory and DB recent items
+        seen = set()
+        for k, v in self._mem.items():
+            seen.add(k)
+            yield k, v
+        for j in self._db.list_recent(limit=200):
+            if j["id"] not in seen:
+                yield j["id"], j
+
+    def list_recent(self, limit: int = 50) -> list[dict]:
+        return self._db.list_recent(limit)
+
+    def cancel(self, job_id: str) -> bool:
+        if job_id in self._mem:
+            self._mem[job_id]["status"] = "cancelled"
+        existing = self._db.get(job_id)
+        if existing and existing["status"] == "running":
+            self._db.update(job_id, status="cancelled", error="Cancelled by user")
+            return True
+        return False
+
+
+jobs = HybridJobStore()
 result_cache: dict[str, dict] = {}  # hash -> result
 
 
@@ -490,6 +570,121 @@ async def smart_chat_endpoint(request: SmartChatRequest):
     return simple_chat(request.message, request.history)
 
 
+# =====================================================
+# v0.4 - Workflows, project export, first-run wizard
+# =====================================================
+
+class WorkflowRunRequest(BaseModel):
+    yaml_content: str
+
+
+@app.post("/v1/workflow/run")
+async def workflow_run(request: WorkflowRunRequest):
+    """Run a YAML workflow inline."""
+    import tempfile
+    from opendna.workflows import run_workflow
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(request.yaml_content)
+        path = f.name
+    try:
+        result = run_workflow(path)
+    finally:
+        try:
+            Path(path).unlink()
+        except OSError:
+            pass
+    return {
+        "name": result.name,
+        "success": result.success,
+        "error": result.error,
+        "outputs": result.outputs,
+        "n_steps": len(result.steps),
+        "steps": [
+            {"name": s.name, "action": s.action} for s in result.steps
+        ],
+    }
+
+
+class ProjectExportRequest(BaseModel):
+    project_data: dict
+    name: str
+
+
+@app.post("/v1/projects/export")
+async def project_export(request: ProjectExportRequest):
+    """Export a project as a .opendna zip file. Returns the path."""
+    from opendna.storage.export import export_project
+    from opendna.storage.projects import projects_dir
+    out = projects_dir() / f"{request.name}.opendna"
+    path = export_project(request.project_data, out)
+    return {"path": path, "name": request.name}
+
+
+class FirstRunRequest(BaseModel):
+    pass
+
+
+@app.get("/v1/first_run/check")
+async def first_run_check():
+    """Check if this is a first-run setup. Returns hardware, missing deps, recommendations."""
+    from opendna.hardware.detect import detect_hardware
+    from opendna.llm.providers import detect_providers
+
+    hw = detect_hardware()
+    providers = detect_providers()
+
+    recommendations = []
+    needs_setup = False
+
+    # Check ML model availability (rough check via cache dir)
+    import os
+    hf_cache = Path(os.path.expanduser("~/.cache/huggingface/hub"))
+    has_esmfold = any("esmfold" in p.name for p in hf_cache.glob("**/*")) if hf_cache.exists() else False
+
+    if not has_esmfold:
+        recommendations.append({
+            "level": "info",
+            "title": "ESMFold not yet downloaded",
+            "message": "ESMFold (~8 GB) will download on first protein fold. Make sure you have stable internet.",
+        })
+        needs_setup = True
+
+    if hw.gpu is None:
+        recommendations.append({
+            "level": "warning",
+            "title": "No GPU detected",
+            "message": "OpenDNA will run on CPU only. Folding will be slow (5-10 min for small proteins). For faster results, use a system with NVIDIA GPU or Apple Silicon.",
+        })
+
+    if hw.total_ram_gb < 16:
+        recommendations.append({
+            "level": "warning",
+            "title": "Limited RAM",
+            "message": f"You have {hw.total_ram_gb:.0f} GB RAM. ESMFold needs ~8 GB just for inference. Stick to small proteins (<150 residues).",
+        })
+
+    has_real_llm = any(p.name != "heuristic" for p in providers)
+    if not has_real_llm:
+        recommendations.append({
+            "level": "info",
+            "title": "No LLM provider detected",
+            "message": "For natural language and AI features, install Ollama from https://ollama.com and run 'ollama pull llama3.2:3b'.",
+        })
+
+    return {
+        "needs_setup": needs_setup,
+        "hardware": {
+            "cpu": hw.cpu_name,
+            "cores": hw.cpu_cores,
+            "ram_gb": round(hw.total_ram_gb, 1),
+            "gpu": {"name": hw.gpu.name, "vram_gb": hw.gpu.vram_gb} if hw.gpu else None,
+            "tier": hw.recommended_tier.value,
+        },
+        "llm_providers": [{"name": p.name, "model": p.model} for p in providers],
+        "recommendations": recommendations,
+    }
+
+
 @app.get("/v1/llm/providers")
 async def llm_providers():
     from opendna.llm.providers import detect_providers
@@ -768,18 +963,14 @@ async def get_job(job_id: str):
 
 @app.get("/v1/jobs")
 async def list_jobs():
-    return {
-        "jobs": [
-            {
-                "id": k,
-                "type": v.get("type"),
-                "status": v["status"],
-                "progress": v["progress"],
-                "started_at": v.get("started_at"),
-            }
-            for k, v in sorted(jobs.items(), key=lambda x: -x[1].get("started_at", 0))
-        ][:50]
-    }
+    return {"jobs": jobs.list_recent(50)}
+
+
+@app.post("/v1/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    if not jobs.cancel(job_id):
+        raise HTTPException(status_code=404, detail="Job not found or not cancellable")
+    return {"cancelled": job_id}
 
 
 # =====================================================

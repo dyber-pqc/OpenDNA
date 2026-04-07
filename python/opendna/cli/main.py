@@ -152,6 +152,31 @@ def evaluate(
 
 
 @app.command()
+def serve(
+    port: int = typer.Option(8765, "-p", "--port", help="Port to serve on"),
+    host: str = typer.Option("127.0.0.1", "-h", "--host", help="Host to bind to"),
+    open_browser: bool = typer.Option(True, "--open/--no-open", help="Open the UI in your browser"),
+):
+    """Start the OpenDNA API server (the backend that powers the UI)."""
+    from opendna.api.server import start_server
+    console.print(Panel(
+        f"[bold cyan]OpenDNA Server[/bold cyan]\n\n"
+        f"API: http://{host}:{port}\n"
+        f"Docs: http://{host}:{port}/docs\n"
+        f"Health: http://{host}:{port}/health\n\n"
+        f"Press Ctrl+C to stop.",
+        title="Starting...",
+    ))
+    if open_browser:
+        try:
+            import webbrowser
+            webbrowser.open(f"http://{host}:{port}/docs")
+        except Exception:
+            pass
+    start_server(host=host, port=port)
+
+
+@app.command()
 def status():
     """Show hardware information and OpenDNA status."""
     from opendna.hardware.detect import detect_hardware

@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-tests:
+    name: Python tests on ${{ matrix.os }} / Py ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install OpenDNA (lightweight, no torch)
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev,test-light]" || pip install -e ".[dev]"
+
+      - name: Run lightweight tests (no ML models)
+        run: python -m pytest tests/python/ -v --tb=short -m "not heavy"
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check python/ || true
+
+  rust-tests:
+    name: Rust tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Set up Python (needed for PyO3)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build core crates (skip bindings on CI - PyO3 is platform-specific)
+        run: cargo build -p opendna-core -p opendna-hal
+
+      - name: Run Rust tests
+        run: cargo test -p opendna-core -p opendna-hal
+
+      - name: Check formatting
+        run: cargo fmt --check
+        continue-on-error: true
+
+      - name: Run clippy
+        run: cargo clippy -p opendna-core -p opendna-hal -- -D warnings
+        continue-on-error: true
+
+  ui-build:
+    name: UI build & type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: TypeScript check
+        working-directory: ui
+        run: npx tsc --noEmit
+
+      - name: Production build
+        working-directory: ui
+        run: npm run build

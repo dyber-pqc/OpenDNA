@@ -1,0 +1,74 @@
+.error-boundary {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  z-index: 99999;
+}
+
+.error-card {
+  max-width: 600px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--error);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 64px;
+  color: var(--warning);
+  margin-bottom: 16px;
+}
+
+.error-card h2 {
+  font-size: 24px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.error-card p {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.error-card details {
+  text-align: left;
+  background: var(--bg-tertiary);
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.error-card details summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  user-select: none;
+}
+
+.error-card pre {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 8px;
+}
+
+.error-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.error-actions .btn-secondary {
+  text-decoration: none;
+  display: inline-block;
+}

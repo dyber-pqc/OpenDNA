@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+message: "If you use OpenDNA, please cite it as below."
+authors:
+  - family-names: "Kleckner"
+    given-names: "Zachary"
+    email: "zkleckner@dyber.org"
+title: "OpenDNA: The People's Protein Engineering Platform"
+version: 0.4.0
+date-released: "2026-04-06"
+url: "https://github.com/dyber-pqc/OpenDNA"
+repository-code: "https://github.com/dyber-pqc/OpenDNA"
+license: Apache-2.0
+keywords:
+  - protein engineering
+  - structure prediction
+  - inverse folding
+  - drug discovery
+  - bioinformatics
+  - open source
+  - ESMFold
+  - ESM-IF1
+abstract: >
+  OpenDNA is a free, open-source protein engineering and structural biology
+  platform that runs on consumer hardware. It combines protein structure
+  prediction (ESMFold), inverse folding sequence design (ESM-IF1), molecular
+  property analysis, mutation effect prediction, and 3D visualization in a
+  single integrated desktop application.
+references:
+  - type: article
+    authors:
+      - family-names: "Lin"
+        given-names: "Zeming"
+    title: "Evolutionary-scale prediction of atomic-level protein structure"
+    year: 2023
+    journal: "Science"
+    volume: 379
+    pages: "1123-1130"
+    doi: "10.1126/science.ade2574"
+  - type: article
+    authors:
+      - family-names: "Hsu"
+        given-names: "Chloe"
+    title: "Learning inverse folding from millions of predicted structures"
+    year: 2022
+    conference: "ICML"
