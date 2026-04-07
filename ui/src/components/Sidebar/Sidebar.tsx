@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Sidebar.css";
 import type { StoredStructure } from "../../App";
 
@@ -13,6 +13,8 @@ interface SidebarProps {
   onMd: () => void;
   onCost: () => void;
   onImport: (kind: "uniprot" | "pdb", id: string) => void;
+  onSequenceChange: (sequence: string) => void;
+  currentSequence: string;
   hasActive: boolean;
   hasSequence: boolean;
   structures: StoredStructure[];
@@ -20,6 +22,7 @@ interface SidebarProps {
   compareId: string | null;
   onSelectActive: (id: string) => void;
   onSelectCompare: (id: string | null) => void;
+  switchToToolsTab?: number;
 }
 
 export default function Sidebar({
@@ -33,24 +36,32 @@ export default function Sidebar({
   onMd,
   onCost,
   onImport,
+  onSequenceChange,
+  currentSequence,
   hasActive,
-  hasSequence,
   structures,
   activeId,
   compareId,
   onSelectActive,
   onSelectCompare,
+  switchToToolsTab,
 }: SidebarProps) {
   const [activeTab, setActiveTab] = useState<"tools" | "structures" | "import">("tools");
-  const [sequence, setSequence] = useState("");
   const [mutation, setMutation] = useState("");
   const [iterRounds, setIterRounds] = useState(3);
   const [iterPerRound, setIterPerRound] = useState(5);
   const [importId, setImportId] = useState("");
   const [importKind, setImportKind] = useState<"uniprot" | "pdb">("uniprot");
 
-  const submitFold = () => sequence.trim() && onFold(sequence.trim());
-  const submitEval = () => sequence.trim() && onEvaluate(sequence.trim());
+  // Allow parent to programmatically switch to Tools tab (after import)
+  useEffect(() => {
+    if (switchToToolsTab && switchToToolsTab > 0) {
+      setActiveTab("tools");
+    }
+  }, [switchToToolsTab]);
+
+  const submitFold = () => currentSequence.trim() && onFold(currentSequence.trim());
+  const submitEval = () => currentSequence.trim() && onEvaluate(currentSequence.trim());
   const submitMutate = () => {
     if (mutation.trim()) {
       onMutate(mutation.trim());
@@ -58,7 +69,7 @@ export default function Sidebar({
     }
   };
   const submitIter = () => {
-    if (sequence.trim()) onIterativeDesign(iterRounds, iterPerRound);
+    if (currentSequence.trim()) onIterativeDesign(iterRounds, iterPerRound);
   };
   const submitImport = () => {
     if (importId.trim()) onImport(importKind, importId.trim());
@@ -78,17 +89,21 @@ export default function Sidebar({
         {activeTab === "tools" && (
           <div className="panel">
             <div className="tool-section">
-              <label>Protein Sequence</label>
+              <label>
+                Protein Sequence
+                {currentSequence && (
+                  <span className="seq-meta"> · {currentSequence.length} aa</span>
+                )}
+              </label>
               <textarea
                 className="sequence-input"
-                placeholder="Paste amino acid sequence..."
-                value={sequence}
-                onChange={(e) => setSequence(e.target.value)}
-                rows={4}
+                placeholder="Paste amino acid sequence, import from UniProt, or use a famous protein..."
+                value={currentSequence}
+                onChange={(e) => onSequenceChange(e.target.value)}
+                rows={5}
               />
               <button className="btn-primary" onClick={submitFold}>Predict Structure</button>
               <button className="btn-primary success" onClick={submitEval}>Score Protein</button>
-              <button className="btn-primary info" onClick={submitImport}></button>
             </div>
 
             <div className="tool-section">
@@ -118,8 +133,8 @@ export default function Sidebar({
               <button
                 className="btn-primary purple"
                 onClick={submitIter}
-                disabled={!hasSequence}
-                title={!hasSequence ? "Enter a sequence first" : "Auto-optimize protein over multiple rounds"}
+                disabled={!currentSequence}
+                title={!currentSequence ? "Enter a sequence first" : "Auto-optimize protein over multiple rounds"}
               >
                 Run Iterative Design
               </button>
@@ -144,16 +159,16 @@ export default function Sidebar({
               <button className="btn-secondary" onClick={onDesign} disabled={!hasActive}>
                 Design 10 Sequences (ESM-IF1)
               </button>
-              <button className="btn-secondary" onClick={onAnalyze} disabled={!hasSequence}>
+              <button className="btn-secondary" onClick={onAnalyze} disabled={!currentSequence}>
                 Full Analysis Suite
               </button>
-              <button className="btn-secondary" onClick={onExplain} disabled={!hasSequence}>
+              <button className="btn-secondary" onClick={onExplain} disabled={!currentSequence}>
                 Explain This Protein (AI)
               </button>
               <button className="btn-secondary" onClick={onMd} disabled={!hasActive}>
                 Quick MD (stability check)
               </button>
-              <button className="btn-secondary" onClick={onCost} disabled={!hasSequence}>
+              <button className="btn-secondary" onClick={onCost} disabled={!currentSequence}>
                 Cost & Carbon Estimate
               </button>
             </div>

@@ -7,7 +7,18 @@ interface AnalysisPanelProps {
 }
 
 export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps) {
-  const { properties: p, lipinski, hydropathy_profile, disorder, structure } = analysis;
+  const {
+    properties: p,
+    lipinski,
+    hydropathy_profile,
+    disorder,
+    transmembrane,
+    signal_peptide,
+    aggregation,
+    phosphorylation,
+    glycosylation,
+    structure,
+  } = analysis;
 
   return (
     <div className="analysis-panel">
@@ -96,6 +107,94 @@ export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps)
           <CompositionBars composition={p.composition_pct} />
         </section>
 
+        {/* Transmembrane */}
+        <section className="ap-section">
+          <h3>
+            Transmembrane Prediction
+            <span className={`ap-badge ${transmembrane.is_membrane_protein ? "fail" : "pass"}`}>
+              {transmembrane.n_helices} TM helix{transmembrane.n_helices === 1 ? "" : "es"}
+            </span>
+          </h3>
+          {transmembrane.regions.length > 0 ? (
+            <div className="ap-regions">
+              <strong>Predicted membrane-spanning regions:</strong>
+              <ul>
+                {transmembrane.regions.map((r, i) => (
+                  <li key={i}>Residues {r.start}–{r.end} ({r.length} aa)</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="ap-note">No transmembrane regions detected. Likely a soluble protein.</p>
+          )}
+        </section>
+
+        {/* Signal peptide */}
+        <section className="ap-section">
+          <h3>
+            Signal Peptide
+            <span className={`ap-badge ${signal_peptide.has_signal ? "fail" : "pass"}`}>
+              {signal_peptide.has_signal ? "DETECTED" : "NONE"}
+            </span>
+          </h3>
+          {signal_peptide.has_signal ? (
+            <div className="props-grid">
+              <Prop label="Score" value={`${signal_peptide.score}`} />
+              <Prop label="Cleavage Site" value={`pos ${signal_peptide.cleavage_site}`} />
+            </div>
+          ) : (
+            <p className="ap-note">No N-terminal signal peptide detected.</p>
+          )}
+        </section>
+
+        {/* Aggregation */}
+        <section className="ap-section">
+          <h3>
+            Aggregation Risk
+            <span className={`ap-badge ${aggregation.risk_level === "high" ? "fail" : aggregation.risk_level === "medium" ? "" : "pass"}`}>
+              {aggregation.risk_level.toUpperCase()}
+            </span>
+          </h3>
+          <div className="props-grid">
+            <Prop label="APR Count" value={`${aggregation.n_apr}`} />
+            <Prop label="Overall Score" value={`${aggregation.overall_aggregation_score}`} />
+          </div>
+          {aggregation.aggregation_prone_regions.length > 0 && (
+            <div className="ap-regions">
+              <strong>Aggregation-prone regions:</strong>
+              <ul>
+                {aggregation.aggregation_prone_regions.slice(0, 5).map((r: any, i: number) => (
+                  <li key={i}>
+                    {r.start}–{r.end}: <span className="mono">{r.sequence}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        {/* PTM sites */}
+        <section className="ap-section">
+          <h3>Post-Translational Modification Sites</h3>
+          <div className="props-grid">
+            <Prop label="Phosphorylation sites" value={`${phosphorylation.count}`} />
+            <Prop label="N-glycosylation sites" value={`${glycosylation.n_count}`} />
+            <Prop label="O-glycosylation sites" value={`${glycosylation.o_count}`} />
+          </div>
+          {phosphorylation.sites.length > 0 && (
+            <div className="ap-regions">
+              <strong>Top phospho sites:</strong>
+              <ul>
+                {phosphorylation.sites.slice(0, 5).map((s: any, i: number) => (
+                  <li key={i}>
+                    {s.residue}{s.position} ({s.kinase}): <span className="mono">{s.context}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
         {/* Structure-based */}
         {structure && !("error" in structure) && (
           <>
@@ -129,6 +228,37 @@ export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps)
                     </div>
                   ))}
                 </div>
+              </section>
+            )}
+
+            {structure.bonds && (
+              <section className="ap-section">
+                <h3>Interaction Network</h3>
+                <div className="props-grid">
+                  <Prop label="Hydrogen Bonds" value={`${structure.bonds.h_bond_count}`} />
+                  <Prop label="Salt Bridges" value={`${structure.bonds.salt_bridge_count}`} />
+                  <Prop label="Disulfide Bonds" value={`${structure.bonds.disulfide_count}`} />
+                </div>
+                {structure.bonds.disulfides.length > 0 && (
+                  <div className="ap-regions">
+                    <strong>Disulfide bridges:</strong>
+                    <ul>
+                      {structure.bonds.disulfides.map((b: any, i: number) => (
+                        <li key={i}>{b.res1} ↔ {b.res2} ({b.distance} Å)</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {structure.bonds.salt_bridges.length > 0 && (
+                  <div className="ap-regions">
+                    <strong>Top salt bridges:</strong>
+                    <ul>
+                      {structure.bonds.salt_bridges.slice(0, 5).map((b: any, i: number) => (
+                        <li key={i}>{b.res1} ↔ {b.res2} ({b.distance} Å)</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </section>
             )}
           </>

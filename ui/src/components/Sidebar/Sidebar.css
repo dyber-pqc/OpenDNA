@@ -82,6 +82,13 @@
   letter-spacing: 0.5px;
 }
 
+.seq-meta {
+  text-transform: none;
+  color: var(--accent);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
 .sequence-input {
   width: 100%;
   padding: 8px;

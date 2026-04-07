@@ -62,6 +62,35 @@ export interface AnalysisResult {
     disorder_percent: number;
     is_mostly_disordered: boolean;
   };
+  transmembrane: {
+    scores: number[];
+    regions: { start: number; end: number; length: number }[];
+    n_helices: number;
+    is_membrane_protein: boolean;
+  };
+  signal_peptide: {
+    has_signal: boolean;
+    score: number;
+    cleavage_site: number | null;
+    mature_sequence: string | null;
+  };
+  aggregation: {
+    scores: number[];
+    aggregation_prone_regions: any[];
+    n_apr: number;
+    overall_aggregation_score: number;
+    risk_level: string;
+  };
+  phosphorylation: {
+    sites: any[];
+    count: number;
+  };
+  glycosylation: {
+    n_glycosylation_sites: any[];
+    o_glycosylation_sites: any[];
+    n_count: number;
+    o_count: number;
+  };
   structure?: {
     secondary_structure: string;
     helix_pct: number;
@@ -72,6 +101,14 @@ export interface AnalysisResult {
     sasa_estimate: number;
     pockets: any[];
     num_atoms: number;
+    bonds: {
+      h_bonds: any[];
+      h_bond_count: number;
+      salt_bridges: any[];
+      salt_bridge_count: number;
+      disulfides: any[];
+      disulfide_count: number;
+    };
   } | null;
 }
 
@@ -165,6 +202,26 @@ export const screen = (pdb_string: string, ligands: string[]) =>
 
 export const md = (pdb_string: string, duration_ps = 100) =>
   post<{ job_id: string }>("/v1/md", { pdb_string, duration_ps });
+
+export const align = (seq1: string, seq2: string) =>
+  post<{
+    score: number;
+    identity_pct: number;
+    similarity_pct: number;
+    aligned_length: number;
+    alignment_1: string;
+    alignment_2: string;
+    comparison: string;
+    matches: number;
+  }>("/v1/align", { seq1, seq2 });
+
+export const predictDdg = (sequence: string, mutation: string) =>
+  post<{
+    mutation: string;
+    ddg_kcal_mol: number;
+    classification: string;
+    interpretation: string;
+  }>("/v1/predict_ddg", { sequence, mutation });
 
 export const cost = (sequence: string) =>
   post<{

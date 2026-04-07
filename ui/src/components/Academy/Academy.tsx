@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import "./Academy.css";
 
 const AMINO_ACIDS = [
@@ -113,8 +113,15 @@ function AAMatchGame({ onComplete, onBack }: { onComplete: (xp: number) => void;
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<{ letter?: string; name?: string }>({});
 
-  const shuffled = [...AMINO_ACIDS].sort(() => Math.random() - 0.5).slice(0, 8);
-  const names = [...shuffled].sort(() => Math.random() - 0.5);
+  // Memoize so the shuffled lists don't change on every render (was causing the bug)
+  const shuffled = useMemo(
+    () => [...AMINO_ACIDS].sort(() => Math.random() - 0.5).slice(0, 8),
+    []
+  );
+  const names = useMemo(
+    () => [...shuffled].sort(() => Math.random() - 0.5),
+    [shuffled]
+  );
 
   const onLetterClick = (letter: string) => {
     if (matched.has(letter)) return;

@@ -89,15 +89,36 @@ function ProteinViewer({
           renderer: { backgroundColor: ColorNames.black },
         });
 
+        // For confidence coloring, transform pLDDT (stored in B-factor as 0-1 fraction)
+        // into proper AlphaFold pLDDT scale (0-100) so Molstar's plddt-confidence theme works.
+        let pdbForViewer = pdbData;
+        if (colorMode === "confidence") {
+          pdbForViewer = pdbData
+            .split("\n")
+            .map((line) => {
+              if ((line.startsWith("ATOM") || line.startsWith("HETATM")) && line.length >= 66) {
+                const bfStr = line.substring(60, 66);
+                const bf = parseFloat(bfStr.trim());
+                if (!isNaN(bf) && bf <= 1.0) {
+                  // Scale 0-1 to 0-100 for proper pLDDT theme
+                  const scaled = (bf * 100).toFixed(2).padStart(6);
+                  return line.substring(0, 60) + scaled + line.substring(66);
+                }
+              }
+              return line;
+            })
+            .join("\n");
+        }
+
         const data = await plugin.builders.data.rawData({
-          data: pdbData,
+          data: pdbForViewer,
           label: "Predicted Structure",
         });
         const traj = await plugin.builders.structure.parseTrajectory(data, "pdb");
         await plugin.builders.structure.hierarchy.applyPreset(traj, "default");
 
-        // Apply color theme: pLDDT (via B-factor/uncertainty) or chain-id
-        const themeName = colorMode === "confidence" ? "uncertainty" : "chain-id";
+        // Apply color theme: AlphaFold-style pLDDT or chain-id
+        const themeName = colorMode === "confidence" ? "plddt-confidence" : "chain-id";
         try {
           const struct = plugin.managers.structure.hierarchy.current.structures[0];
           if (struct?.components) {
@@ -109,7 +130,20 @@ function ProteinViewer({
             }
           }
         } catch (e) {
-          console.warn("Color theme failed:", e);
+          // Fallback to uncertainty (b-factor based) if plddt theme fails
+          try {
+            const struct = plugin.managers.structure.hierarchy.current.structures[0];
+            if (struct?.components) {
+              for (const comp of struct.components) {
+                await plugin.managers.structure.component.updateRepresentationsTheme(
+                  [comp],
+                  { color: "uncertainty" as any }
+                );
+              }
+            }
+          } catch (e2) {
+            console.warn("Color theme failed:", e, e2);
+          }
         }
 
         // Stats

@@ -54,6 +54,7 @@ function App() {
   const [overlay, setOverlay] = useState<Overlay>("none");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [xp, setXp] = useState(0);
+  const [switchToToolsTrigger, setSwitchToToolsTrigger] = useState(0);
   const { toasts, addToast, removeToast } = useToasts();
 
   useEffect(() => {
@@ -73,6 +74,14 @@ function App() {
   // === Actions ===
 
   const handleFold = async (sequence: string) => {
+    if (sequence.length > 250) {
+      const ok = window.confirm(
+        `This protein is ${sequence.length} residues long. ` +
+        `On CPU, ESMFold will take ~${Math.round(sequence.length / 30)} minutes and may use 8+ GB RAM.\n\n` +
+        `On GPU it would take seconds. Continue?`
+      );
+      if (!ok) return;
+    }
     setScore(null);
     clearOverlays();
     setCurrentSequence(sequence);
@@ -215,10 +224,11 @@ function App() {
       if (kind === "uniprot") {
         const r = await api.fetchUniprot(id);
         setCurrentSequence(r.sequence);
+        setSwitchToToolsTrigger((n) => n + 1);
         addToast({
           kind: "success",
           title: r.name,
-          message: `Loaded ${r.length} aa from ${r.organism}`,
+          message: `Loaded ${r.length} aa from ${r.organism}. Sequence is in the Tools tab.`,
         });
       } else {
         const r = await api.fetchPdb(id);
@@ -493,6 +503,8 @@ function App() {
           onMd={handleMd}
           onCost={handleCost}
           onImport={handleImport}
+          onSequenceChange={setCurrentSequence}
+          currentSequence={currentSequence}
           hasActive={!!activeStructure}
           hasSequence={!!currentSequence}
           structures={structures}
@@ -504,6 +516,7 @@ function App() {
             clearOverlays();
           }}
           onSelectCompare={setCompareStructureId}
+          switchToToolsTab={switchToToolsTrigger}
         />
 
         <main className="main-content">

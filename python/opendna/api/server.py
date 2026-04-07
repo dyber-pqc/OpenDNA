@@ -242,6 +242,11 @@ async def analyze(request: AnalyzeRequest):
         compute_dihedrals, sasa_estimate, detect_pockets,
     )
     from opendna.engines.disorder import predict_disorder
+    from opendna.engines.predictors import (
+        predict_transmembrane, predict_signal_peptide, predict_aggregation,
+        predict_phosphorylation, predict_glycosylation,
+    )
+    from opendna.engines.bonds import detect_bonds
     from opendna.models.protein import Structure
 
     seq = request.sequence.upper().strip()
@@ -249,6 +254,11 @@ async def analyze(request: AnalyzeRequest):
     lipinski = _to_dict(lipinski_rule_of_five(seq))
     hydro = hydropathy_profile(seq)
     disorder = predict_disorder(seq)
+    transmembrane = predict_transmembrane(seq)
+    signal_peptide = predict_signal_peptide(seq)
+    aggregation = predict_aggregation(seq)
+    phospho = predict_phosphorylation(seq)
+    glyco = predict_glycosylation(seq)
 
     structure_analysis = None
     if request.pdb_string:
@@ -260,6 +270,7 @@ async def analyze(request: AnalyzeRequest):
             rg = radius_of_gyration(structure)
             sasa = sasa_estimate(structure)
             pockets = detect_pockets(structure)
+            bonds = detect_bonds(structure)
             structure_analysis = {
                 "secondary_structure": ss,
                 **ss_summary,
@@ -270,6 +281,7 @@ async def analyze(request: AnalyzeRequest):
                 "sasa_estimate": sasa,
                 "pockets": pockets,
                 "num_atoms": structure.num_atoms,
+                "bonds": bonds,
             }
         except Exception as e:
             structure_analysis = {"error": str(e)}
@@ -279,8 +291,35 @@ async def analyze(request: AnalyzeRequest):
         "lipinski": lipinski,
         "hydropathy_profile": hydro,
         "disorder": disorder,
+        "transmembrane": transmembrane,
+        "signal_peptide": signal_peptide,
+        "aggregation": aggregation,
+        "phosphorylation": phospho,
+        "glycosylation": glyco,
         "structure": structure_analysis,
     }
+
+
+class AlignRequest(BaseModel):
+    seq1: str
+    seq2: str
+
+
+@app.post("/v1/align")
+async def align(request: AlignRequest):
+    from opendna.engines.alignment import needleman_wunsch
+    return needleman_wunsch(request.seq1.upper().strip(), request.seq2.upper().strip())
+
+
+class DdgRequest(BaseModel):
+    sequence: str
+    mutation: str
+
+
+@app.post("/v1/predict_ddg")
+async def predict_ddg_endpoint(request: DdgRequest):
+    from opendna.engines.predictors import predict_ddg
+    return predict_ddg(request.sequence, request.mutation)
 
 
 @app.post("/v1/evaluate")
