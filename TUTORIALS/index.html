@@ -1,0 +1,2483 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The People's Protein Engineering Platform">
+      
+      
+      
+        <link rel="canonical" href="https://dyber-pqc.github.io/OpenDNA/TUTORIALS/">
+      
+      
+        <link rel="prev" href="../GETTING_STARTED/">
+      
+      
+        <link rel="next" href="../COOKBOOK/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Tutorials - OpenDNA</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#opendna-tutorials" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenDNA" class="md-header__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenDNA
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tutorials
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../GETTING_STARTED/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../USER_GUIDE/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../API_REFERENCE/" class="md-tabs__link">
+          
+  
+  
+  Developer
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../SCIENCE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Science
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenDNA" class="md-nav__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenDNA
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-1-analyze-your-first-protein-5-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 1: Analyze Your First Protein (5 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 1: Analyze Your First Protein (5 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-2-predict-and-visualize-a-3d-structure-10-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 2: Predict and Visualize a 3D Structure (10 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 2: Predict and Visualize a 3D Structure (10 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#steps_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-3-design-alternative-sequences-with-esm-if1-15-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 3: Design Alternative Sequences with ESM-IF1 (15 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 3: Design Alternative Sequences with ESM-IF1 (15 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-4-iterative-design-loop-30-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 4: Iterative Design Loop (30 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 4: Iterative Design Loop (30 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#try-this-variation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Try this variation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-5-famous-mutations-to-try" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 5: Famous Mutations to Try
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 5: Famous Mutations to Try">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tumor-suppressors-and-oncogenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tumor suppressors and oncogenes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#insulin-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Insulin variants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hemoglobin-s-sickle-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hemoglobin S (sickle cell)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cftr-f508-cystic-fibrosis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CFTR ΔF508 (cystic fibrosis)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-6-use-the-command-palette-3-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 6: Use the Command Palette (3 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 6: Use the Command Palette (3 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#power-user-tip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Power user tip
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-7-the-protein-academy-15-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 7: The Protein Academy (15 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 7: The Protein Academy (15 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#educational-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Educational notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-8-compare-two-structures-10-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 8: Compare Two Structures (10 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 8: Compare Two Structures (10 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-9-estimate-the-cost-of-your-protein" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 9: Estimate the Cost of Your Protein
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 9: Estimate the Cost of Your Protein">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-estimates-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the estimates mean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-10-save-and-reload-a-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 10: Save and Reload a Project
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 10: Save and Reload a Project">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-projects-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where projects live
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-cheat-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial Cheat Sheet
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../COOKBOOK/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../USER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FAQ/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SCIENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Science
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-1-analyze-your-first-protein-5-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 1: Analyze Your First Protein (5 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 1: Analyze Your First Protein (5 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-2-predict-and-visualize-a-3d-structure-10-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 2: Predict and Visualize a 3D Structure (10 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 2: Predict and Visualize a 3D Structure (10 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#steps_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-3-design-alternative-sequences-with-esm-if1-15-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 3: Design Alternative Sequences with ESM-IF1 (15 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 3: Design Alternative Sequences with ESM-IF1 (15 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-4-iterative-design-loop-30-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 4: Iterative Design Loop (30 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 4: Iterative Design Loop (30 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-learned_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you learned
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#try-this-variation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Try this variation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-5-famous-mutations-to-try" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 5: Famous Mutations to Try
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 5: Famous Mutations to Try">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tumor-suppressors-and-oncogenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tumor suppressors and oncogenes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#insulin-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Insulin variants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hemoglobin-s-sickle-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hemoglobin S (sickle cell)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cftr-f508-cystic-fibrosis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CFTR ΔF508 (cystic fibrosis)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-6-use-the-command-palette-3-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 6: Use the Command Palette (3 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 6: Use the Command Palette (3 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#power-user-tip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Power user tip
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-7-the-protein-academy-15-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 7: The Protein Academy (15 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 7: The Protein Academy (15 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#educational-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Educational notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-8-compare-two-structures-10-minutes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 8: Compare Two Structures (10 minutes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 8: Compare Two Structures (10 minutes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-9-estimate-the-cost-of-your-protein" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 9: Estimate the Cost of Your Protein
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 9: Estimate the Cost of Your Protein">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-estimates-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the estimates mean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-10-save-and-reload-a-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial 10: Save and Reload a Project
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial 10: Save and Reload a Project">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-projects-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where projects live
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial-cheat-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial Cheat Sheet
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="opendna-tutorials">OpenDNA Tutorials<a class="headerlink" href="#opendna-tutorials" title="Permanent link">&para;</a></h1>
+<p>Step-by-step walkthroughs for common protein engineering tasks.</p>
+<h2 id="tutorial-1-analyze-your-first-protein-5-minutes">Tutorial 1: Analyze Your First Protein (5 minutes)<a class="headerlink" href="#tutorial-1-analyze-your-first-protein-5-minutes" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Learn the basic OpenDNA workflow on a real protein.</p>
+<h3 id="steps">Steps<a class="headerlink" href="#steps" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Start the platform</strong> (if not already running):</li>
+<li>Terminal 1: <code>python -c "from opendna.api.server import start_server; start_server(port=8765)"</code></li>
+<li>Terminal 2: <code>cd ui &amp;&amp; npm run dev</code></li>
+<li>
+<p>Browser: <code>http://localhost:5173</code></p>
+</li>
+<li>
+<p><strong>Import ubiquitin</strong> from the famous proteins list:</p>
+</li>
+<li>Click the <strong>Import</strong> tab in the sidebar</li>
+<li>Click <strong>ubiquitin</strong> in the famous proteins grid</li>
+<li>You should see a green toast: "UBC_HUMAN — Loaded 685 aa from Homo sapiens"</li>
+<li>
+<p>The sidebar switches to the <strong>Tools</strong> tab automatically</p>
+</li>
+<li>
+<p><strong>Score the sequence instantly</strong> (no model download needed):</p>
+</li>
+<li>Click <strong>Score Protein</strong></li>
+<li>
+<p>A score card appears showing the overall quality and breakdown</p>
+</li>
+<li>
+<p><strong>Run the full analysis suite</strong>:</p>
+</li>
+<li>Click <strong>Full Analysis Suite</strong></li>
+<li>Browse through ~12 sections of analysis</li>
+<li>
+<p><strong>Look for:</strong> disorder prediction (UBC has some disorder), aggregation risk, phosphorylation sites</p>
+</li>
+<li>
+<p><strong>Try a famous mutation:</strong></p>
+</li>
+<li>In the <strong>Mutate Active Protein</strong> field, type <code>K48R</code></li>
+<li>Click <strong>Apply Mutation &amp; Refold</strong></li>
+<li>This is the famous K48R mutation that disrupts polyubiquitin chain formation</li>
+</ol>
+<h3 id="what-you-learned">What you learned<a class="headerlink" href="#what-you-learned" title="Permanent link">&para;</a></h3>
+<ul>
+<li>How to import proteins from UniProt</li>
+<li>The instant scoring system</li>
+<li>The comprehensive analysis suite</li>
+<li>How to apply point mutations</li>
+</ul>
+<hr />
+<h2 id="tutorial-2-predict-and-visualize-a-3d-structure-10-minutes">Tutorial 2: Predict and Visualize a 3D Structure (10 minutes)<a class="headerlink" href="#tutorial-2-predict-and-visualize-a-3d-structure-10-minutes" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Fold a small protein and explore the 3D viewer.</p>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<p>First-time only: ESMFold model will download (~8 GB). Make sure you have a fast internet connection and ~10 GB free disk space.</p>
+<h3 id="steps_1">Steps<a class="headerlink" href="#steps_1" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Use a small test sequence:</strong></li>
+<li>Paste this in the Tools tab:
+     <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>MKTVRQERLKSIVRILERSKEPVSGAQLAEELS
+</span></code></pre></div></li>
+<li>
+<p>That's 33 residues, perfect for a quick fold</p>
+</li>
+<li>
+<p><strong>Click Predict Structure</strong></p>
+</li>
+<li>First time: ESMFold downloads (~8 GB, watch the API terminal)</li>
+<li>Subsequent runs: instant model load</li>
+<li>For 33 residues on CPU: ~1-2 minutes</li>
+<li>
+<p>For 33 residues on GPU: ~5 seconds</p>
+</li>
+<li>
+<p><strong>Explore the 3D structure:</strong></p>
+</li>
+<li><strong>Drag</strong> the protein to rotate</li>
+<li><strong>Scroll</strong> to zoom</li>
+<li>
+<p><strong>Right-click drag</strong> to pan</p>
+</li>
+<li>
+<p><strong>Switch to confidence coloring:</strong></p>
+</li>
+<li>Click <strong>pLDDT colors</strong> at the bottom-left</li>
+<li>Blue regions are high confidence</li>
+<li>
+<p>Orange/red regions are low confidence (often loops or disordered)</p>
+</li>
+<li>
+<p><strong>Save the structure:</strong></p>
+</li>
+<li>Click <strong>Save PDB</strong> in the header</li>
+<li>The PDB file downloads to your computer</li>
+<li>You can open it in any other molecular viewer (PyMOL, ChimeraX, etc.)</li>
+</ol>
+<h3 id="what-you-learned_1">What you learned<a class="headerlink" href="#what-you-learned_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>How to fold proteins with ESMFold</li>
+<li>3D viewer controls</li>
+<li>Confidence visualization</li>
+<li>Exporting PDB files</li>
+</ul>
+<hr />
+<h2 id="tutorial-3-design-alternative-sequences-with-esm-if1-15-minutes">Tutorial 3: Design Alternative Sequences with ESM-IF1 (15 minutes)<a class="headerlink" href="#tutorial-3-design-alternative-sequences-with-esm-if1-15-minutes" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Take a folded protein and generate alternative sequences that should fold into the same shape.</p>
+<h3 id="steps_2">Steps<a class="headerlink" href="#steps_2" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>First, fold a protein</strong> (use Tutorial 2's sequence or any other)</p>
+</li>
+<li>
+<p><strong>Click "Design 10 Sequences (ESM-IF1)"</strong></p>
+</li>
+<li>First time: ESM-IF1 model downloads (~600 MB)</li>
+<li>Generates 10 alternative sequences</li>
+<li>
+<p>Each is scored by recovery (% of residues matching the original)</p>
+</li>
+<li>
+<p><strong>Review the results:</strong></p>
+</li>
+<li>A panel appears with the 10 candidates ranked by score</li>
+<li>Notice the recovery percentages (typically 4-30% with default temperature)</li>
+<li>High recovery = conservative redesign</li>
+<li>
+<p>Low recovery = aggressive redesign of the same fold</p>
+</li>
+<li>
+<p><strong>Verify a candidate by folding it:</strong></p>
+</li>
+<li>Click <strong>Fold</strong> on candidate #1</li>
+<li>This folds the new sequence</li>
+<li>
+<p>Add it to your structures list</p>
+</li>
+<li>
+<p><strong>Compare original vs designed:</strong></p>
+</li>
+<li>Switch to the <strong>Structures</strong> tab</li>
+<li>Click <strong>vs</strong> on the original structure</li>
+<li>The viewer splits to show both side-by-side</li>
+<li>Visually compare — they should have similar topology if ESM-IF1 worked</li>
+</ol>
+<h3 id="what-you-learned_2">What you learned<a class="headerlink" href="#what-you-learned_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>How inverse folding works</li>
+<li>Sequence recovery interpretation</li>
+<li>How to verify designed sequences by re-folding</li>
+<li>Side-by-side structure comparison</li>
+</ul>
+<hr />
+<h2 id="tutorial-4-iterative-design-loop-30-minutes">Tutorial 4: Iterative Design Loop (30 minutes)<a class="headerlink" href="#tutorial-4-iterative-design-loop-30-minutes" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Use OpenDNA's killer feature — automated protein optimization over multiple rounds.</p>
+<h3 id="steps_3">Steps<a class="headerlink" href="#steps_3" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Pick a starting sequence:</strong>
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>MKTVRQERLKSIVRILER
+</span></code></pre></div>
+   (18 residues — small enough to iterate quickly on CPU)</p>
+</li>
+<li>
+<p><strong>Configure iterative design:</strong></p>
+</li>
+<li>In the <strong>Iterative Design Loop</strong> section</li>
+<li>Set <strong>rounds: 3</strong> and <strong>candidates: 5</strong></li>
+<li>
+<p>That's 15 total designs across 3 rounds</p>
+</li>
+<li>
+<p><strong>Click "Run Iterative Design"</strong></p>
+</li>
+<li>You'll see a series of toasts as each round runs</li>
+<li>Rounds typically take 1-3 minutes each on CPU</li>
+<li>
+<p>Total: ~10 minutes</p>
+</li>
+<li>
+<p><strong>Review the results panel:</strong></p>
+</li>
+<li>Initial score → Final score with improvement %</li>
+<li>Optimization history chart</li>
+<li>Best sequence per round</li>
+<li>
+<p>The final structure is auto-added to your structures list</p>
+</li>
+<li>
+<p><strong>Compare initial and final:</strong></p>
+</li>
+<li>Initial sequence is in your history</li>
+<li>Final sequence is the new active structure</li>
+<li>Use the <strong>vs</strong> button to compare them in 3D</li>
+</ol>
+<h3 id="what-you-learned_3">What you learned<a class="headerlink" href="#what-you-learned_3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The iterative optimization concept</li>
+<li>How to read the score history</li>
+<li>How to interpret improvement</li>
+<li>The fold ↔ design feedback loop</li>
+</ul>
+<h3 id="try-this-variation">Try this variation<a class="headerlink" href="#try-this-variation" title="Permanent link">&para;</a></h3>
+<p>Set rounds to 5, candidates to 10. Watch a longer optimization. See if it converges or keeps improving.</p>
+<hr />
+<h2 id="tutorial-5-famous-mutations-to-try">Tutorial 5: Famous Mutations to Try<a class="headerlink" href="#tutorial-5-famous-mutations-to-try" title="Permanent link">&para;</a></h2>
+<p>These are real mutations from biology and disease. Try them in OpenDNA.</p>
+<h3 id="tumor-suppressors-and-oncogenes">Tumor suppressors and oncogenes<a class="headerlink" href="#tumor-suppressors-and-oncogenes" title="Permanent link">&para;</a></h3>
+<p><strong>KRAS G12D</strong> (most common cancer mutation):
+1. Import → kras
+2. Mutate → <code>G12D</code>
+3. This is the famous G12D KRAS mutation found in pancreatic cancer</p>
+<p><strong>p53 R175H</strong> (tumor suppressor mutation):
+1. Import → p53
+2. Mutate → <code>R175H</code>
+3. This is one of the most common p53 mutations in human cancer</p>
+<h3 id="insulin-variants">Insulin variants<a class="headerlink" href="#insulin-variants" title="Permanent link">&para;</a></h3>
+<p><strong>Insulin lispro</strong> (Humalog) — switch the position of B28 and B29 to make a fast-acting insulin
+- Import insulin → mutate <code>K28P</code> then <code>P29K</code> (sequentially)</p>
+<h3 id="hemoglobin-s-sickle-cell">Hemoglobin S (sickle cell)<a class="headerlink" href="#hemoglobin-s-sickle-cell" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Import hemoglobin_alpha → not the right chain</li>
+<li>Try fetching <code>P68871</code> (hemoglobin beta) → mutate <code>E6V</code></li>
+</ul>
+<h3 id="cftr-f508-cystic-fibrosis">CFTR ΔF508 (cystic fibrosis)<a class="headerlink" href="#cftr-f508-cystic-fibrosis" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Fetch <code>P13569</code> (CFTR)</li>
+<li>Note: very large protein, don't fold on CPU</li>
+</ul>
+<hr />
+<h2 id="tutorial-6-use-the-command-palette-3-minutes">Tutorial 6: Use the Command Palette (3 minutes)<a class="headerlink" href="#tutorial-6-use-the-command-palette-3-minutes" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Master the keyboard-driven workflow.</p>
+<h3 id="steps_4">Steps<a class="headerlink" href="#steps_4" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Open the palette anywhere:</strong> Press <strong>Ctrl+K</strong> (or Cmd+K on Mac)</p>
+</li>
+<li>
+<p><strong>Try fuzzy search:</strong></p>
+</li>
+<li>Type "ubiq" → finds "Import ubiquitin"</li>
+<li>Type "fold" → finds the fold action</li>
+<li>
+<p>Type "score" → finds the score action</p>
+</li>
+<li>
+<p><strong>Quick imports:</strong></p>
+</li>
+<li>Ctrl+K → "import gfp" → Enter</li>
+<li>
+<p>The sequence loads automatically</p>
+</li>
+<li>
+<p><strong>Quick analysis:</strong></p>
+</li>
+<li>Ctrl+K → "analyze" → Enter</li>
+<li>
+<p>Skips clicking</p>
+</li>
+<li>
+<p><strong>Navigate without a mouse:</strong></p>
+</li>
+<li>Ctrl+K → up/down arrows → Enter</li>
+<li>Esc to close</li>
+</ol>
+<h3 id="power-user-tip">Power user tip<a class="headerlink" href="#power-user-tip" title="Permanent link">&para;</a></h3>
+<p>With single-letter shortcuts (only when not focused on an input):
+- <strong>F</strong> = fold current sequence
+- <strong>S</strong> = score
+- <strong>A</strong> = analyze
+- <strong>Esc</strong> = close everything</p>
+<hr />
+<h2 id="tutorial-7-the-protein-academy-15-minutes">Tutorial 7: The Protein Academy (15 minutes)<a class="headerlink" href="#tutorial-7-the-protein-academy-15-minutes" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Learn protein basics through interactive games.</p>
+<h3 id="steps_5">Steps<a class="headerlink" href="#steps_5" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p>Click <strong>Academy</strong> in the header</p>
+</li>
+<li>
+<p><strong>Level 1: Amino Acid Match (5 min, +50 XP):</strong></p>
+</li>
+<li>Click letters and names to match them up</li>
+<li>8 random amino acids per game</li>
+<li>+10 score per match</li>
+<li>
+<p>Complete to earn 50 XP</p>
+</li>
+<li>
+<p><strong>Level 2: Memory Quiz (3 min, +75 XP):</strong></p>
+</li>
+<li>5 multiple-choice questions about amino acid properties</li>
+<li>
+<p>Test your knowledge of charge, structure, function</p>
+</li>
+<li>
+<p><strong>Level 3: Sequence Reader (5 min, +100 XP):</strong></p>
+</li>
+<li>Tutorial on reading protein sequences</li>
+<li>Learn the meaning of each letter</li>
+<li>
+<p>Pattern recognition tips</p>
+</li>
+<li>
+<p><strong>Watch your XP grow</strong> in the header badge</p>
+</li>
+</ol>
+<h3 id="educational-notes">Educational notes<a class="headerlink" href="#educational-notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The 20 standard amino acids are the building blocks of all proteins</li>
+<li>Their letter codes (A, C, D, E, F, G, H, I, K, L, M, N, P, Q, R, S, T, V, W, Y) are universally used</li>
+<li>Each has different properties: charge, size, hydrophobicity, special function</li>
+<li>Reading a sequence and predicting properties is the foundational skill</li>
+</ul>
+<hr />
+<h2 id="tutorial-8-compare-two-structures-10-minutes">Tutorial 8: Compare Two Structures (10 minutes)<a class="headerlink" href="#tutorial-8-compare-two-structures-10-minutes" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Use OpenDNA to compare a wild-type protein and a mutant.</p>
+<h3 id="steps_6">Steps<a class="headerlink" href="#steps_6" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Fold the wild-type:</strong></li>
+<li>Paste: <code>MKTVRQERLKSIVRILER</code></li>
+<li>Click Predict Structure</li>
+<li>
+<p>Wait for the fold</p>
+</li>
+<li>
+<p><strong>Apply a mutation:</strong></p>
+</li>
+<li>Mutate field: <code>K2D</code></li>
+<li>Click Apply Mutation &amp; Refold</li>
+<li>
+<p>Wait for the new fold</p>
+</li>
+<li>
+<p><strong>Compare them:</strong></p>
+</li>
+<li>Click the <strong>Structures</strong> tab</li>
+<li>You should see 2 structures</li>
+<li>Click <strong>vs</strong> on the first one (the wild-type)</li>
+<li>
+<p>The viewer splits into two</p>
+</li>
+<li>
+<p><strong>Visually inspect:</strong></p>
+</li>
+<li>Are they similar topology?</li>
+<li>Did the mutation cause any visible changes?</li>
+<li>
+<p>Use both viewers' rotation independently</p>
+</li>
+<li>
+<p><strong>Quantitative comparison</strong> (via API):
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8765/v1/compare<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;pdb_a&quot;: &quot;...&quot;, &quot;pdb_b&quot;: &quot;...&quot;}&#39;</span>
+</span></code></pre></div>
+   Returns RMSD, secondary structure identity, radius of gyration.</p>
+</li>
+</ol>
+<hr />
+<h2 id="tutorial-9-estimate-the-cost-of-your-protein">Tutorial 9: Estimate the Cost of Your Protein<a class="headerlink" href="#tutorial-9-estimate-the-cost-of-your-protein" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Find out how much it would cost to actually synthesize and produce your designed protein.</p>
+<h3 id="steps_7">Steps<a class="headerlink" href="#steps_7" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p>Have a sequence loaded (any size)</p>
+</li>
+<li>
+<p>Click <strong>Cost &amp; Carbon Estimate</strong></p>
+</li>
+<li>
+<p>Review:</p>
+</li>
+<li><strong>Synthesis costs</strong> from Twist Bioscience, IDT, GenScript</li>
+<li><strong>Cheapest vendor</strong> highlighted</li>
+<li>
+<p><strong>Carbon footprint</strong> comparison: CPU vs GPU compute</p>
+</li>
+<li>
+<p>Use this to plan budget for wet-lab experiments</p>
+</li>
+</ol>
+<h3 id="what-the-estimates-mean">What the estimates mean<a class="headerlink" href="#what-the-estimates-mean" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Synthesis = ordering the DNA gene that codes for your protein</li>
+<li>After ordering: clone into vector → transform into E. coli → grow → purify → assay</li>
+<li>Total wet-lab cost typically 5-20x the synthesis cost</li>
+</ul>
+<hr />
+<h2 id="tutorial-10-save-and-reload-a-project">Tutorial 10: Save and Reload a Project<a class="headerlink" href="#tutorial-10-save-and-reload-a-project" title="Permanent link">&para;</a></h2>
+<p><strong>Goal:</strong> Don't lose your work between sessions.</p>
+<h3 id="steps_8">Steps<a class="headerlink" href="#steps_8" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p>Build up some structures (fold a few proteins)</p>
+</li>
+<li>
+<p><strong>Save:</strong></p>
+</li>
+<li>Press <strong>Ctrl+Shift+S</strong> (or use Cmd+K → "save project")</li>
+<li>Enter a project name (e.g. <code>my_first_project</code>)</li>
+<li>
+<p>Toast confirms save</p>
+</li>
+<li>
+<p><strong>Find your saved project:</strong></p>
+</li>
+<li>Open the Dashboard (header button)</li>
+<li>
+<p>"Saved Projects" section lists all your projects</p>
+</li>
+<li>
+<p><strong>Load a project</strong> (manually via API for now):
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8765/v1/projects/load<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;:&quot;my_first_project&quot;}&#39;</span>
+</span></code></pre></div></p>
+</li>
+<li>UI auto-load is coming in v0.3</li>
+</ol>
+<h3 id="where-projects-live">Where projects live<a class="headerlink" href="#where-projects-live" title="Permanent link">&para;</a></h3>
+<p><code>~/.opendna/projects/&lt;name&gt;/workspace.json</code></p>
+<hr />
+<h2 id="tutorial-cheat-sheet">Tutorial Cheat Sheet<a class="headerlink" href="#tutorial-cheat-sheet" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Click path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fold a protein</td>
+<td>Tools → paste seq → Predict Structure</td>
+</tr>
+<tr>
+<td>Score instantly</td>
+<td>Tools → paste seq → Score Protein</td>
+</tr>
+<tr>
+<td>Full analysis</td>
+<td>Tools → Full Analysis Suite</td>
+</tr>
+<tr>
+<td>Apply mutation</td>
+<td>Tools → Mutate field → Apply</td>
+</tr>
+<tr>
+<td>Design alternatives</td>
+<td>Tools → Design 10 Sequences</td>
+</tr>
+<tr>
+<td>Iterative optimization</td>
+<td>Tools → Run Iterative Design</td>
+</tr>
+<tr>
+<td>Import famous protein</td>
+<td>Import → click name (or Cmd+K → "import X")</td>
+</tr>
+<tr>
+<td>Compare two structures</td>
+<td>Structures tab → vs button</td>
+</tr>
+<tr>
+<td>AI explanation</td>
+<td>Tools → Explain This Protein</td>
+</tr>
+<tr>
+<td>Cost estimate</td>
+<td>Tools → Cost &amp; Carbon Estimate</td>
+</tr>
+<tr>
+<td>Quick MD</td>
+<td>Tools → Quick MD</td>
+</tr>
+<tr>
+<td>Open Dashboard</td>
+<td>Header → Dashboard</td>
+</tr>
+<tr>
+<td>Open Academy</td>
+<td>Header → Academy</td>
+</tr>
+<tr>
+<td>Command palette</td>
+<td>Ctrl+K</td>
+</tr>
+<tr>
+<td>Save project</td>
+<td>Ctrl+Shift+S</td>
+</tr>
+<tr>
+<td>Save PDB</td>
+<td>Ctrl+S or header button</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dyber-pqc/OpenDNA" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

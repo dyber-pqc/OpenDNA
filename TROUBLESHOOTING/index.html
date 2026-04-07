@@ -1,0 +1,2298 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The People's Protein Engineering Platform">
+      
+      
+      
+        <link rel="canonical" href="https://dyber-pqc.github.io/OpenDNA/TROUBLESHOOTING/">
+      
+      
+        <link rel="prev" href="../FAQ/">
+      
+      
+        <link rel="next" href="../API_REFERENCE/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Troubleshooting - OpenDNA</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#opendna-troubleshooting" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenDNA" class="md-header__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenDNA
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Troubleshooting
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../GETTING_STARTED/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../USER_GUIDE/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../API_REFERENCE/" class="md-tabs__link">
+          
+  
+  
+  Developer
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../SCIENCE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Science
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenDNA" class="md-nav__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenDNA
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TUTORIALS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../COOKBOOK/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../USER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FAQ/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#api-server-wont-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Server Won't Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Server Won&#39;t Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-bind-on-address-0000-8000-permission-denied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "ERROR: bind on address ('0.0.0.0', 8000): permission denied"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modulenotfounderror-no-module-named-opendna" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "ModuleNotFoundError: No module named 'opendna'"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modulenotfounderror-no-module-named-fastapi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "ModuleNotFoundError: No module named 'fastapi'"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#folding-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Folding Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#torch-not-compiled-with-cuda-enabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Torch not compiled with CUDA enabled"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folding-hangs-at-loading-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding hangs at "Loading weights"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folding-completes-but-viewer-shows-empty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding completes but viewer shows empty
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runtimeerror-cuda-out-of-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "RuntimeError: CUDA out of memory"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folding-takes-forever-on-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding takes forever on CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ui-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UI Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UI Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#blank-white-screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blank white screen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failed-to-fetch-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Failed to fetch" errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3d-viewer-is-blankblack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3D viewer is blank/black
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buttons-dont-do-anything" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Buttons don't do anything
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#imported-sequence-doesnt-show-in-textarea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Imported sequence doesn't show in textarea
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#academy-match-game-doesnt-accept-correct-matches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Academy match game doesn't accept correct matches
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pip-install-fails-on-python-314" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pip install fails on Python 3.14
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#npm-install-fails-with-permissions-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        npm install fails with permissions error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cargo-wont-build-on-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cargo won't build on Windows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pyo3_use_abi3_forward_compatibility-warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "PYO3_USE_ABI3_FORWARD_COMPATIBILITY" warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#permissionerror-temp-file-in-use-on-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "PermissionError: temp file ... in use" on Windows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-fail-with-no-module-named-opendna_native" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests fail with "no module named opendna_native"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#everything-is-slow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Everything is slow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#browser-becomes-unresponsive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser becomes unresponsive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-server-uses-100-of-one-cpu-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API server uses 100% of one CPU core
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disk-fills-up-after-a-few-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disk fills up after a few weeks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Network Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#uniprot-fetch-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UniProt fetch fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pdb-fetch-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDB fetch fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#huggingface-download-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace download fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Mistakes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#i-changed-the-code-but-the-api-still-uses-the-old-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "I changed the code but the API still uses the old behavior"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#my-ui-changes-dont-appear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "My UI changes don't appear"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-cant-find-my-saved-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "I can't find my saved project"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-deleted-opendna-by-mistake" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "I deleted .opendna by mistake"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-all-else-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When All Else Fails
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SCIENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Science
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#api-server-wont-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Server Won't Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Server Won&#39;t Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#error-bind-on-address-0000-8000-permission-denied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "ERROR: bind on address ('0.0.0.0', 8000): permission denied"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modulenotfounderror-no-module-named-opendna" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "ModuleNotFoundError: No module named 'opendna'"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modulenotfounderror-no-module-named-fastapi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "ModuleNotFoundError: No module named 'fastapi'"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#folding-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Folding Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#torch-not-compiled-with-cuda-enabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Torch not compiled with CUDA enabled"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folding-hangs-at-loading-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding hangs at "Loading weights"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folding-completes-but-viewer-shows-empty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding completes but viewer shows empty
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runtimeerror-cuda-out-of-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "RuntimeError: CUDA out of memory"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#folding-takes-forever-on-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding takes forever on CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ui-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UI Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UI Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#blank-white-screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blank white screen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failed-to-fetch-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Failed to fetch" errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3d-viewer-is-blankblack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3D viewer is blank/black
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buttons-dont-do-anything" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Buttons don't do anything
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#imported-sequence-doesnt-show-in-textarea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Imported sequence doesn't show in textarea
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#academy-match-game-doesnt-accept-correct-matches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Academy match game doesn't accept correct matches
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pip-install-fails-on-python-314" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pip install fails on Python 3.14
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#npm-install-fails-with-permissions-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        npm install fails with permissions error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cargo-wont-build-on-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cargo won't build on Windows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pyo3_use_abi3_forward_compatibility-warning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "PYO3_USE_ABI3_FORWARD_COMPATIBILITY" warning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Test Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#permissionerror-temp-file-in-use-on-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "PermissionError: temp file ... in use" on Windows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tests-fail-with-no-module-named-opendna_native" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests fail with "no module named opendna_native"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#everything-is-slow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Everything is slow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#browser-becomes-unresponsive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser becomes unresponsive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-server-uses-100-of-one-cpu-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API server uses 100% of one CPU core
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disk-fills-up-after-a-few-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disk fills up after a few weeks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Issues
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Network Issues">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#uniprot-fetch-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UniProt fetch fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pdb-fetch-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDB fetch fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#huggingface-download-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HuggingFace download fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Mistakes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Mistakes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#i-changed-the-code-but-the-api-still-uses-the-old-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "I changed the code but the API still uses the old behavior"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#my-ui-changes-dont-appear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "My UI changes don't appear"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-cant-find-my-saved-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "I can't find my saved project"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-deleted-opendna-by-mistake" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "I deleted .opendna by mistake"
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-all-else-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When All Else Fails
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="opendna-troubleshooting">OpenDNA Troubleshooting<a class="headerlink" href="#opendna-troubleshooting" title="Permanent link">&para;</a></h1>
+<p>When things break, look here first.</p>
+<h2 id="api-server-wont-start">API Server Won't Start<a class="headerlink" href="#api-server-wont-start" title="Permanent link">&para;</a></h2>
+<h3 id="error-bind-on-address-0000-8000-permission-denied">"ERROR: bind on address ('0.0.0.0', 8000): permission denied"<a class="headerlink" href="#error-bind-on-address-0000-8000-permission-denied" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Port 8000 is reserved or in use on your system (common on Windows).</p>
+<p><strong>Fix:</strong> Use a different port:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
+</span></code></pre></div></p>
+<p>You'll need to also update the UI to point to that port. Check <code>ui/src/api/client.ts</code> line 3:
+<div class="language-typescript highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">API_BASE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;http://localhost:8765&quot;</span><span class="p">;</span>
+</span></code></pre></div></p>
+<h3 id="modulenotfounderror-no-module-named-opendna">"ModuleNotFoundError: No module named 'opendna'"<a class="headerlink" href="#modulenotfounderror-no-module-named-opendna" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> You haven't installed the Python package.</p>
+<p><strong>Fix:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>/path/to/opendna
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</span></code></pre></div></p>
+<h3 id="modulenotfounderror-no-module-named-fastapi">"ModuleNotFoundError: No module named 'fastapi'"<a class="headerlink" href="#modulenotfounderror-no-module-named-fastapi" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Missing dependencies.</p>
+<p><strong>Fix:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</span></code></pre></div></p>
+<p>If that fails, try:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pip<span class="w"> </span>install<span class="w"> </span>fastapi<span class="w"> </span>uvicorn<span class="o">[</span>standard<span class="o">]</span><span class="w"> </span>sqlalchemy<span class="w"> </span>typer<span class="w"> </span>rich<span class="w"> </span>pydantic<span class="w"> </span>httpx<span class="w"> </span>pyyaml<span class="w"> </span>sse-starlette<span class="w"> </span>psutil<span class="w"> </span>torch<span class="w"> </span>transformers<span class="w"> </span>fair-esm<span class="w"> </span>biopython<span class="w"> </span>biotite<span class="w"> </span>torch-geometric
+</span></code></pre></div></p>
+<hr />
+<h2 id="folding-issues">Folding Issues<a class="headerlink" href="#folding-issues" title="Permanent link">&para;</a></h2>
+<h3 id="torch-not-compiled-with-cuda-enabled">"Torch not compiled with CUDA enabled"<a class="headerlink" href="#torch-not-compiled-with-cuda-enabled" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> You have an NVIDIA GPU but installed CPU-only PyTorch. The hardware detector says "use CUDA" but PyTorch can't.</p>
+<p><strong>Fix option 1 - Install CUDA torch:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>uninstall<span class="w"> </span>torch<span class="w"> </span>-y
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>--index-url<span class="w"> </span>https://download.pytorch.org/whl/cu124
+</span></code></pre></div></p>
+<p><strong>Fix option 2 - Force CPU mode in your fold call:</strong>
+The latest version of <code>hardware/detect.py</code> already verifies torch supports the backend before recommending it. If you still hit this, restart the API server.</p>
+<h3 id="folding-hangs-at-loading-weights">Folding hangs at "Loading weights"<a class="headerlink" href="#folding-hangs-at-loading-weights" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Model is downloading from HuggingFace Hub. ESMFold is ~8 GB.</p>
+<p><strong>Fix:</strong> Wait. Watch the API terminal for download progress. If it stays at 0% for &gt;5 minutes, check your internet connection.</p>
+<h3 id="folding-completes-but-viewer-shows-empty">Folding completes but viewer shows empty<a class="headerlink" href="#folding-completes-but-viewer-shows-empty" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> UI didn't receive the result, or PDB couldn't be parsed.</p>
+<p><strong>Fix:</strong>
+1. Open browser DevTools (F12) → Console tab
+2. Look for errors during the fold completion
+3. Check API terminal for any errors
+4. Try a shorter sequence to test</p>
+<h3 id="runtimeerror-cuda-out-of-memory">"RuntimeError: CUDA out of memory"<a class="headerlink" href="#runtimeerror-cuda-out-of-memory" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Your GPU doesn't have enough VRAM for this protein.</p>
+<p><strong>Fix:</strong>
+- Try a shorter sequence
+- Close other GPU-using applications
+- Switch to CPU mode (slower but works)</p>
+<h3 id="folding-takes-forever-on-cpu">Folding takes forever on CPU<a class="headerlink" href="#folding-takes-forever-on-cpu" title="Permanent link">&para;</a></h3>
+<p>That's expected. ESMFold on CPU is slow:
+- 30 residues: ~1 minute
+- 100 residues: ~5-10 minutes
+- 200 residues: ~30 minutes
+- 500+ residues: not recommended</p>
+<p><strong>Speedup options:</strong>
+- Get an NVIDIA GPU
+- Get a Mac with Apple Silicon (MPS support)
+- Use a cloud GPU (Lambda Labs, RunPod, etc.) — manual setup for now</p>
+<hr />
+<h2 id="ui-issues">UI Issues<a class="headerlink" href="#ui-issues" title="Permanent link">&para;</a></h2>
+<h3 id="blank-white-screen">Blank white screen<a class="headerlink" href="#blank-white-screen" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> UI dev server isn't running, or there's a build error.</p>
+<p><strong>Fix:</strong>
+1. Make sure <code>npm run dev</code> is running in <code>ui/</code>
+2. Check the Vite terminal for errors
+3. Open browser DevTools (F12) → Console for runtime errors
+4. Try <code>npm install</code> in <code>ui/</code> to reinstall dependencies</p>
+<h3 id="failed-to-fetch-errors">"Failed to fetch" errors<a class="headerlink" href="#failed-to-fetch-errors" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> API server isn't running, or wrong port.</p>
+<p><strong>Fix:</strong>
+1. Make sure the API server is running on port 8765
+2. Check the URL in <code>ui/src/api/client.ts</code>
+3. Try <code>curl http://localhost:8765/health</code> to verify the API works</p>
+<h3 id="3d-viewer-is-blankblack">3D viewer is blank/black<a class="headerlink" href="#3d-viewer-is-blankblack" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Molstar failed to load, or no PDB data.</p>
+<p><strong>Fix:</strong>
+1. Open DevTools console for Molstar errors
+2. Make sure you've actually folded a protein (check the Structures tab)
+3. Try refreshing the page</p>
+<h3 id="buttons-dont-do-anything">Buttons don't do anything<a class="headerlink" href="#buttons-dont-do-anything" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Click handlers aren't firing, or the action depends on missing state.</p>
+<p><strong>Fix:</strong>
+1. Check DevTools console for JavaScript errors
+2. Make sure you have a sequence loaded (some buttons require one)
+3. Make sure you have a folded structure (some buttons require it)</p>
+<h3 id="imported-sequence-doesnt-show-in-textarea">Imported sequence doesn't show in textarea<a class="headerlink" href="#imported-sequence-doesnt-show-in-textarea" title="Permanent link">&para;</a></h3>
+<p><strong>Fixed in v0.2.1.</strong> Update to the latest version. Old behavior: import would set state but the sidebar textarea had its own local state. New behavior: textarea is bound to the shared <code>currentSequence</code> state.</p>
+<h3 id="academy-match-game-doesnt-accept-correct-matches">Academy match game doesn't accept correct matches<a class="headerlink" href="#academy-match-game-doesnt-accept-correct-matches" title="Permanent link">&para;</a></h3>
+<p><strong>Fixed in v0.2.1.</strong> The shuffled list was being re-randomized on every render, causing the visible buttons to change between clicks. Now memoized once.</p>
+<hr />
+<h2 id="installation-issues">Installation Issues<a class="headerlink" href="#installation-issues" title="Permanent link">&para;</a></h2>
+<h3 id="pip-install-fails-on-python-314"><code>pip install</code> fails on Python 3.14<a class="headerlink" href="#pip-install-fails-on-python-314" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Some packages don't yet have wheels for Python 3.14 (it's very new).</p>
+<p><strong>Fix:</strong>
+- Use Python 3.11 or 3.12 instead
+- Or wait for upstream packages to ship 3.14 wheels
+- Or build from source (requires C compiler)</p>
+<h3 id="npm-install-fails-with-permissions-error"><code>npm install</code> fails with permissions error<a class="headerlink" href="#npm-install-fails-with-permissions-error" title="Permanent link">&para;</a></h3>
+<p><strong>Fix:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Don&#39;t use sudo with npm</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>npm<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prefix<span class="w"> </span>~/.local
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/bin:</span><span class="nv">$PATH</span><span class="s2">&quot;</span>
+</span></code></pre></div></p>
+<h3 id="cargo-wont-build-on-windows">Cargo won't build on Windows<a class="headerlink" href="#cargo-wont-build-on-windows" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Missing Visual Studio Build Tools.</p>
+<p><strong>Fix:</strong> Install Visual Studio Build Tools with the "Desktop development with C++" workload. Then try <code>cargo build</code> again.</p>
+<h3 id="pyo3_use_abi3_forward_compatibility-warning">"PYO3_USE_ABI3_FORWARD_COMPATIBILITY" warning<a class="headerlink" href="#pyo3_use_abi3_forward_compatibility-warning" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Your Python is newer than PyO3's tested versions.</p>
+<p><strong>Fix:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">PYO3_USE_ABI3_FORWARD_COMPATIBILITY</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>cargo<span class="w"> </span>build
+</span></code></pre></div></p>
+<p>Or set it permanently:
+- Linux/Mac: Add to your shell rc file
+- Windows: <code>setx PYO3_USE_ABI3_FORWARD_COMPATIBILITY 1</code></p>
+<hr />
+<h2 id="test-issues">Test Issues<a class="headerlink" href="#test-issues" title="Permanent link">&para;</a></h2>
+<h3 id="permissionerror-temp-file-in-use-on-windows">"PermissionError: temp file ... in use" on Windows<a class="headerlink" href="#permissionerror-temp-file-in-use-on-windows" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> SQLAlchemy holds the SQLite file open after tests finish, Windows doesn't release it before the temp dir cleanup.</p>
+<p><strong>Fix:</strong> This is cosmetic, tests still pass. Or use the <code>ignore_cleanup_errors=True</code> parameter (already in test_storage.py).</p>
+<h3 id="tests-fail-with-no-module-named-opendna_native">Tests fail with "no module named opendna_native"<a class="headerlink" href="#tests-fail-with-no-module-named-opendna_native" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Rust bindings aren't built yet.</p>
+<p><strong>Fix:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>cargo<span class="w"> </span>build<span class="w">  </span><span class="c1"># builds the bindings</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># Or use maturin to install them as a Python module</span>
+</span></code></pre></div></p>
+<p>The Python tests don't actually need the Rust bindings, only direct imports of Python modules. So you can ignore this if your tests are passing.</p>
+<hr />
+<h2 id="performance-issues">Performance Issues<a class="headerlink" href="#performance-issues" title="Permanent link">&para;</a></h2>
+<h3 id="everything-is-slow">Everything is slow<a class="headerlink" href="#everything-is-slow" title="Permanent link">&para;</a></h3>
+<p><strong>Likely cause:</strong> CPU-only mode with a large protein.</p>
+<p><strong>Fix:</strong>
+- Use shorter sequences for testing
+- Get a GPU
+- Use CUDA torch if you have NVIDIA</p>
+<h3 id="browser-becomes-unresponsive">Browser becomes unresponsive<a class="headerlink" href="#browser-becomes-unresponsive" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Loading a very complex structure into Molstar, or memory leak.</p>
+<p><strong>Fix:</strong>
+- Refresh the page (you'll lose unsaved state)
+- Close the structures you don't need
+- Use a smaller protein</p>
+<h3 id="api-server-uses-100-of-one-cpu-core">API server uses 100% of one CPU core<a class="headerlink" href="#api-server-uses-100-of-one-cpu-core" title="Permanent link">&para;</a></h3>
+<p>That's expected during inference. Python's GIL means inference uses one core fully. If you have multiple cores, the rest are still available for other tasks.</p>
+<h3 id="disk-fills-up-after-a-few-weeks">Disk fills up after a few weeks<a class="headerlink" href="#disk-fills-up-after-a-few-weeks" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> HuggingFace cache and model cache grow.</p>
+<p><strong>Fix:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Clear HF cache (re-downloads on next use)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>rm<span class="w"> </span>-rf<span class="w"> </span>~/.cache/huggingface/
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Clear OpenDNA data (loses projects!)</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>rm<span class="w"> </span>-rf<span class="w"> </span>~/.opendna/
+</span></code></pre></div></p>
+<hr />
+<h2 id="network-issues">Network Issues<a class="headerlink" href="#network-issues" title="Permanent link">&para;</a></h2>
+<h3 id="uniprot-fetch-fails">UniProt fetch fails<a class="headerlink" href="#uniprot-fetch-fails" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> UniProt's API is slow or down.</p>
+<p><strong>Fix:</strong> Try again in a minute. Status: https://www.uniprot.org/</p>
+<h3 id="pdb-fetch-fails">PDB fetch fails<a class="headerlink" href="#pdb-fetch-fails" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> RCSB PDB server is slow or the ID doesn't exist.</p>
+<p><strong>Fix:</strong> Verify the PDB ID at https://www.rcsb.org/</p>
+<h3 id="huggingface-download-fails">HuggingFace download fails<a class="headerlink" href="#huggingface-download-fails" title="Permanent link">&para;</a></h3>
+<p><strong>Cause:</strong> Hub rate limiting or network issue.</p>
+<p><strong>Fix:</strong>
+- Try again later
+- Set an HF_TOKEN: <code>export HF_TOKEN=your_token</code>
+- Get a token from https://huggingface.co/settings/tokens</p>
+<hr />
+<h2 id="common-mistakes">Common Mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h2>
+<h3 id="i-changed-the-code-but-the-api-still-uses-the-old-behavior">"I changed the code but the API still uses the old behavior"<a class="headerlink" href="#i-changed-the-code-but-the-api-still-uses-the-old-behavior" title="Permanent link">&para;</a></h3>
+<p>The API server doesn't auto-reload by default. Restart it after code changes:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Ctrl+C the server, then re-run:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
+</span></code></pre></div></p>
+<p>For dev with auto-reload:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uvicorn<span class="w"> </span>opendna.api.server:app<span class="w"> </span>--reload<span class="w"> </span>--port<span class="w"> </span><span class="m">8765</span>
+</span></code></pre></div></p>
+<h3 id="my-ui-changes-dont-appear">"My UI changes don't appear"<a class="headerlink" href="#my-ui-changes-dont-appear" title="Permanent link">&para;</a></h3>
+<p>Vite hot-reloads automatically. If they don't appear:
+- Check the Vite terminal for build errors
+- Hard refresh the browser (Ctrl+Shift+R)
+- Make sure you saved the file</p>
+<h3 id="i-cant-find-my-saved-project">"I can't find my saved project"<a class="headerlink" href="#i-cant-find-my-saved-project" title="Permanent link">&para;</a></h3>
+<p>Projects live at <code>~/.opendna/projects/&lt;name&gt;/workspace.json</code>. The <code>~</code> is your home directory:
+- Linux: <code>/home/yourname/.opendna/</code>
+- Mac: <code>/Users/yourname/.opendna/</code>
+- Windows: <code>C:\Users\yourname\.opendna\</code></p>
+<h3 id="i-deleted-opendna-by-mistake">"I deleted .opendna by mistake"<a class="headerlink" href="#i-deleted-opendna-by-mistake" title="Permanent link">&para;</a></h3>
+<p>Sorry, no recovery. Always back up <code>~/.opendna/projects/</code> if you care about them.</p>
+<hr />
+<h2 id="when-all-else-fails">When All Else Fails<a class="headerlink" href="#when-all-else-fails" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Restart everything</strong> — API server, UI dev server, browser</li>
+<li><strong>Update to latest</strong> — <code>git pull</code> and <code>pip install -e ".[dev]"</code></li>
+<li><strong>Check the issues</strong> — https://github.com/dyber-pqc/OpenDNA/issues</li>
+<li><strong>Open a new issue</strong> with:</li>
+<li>OS, Python version, Node version</li>
+<li>Steps to reproduce</li>
+<li>Full error message</li>
+<li>Output of <code>python -m pytest tests/python/</code></li>
+<li>Output of <code>curl http://localhost:8765/health</code></li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dyber-pqc/OpenDNA" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

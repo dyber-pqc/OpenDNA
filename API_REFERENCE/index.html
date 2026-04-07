@@ -1,0 +1,2698 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The People's Protein Engineering Platform">
+      
+      
+      
+        <link rel="canonical" href="https://dyber-pqc.github.io/OpenDNA/API_REFERENCE/">
+      
+      
+        <link rel="prev" href="../TROUBLESHOOTING/">
+      
+      
+        <link rel="next" href="../ARCHITECTURE/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>API Reference - OpenDNA</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#opendna-api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenDNA" class="md-header__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenDNA
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              API Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../GETTING_STARTED/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../USER_GUIDE/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Developer
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../SCIENCE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Science
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenDNA" class="md-nav__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenDNA
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TUTORIALS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../COOKBOOK/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../USER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FAQ/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TROUBLESHOOTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conventions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#base-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Base URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-based-vs-instant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job-based vs instant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-response-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job response format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Health &amp; Meta
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Health &amp; Meta">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /health
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1hardware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/hardware
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#folding-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding &amp; Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Folding &amp; Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1fold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/fold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1iterative_design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/iterative_design
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1evaluate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/evaluate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1analyze" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/analyze
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1explain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/explain
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mutation-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mutation &amp; Comparison
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mutation &amp; Comparison">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1mutate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/mutate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1predict_ddg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/predict_ddg
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/compare
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1align" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/align
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1dock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/dock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/screen
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Molecular Dynamics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Molecular Dynamics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1md" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/md
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Sources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1fetch_uniprot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/fetch_uniprot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1fetch_pdb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/fetch_pdb
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1famous_proteins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/famous_proteins
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-carbon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost &amp; Carbon
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cost &amp; Carbon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Workspace
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Project Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1projectssave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/projects/save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1projectsload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/projects/load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1projects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/projects
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-v1projectsname" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /v1/projects/{name}
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Status
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job Status">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-v1jobsjob_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/jobs/{job_id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chat">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1chat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/chat
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SCIENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Science
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conventions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#base-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Base URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-based-vs-instant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job-based vs instant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#job-response-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job response format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Health &amp; Meta
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Health &amp; Meta">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /health
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1hardware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/hardware
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#folding-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folding &amp; Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Folding &amp; Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1fold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/fold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/design
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1iterative_design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/iterative_design
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analysis
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1evaluate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/evaluate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1analyze" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/analyze
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1explain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/explain
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mutation-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mutation &amp; Comparison
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mutation &amp; Comparison">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1mutate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/mutate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1predict_ddg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/predict_ddg
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/compare
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1align" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/align
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docking
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1dock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/dock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1screen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/screen
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Molecular Dynamics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Molecular Dynamics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1md" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/md
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Sources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data Sources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1fetch_uniprot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/fetch_uniprot
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1fetch_pdb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/fetch_pdb
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1famous_proteins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/famous_proteins
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-carbon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost &amp; Carbon
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cost &amp; Carbon">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Workspace
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Project Workspace">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1projectssave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/projects/save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-v1projectsload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/projects/load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1projects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/projects
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-v1projectsname" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /v1/projects/{name}
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job Status
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Job Status">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-v1jobsjob_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/jobs/{job_id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-v1jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /v1/jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chat">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-v1chat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /v1/chat
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="opendna-api-reference">OpenDNA API Reference<a class="headerlink" href="#opendna-api-reference" title="Permanent link">&para;</a></h1>
+<p>Complete reference for the OpenDNA REST API. The server runs on <code>http://localhost:8765</code> by default.</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#health--meta">Health &amp; Meta</a></li>
+<li><a href="#folding--design">Folding &amp; Design</a></li>
+<li><a href="#analysis">Analysis</a></li>
+<li><a href="#mutation--comparison">Mutation &amp; Comparison</a></li>
+<li><a href="#docking">Docking</a></li>
+<li><a href="#molecular-dynamics">Molecular Dynamics</a></li>
+<li><a href="#data-sources">Data Sources</a></li>
+<li><a href="#cost--carbon">Cost &amp; Carbon</a></li>
+<li><a href="#project-workspace">Project Workspace</a></li>
+<li><a href="#job-status">Job Status</a></li>
+<li><a href="#conventions">Conventions</a></li>
+</ul>
+<hr />
+<h2 id="conventions">Conventions<a class="headerlink" href="#conventions" title="Permanent link">&para;</a></h2>
+<h3 id="base-url">Base URL<a class="headerlink" href="#base-url" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>http://localhost:8765
+</span></code></pre></div>
+<h3 id="content-type">Content type<a class="headerlink" href="#content-type" title="Permanent link">&para;</a></h3>
+<p>All POST requests use <code>application/json</code>.</p>
+<h3 id="job-based-vs-instant">Job-based vs instant<a class="headerlink" href="#job-based-vs-instant" title="Permanent link">&para;</a></h3>
+<p>Some endpoints return immediately with a <code>job_id</code> and run the work in the background. Others compute synchronously and return the result directly.</p>
+<table>
+<thead>
+<tr>
+<th>Job-based (background)</th>
+<th>Instant (synchronous)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/v1/fold</code></td>
+<td><code>/v1/evaluate</code></td>
+</tr>
+<tr>
+<td><code>/v1/design</code></td>
+<td><code>/v1/analyze</code></td>
+</tr>
+<tr>
+<td><code>/v1/iterative_design</code></td>
+<td><code>/v1/explain</code></td>
+</tr>
+<tr>
+<td><code>/v1/md</code></td>
+<td><code>/v1/mutate</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/chat</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/compare</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/dock</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/screen</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/align</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/predict_ddg</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/cost</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/fetch_uniprot</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>/v1/fetch_pdb</code></td>
+</tr>
+</tbody>
+</table>
+<p>For job-based endpoints, poll <code>/v1/jobs/{job_id}</code> until status is <code>completed</code> or <code>failed</code>.</p>
+<h3 id="job-response-format">Job response format<a class="headerlink" href="#job-response-format" title="Permanent link">&para;</a></h3>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc12345&quot;</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;running&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;completed&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;failed&quot;</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0..1.0</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">&quot;result&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;error message&quot;</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<hr />
+<h2 id="health-meta">Health &amp; Meta<a class="headerlink" href="#health-meta" title="Permanent link">&para;</a></h2>
+<h3 id="get-health"><code>GET /health</code><a class="headerlink" href="#get-health" title="Permanent link">&para;</a></h3>
+<p>Server health check.</p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.2.0&quot;</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;engines&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;fold&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;design&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;iterative_design&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;evaluate&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;analyze&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;explain&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;mutate&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;compare&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;dock&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;screen&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;md&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;disorder&quot;</span><span class="p">]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1hardware"><code>GET /v1/hardware</code><a class="headerlink" href="#get-v1hardware" title="Permanent link">&para;</a></h3>
+<p>Detected hardware info.</p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;cpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Intel(R) Core(TM) i7-12700K&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;cores&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;ram_gb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">32.0</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;gpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVIDIA GeForce RTX 3070&quot;</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">&quot;vram_gb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">8.0</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">&quot;backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda&quot;</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">&quot;recommended_tier&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gaming&quot;</span><span class="p">,</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">&quot;recommended_backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="nt">&quot;recommended_precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fp16&quot;</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<hr />
+<h2 id="folding-design">Folding &amp; Design<a class="headerlink" href="#folding-design" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1fold"><code>POST /v1/fold</code><a class="headerlink" href="#post-v1fold" title="Permanent link">&para;</a></h3>
+<p>Predict the 3D structure of a protein from its amino acid sequence using ESMFold.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLKSIVRILERSKEPVSGAQLAEELS&quot;</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Parameters:</strong>
+- <code>sequence</code> (string, required) — Amino acid sequence (1-letter codes)
+- <code>method</code> (string, optional) — <code>"auto"</code> or <code>"esmfold"</code>. Default: <code>"auto"</code>
+- <code>device</code> (string, optional) — <code>"cuda"</code>, <code>"cpu"</code>, <code>"mps"</code>. Default: auto-detect</p>
+<p><strong>Response:</strong> <code>JobResponse</code> (poll <code>/v1/jobs/{job_id}</code>)</p>
+<p>When complete, <code>result</code> contains:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;pdb&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM      1  N   MET A   1      ...&quot;</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;mean_confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.87</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;esmfold&quot;</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">&quot;explanation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Good confidence prediction. Most of the structure is reliable.&quot;</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1design"><code>POST /v1/design</code><a class="headerlink" href="#post-v1design" title="Permanent link">&para;</a></h3>
+<p>Generate alternative protein sequences for a given backbone structure using ESM-IF1 inverse folding.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM      1  N   MET ...&quot;</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;num_candidates&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;temperature&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.1</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Parameters:</strong>
+- <code>pdb_string</code> (string, required) — PDB-format structure content
+- <code>num_candidates</code> (int, 1-100, default 10) — How many sequences to generate
+- <code>temperature</code> (float, 0.01-2.0, default 0.1) — Sampling temperature (higher = more diverse)
+- <code>device</code> (string, optional) — Compute device</p>
+<p><strong>Response:</strong> <code>JobResponse</code></p>
+<p>When complete:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;candidates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.85</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;recovery&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.62</span><span class="p">},</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="err">...</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">&quot;method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;esm-if1&quot;</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">&quot;explanation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Generated 10 candidate sequences using ESM-IF1 inverse folding...&quot;</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1iterative_design"><code>POST /v1/iterative_design</code><a class="headerlink" href="#post-v1iterative_design" title="Permanent link">&para;</a></h3>
+<p>Run an automated optimization loop: fold → design → score → keep best → repeat.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLKSIVRILER&quot;</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">&quot;n_rounds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">&quot;candidates_per_round&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">&quot;temperature&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.2</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong> <code>JobResponse</code></p>
+<p>When complete:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;initial_sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLKSIVRILER&quot;</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">&quot;final_sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLKSIVRILER&quot;</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">&quot;initial_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.62</span><span class="p">,</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">&quot;final_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.78</span><span class="p">,</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">&quot;improvement&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.16</span><span class="p">,</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">&quot;history&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;round&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;best_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.62</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;candidates_evaluated&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;round&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;best_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.71</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;improved&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;candidates_evaluated&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">},</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="err">...</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="nt">&quot;rounds&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;round&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.62</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.85</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pdb&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span><span class="p">},</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">    </span><span class="err">...</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<hr />
+<h2 id="analysis">Analysis<a class="headerlink" href="#analysis" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1evaluate"><code>POST /v1/evaluate</code><a class="headerlink" href="#post-v1evaluate" title="Permanent link">&para;</a></h3>
+<p>Compute the composite quality score for a sequence.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK...&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;overall&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.69</span><span class="p">,</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.3</span><span class="p">,</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">&quot;breakdown&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">&quot;stability&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.75</span><span class="p">,</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="nt">&quot;solubility&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.80</span><span class="p">,</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="nt">&quot;immunogenicity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.97</span><span class="p">,</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="nt">&quot;developability&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.60</span><span class="p">,</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="nt">&quot;novelty&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.50</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;This protein looks promising (69/100). ...&quot;</span><span class="p">,</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">&quot;recommendations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Note: this score is sequence-only...&quot;</span><span class="p">]</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1analyze"><code>POST /v1/analyze</code><a class="headerlink" href="#post-v1analyze" title="Permanent link">&para;</a></h3>
+<p>Run the comprehensive analysis suite (Schrödinger QikProp equivalent + extras).</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK...&quot;</span><span class="p">,</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span><span class="w">  </span><span class="c1">// optional, enables structure-based analyses</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong> Full analysis object with sections:
+- <code>properties</code> — MW, pI, GRAVY, instability, half-life, composition, etc.
+- <code>lipinski</code> — Rule of Five with violations
+- <code>hydropathy_profile</code> — Per-residue Kyte-Doolittle scores
+- <code>disorder</code> — IUPred-like disorder scores and regions
+- <code>transmembrane</code> — TMHMM-like helix prediction
+- <code>signal_peptide</code> — Signal peptide detection
+- <code>aggregation</code> — TANGO-like aggregation propensity
+- <code>phosphorylation</code> — Phospho sites by kinase
+- <code>glycosylation</code> — N/O-linked sites
+- <code>structure</code> (if PDB provided) — Secondary structure, Ramachandran, RMSD, pockets, bonds</p>
+<h3 id="post-v1explain"><code>POST /v1/explain</code><a class="headerlink" href="#post-v1explain" title="Permanent link">&para;</a></h3>
+<p>Generate a plain-English explanation of a protein.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK...&quot;</span><span class="p">,</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span><span class="w">  </span><span class="c1">// optional</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">&quot;explanation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;This protein has 76 amino acids (8565 Da)...&quot;</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p>If Ollama is running locally with <code>llama3.2:3b</code>, uses real LLM. Otherwise falls back to a detailed heuristic explanation.</p>
+<hr />
+<h2 id="mutation-comparison">Mutation &amp; Comparison<a class="headerlink" href="#mutation-comparison" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1mutate"><code>POST /v1/mutate</code><a class="headerlink" href="#post-v1mutate" title="Permanent link">&para;</a></h3>
+<p>Apply a point mutation to a sequence.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTV...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mutation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;K2R&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">&quot;original&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTV...&quot;</span><span class="p">,</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">&quot;mutated&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MRTV...&quot;</span><span class="p">,</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">&quot;mutation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;K2R&quot;</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Errors with 400 if the mutation format is invalid or the position doesn't match.</p>
+<h3 id="post-v1predict_ddg"><code>POST /v1/predict_ddg</code><a class="headerlink" href="#post-v1predict_ddg" title="Permanent link">&para;</a></h3>
+<p>Estimate stability change (ΔΔG) for a mutation.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTV...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mutation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;K2R&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">&quot;mutation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;K2R&quot;</span><span class="p">,</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">&quot;ddg_kcal_mol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.40</span><span class="p">,</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">&quot;classification&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;destabilizing&quot;</span><span class="p">,</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nt">&quot;interpretation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Mutating K at position 2 to R is predicted to be destabilizing...&quot;</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1compare"><code>POST /v1/compare</code><a class="headerlink" href="#post-v1compare" title="Permanent link">&para;</a></h3>
+<p>Compare two structures.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">&quot;pdb_a&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span><span class="p">,</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">&quot;pdb_b&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">&quot;rmsd&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.234</span><span class="p">,</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">&quot;length_1&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">76</span><span class="p">,</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">&quot;length_2&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">76</span><span class="p">,</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">&quot;aligned_residues&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">76</span><span class="p">,</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span><span class="nt">&quot;ss_identity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.91</span><span class="p">,</span>
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">  </span><span class="nt">&quot;rg_1&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">11.5</span><span class="p">,</span>
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">  </span><span class="nt">&quot;rg_2&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">11.7</span>
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1align"><code>POST /v1/align</code><a class="headerlink" href="#post-v1align" title="Permanent link">&para;</a></h3>
+<p>Pairwise sequence alignment via Needleman-Wunsch with BLOSUM62.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">&quot;seq1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK&quot;</span><span class="p">,</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">&quot;seq2&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRAERLK&quot;</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">48</span><span class="p">,</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">&quot;identity_pct&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">90.0</span><span class="p">,</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nt">&quot;similarity_pct&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">100.0</span><span class="p">,</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nt">&quot;aligned_length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">  </span><span class="nt">&quot;alignment_1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK&quot;</span><span class="p">,</span>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">  </span><span class="nt">&quot;alignment_2&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRAERLK&quot;</span><span class="p">,</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">  </span><span class="nt">&quot;comparison&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;|||||:||||&quot;</span><span class="p">,</span>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">  </span><span class="nt">&quot;matches&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span>
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<hr />
+<h2 id="docking">Docking<a class="headerlink" href="#docking" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1dock"><code>POST /v1/dock</code><a class="headerlink" href="#post-v1dock" title="Permanent link">&para;</a></h3>
+<p>Dock a small molecule (SMILES) into a protein.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span><span class="p">,</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">&quot;ligand_smiles&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CC(=O)Oc1ccccc1C(=O)O&quot;</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong> Heuristic-based docking result. Real DiffDock integration is planned.</p>
+<h3 id="post-v1screen"><code>POST /v1/screen</code><a class="headerlink" href="#post-v1screen" title="Permanent link">&para;</a></h3>
+<p>Virtual screen multiple ligands against one protein.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span><span class="p">,</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="nt">&quot;ligands&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CCO&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CC(=O)O&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CC(=O)Oc1ccccc1C(=O)O&quot;</span><span class="p">]</span>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong> Ranked list of ligands by predicted affinity.</p>
+<hr />
+<h2 id="molecular-dynamics">Molecular Dynamics<a class="headerlink" href="#molecular-dynamics" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1md"><code>POST /v1/md</code><a class="headerlink" href="#post-v1md" title="Permanent link">&para;</a></h3>
+<p>Run a quick MD simulation.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM...&quot;</span><span class="p">,</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">&quot;duration_ps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong> <code>JobResponse</code>. When complete:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">&quot;duration_ps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">&quot;n_frames&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">&quot;rmsd_trajectory&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="p">],</span>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">  </span><span class="nt">&quot;final_rmsd&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.5</span><span class="p">,</span>
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">  </span><span class="nt">&quot;stable&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">  </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Heuristic estimate from pLDDT confidence...&quot;</span>
+</span><span id="__span-26-8"><a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p>If OpenMM is installed (<code>pip install openmm</code>), runs real MD. Otherwise heuristic.</p>
+<hr />
+<h2 id="data-sources">Data Sources<a class="headerlink" href="#data-sources" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1fetch_uniprot"><code>POST /v1/fetch_uniprot</code><a class="headerlink" href="#post-v1fetch_uniprot" title="Permanent link">&para;</a></h3>
+<p>Fetch a protein from UniProt.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;accession&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;P0CG48&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>You can also use famous names: <code>"ubiquitin"</code>, <code>"insulin"</code>, <code>"gfp"</code>, etc.</p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span>
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span><span class="nt">&quot;accession&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;P0CG48&quot;</span><span class="p">,</span>
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;UBC_HUMAN&quot;</span><span class="p">,</span>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="w">  </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MQIFVKTLTGK...&quot;</span><span class="p">,</span>
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="w">  </span><span class="nt">&quot;organism&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Homo sapiens&quot;</span><span class="p">,</span>
+</span><span id="__span-28-6"><a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="w">  </span><span class="nt">&quot;length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">685</span><span class="p">,</span>
+</span><span id="__span-28-7"><a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Polyubiquitin-C&quot;</span>
+</span><span id="__span-28-8"><a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1fetch_pdb"><code>POST /v1/fetch_pdb</code><a class="headerlink" href="#post-v1fetch_pdb" title="Permanent link">&para;</a></h3>
+<p>Fetch a structure from RCSB PDB.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;pdb_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1UBQ&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="p">{</span>
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">  </span><span class="nt">&quot;pdb_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1UBQ&quot;</span><span class="p">,</span>
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="w">  </span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HEADER ...\nATOM ...&quot;</span>
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1famous_proteins"><code>GET /v1/famous_proteins</code><a class="headerlink" href="#get-v1famous_proteins" title="Permanent link">&para;</a></h3>
+<p>List supported famous protein shortcuts.</p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="p">{</span>
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="w">  </span><span class="nt">&quot;ubiquitin&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;P0CG48&quot;</span><span class="p">,</span>
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">  </span><span class="nt">&quot;insulin&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;P01308&quot;</span><span class="p">,</span>
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="w">  </span><span class="nt">&quot;gfp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;P42212&quot;</span><span class="p">,</span>
+</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="w">  </span><span class="err">...</span>
+</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<hr />
+<h2 id="cost-carbon">Cost &amp; Carbon<a class="headerlink" href="#cost-carbon" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1cost"><code>POST /v1/cost</code><a class="headerlink" href="#post-v1cost" title="Permanent link">&para;</a></h3>
+<p>Estimate synthesis cost and computational carbon footprint.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK...&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="p">{</span>
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">  </span><span class="nt">&quot;synthesis&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="w">    </span><span class="nt">&quot;sequence_length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-33-4"><a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">    </span><span class="nt">&quot;twist_bioscience_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">52.10</span><span class="p">,</span>
+</span><span id="__span-33-5"><a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="w">    </span><span class="nt">&quot;idt_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">70.40</span><span class="p">,</span>
+</span><span id="__span-33-6"><a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="w">    </span><span class="nt">&quot;genscript_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">103.50</span><span class="p">,</span>
+</span><span id="__span-33-7"><a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a><span class="w">    </span><span class="nt">&quot;cheapest_vendor&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Twist Bioscience&quot;</span><span class="p">,</span>
+</span><span id="__span-33-8"><a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a><span class="w">    </span><span class="nt">&quot;cheapest_price&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">52.10</span><span class="p">,</span>
+</span><span id="__span-33-9"><a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a><span class="w">    </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Estimates based on 2024 average per-base-pair pricing...&quot;</span>
+</span><span id="__span-33-10"><a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-33-11"><a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a><span class="w">  </span><span class="nt">&quot;compute_carbon_cpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-33-12"><a id="__codelineno-33-12" name="__codelineno-33-12" href="#__codelineno-33-12"></a><span class="w">    </span><span class="nt">&quot;energy_kwh&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.000144</span><span class="p">,</span>
+</span><span id="__span-33-13"><a id="__codelineno-33-13" name="__codelineno-33-13" href="#__codelineno-33-13"></a><span class="w">    </span><span class="nt">&quot;co2_kg&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0000578</span><span class="p">,</span>
+</span><span id="__span-33-14"><a id="__codelineno-33-14" name="__codelineno-33-14" href="#__codelineno-33-14"></a><span class="w">    </span><span class="nt">&quot;equivalent&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;~58 mg CO2 (a single breath)&quot;</span>
+</span><span id="__span-33-15"><a id="__codelineno-33-15" name="__codelineno-33-15" href="#__codelineno-33-15"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-33-16"><a id="__codelineno-33-16" name="__codelineno-33-16" href="#__codelineno-33-16"></a><span class="w">  </span><span class="nt">&quot;compute_carbon_gpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-33-17"><a id="__codelineno-33-17" name="__codelineno-33-17" href="#__codelineno-33-17"></a><span class="w">    </span><span class="nt">&quot;energy_kwh&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0000347</span><span class="p">,</span>
+</span><span id="__span-33-18"><a id="__codelineno-33-18" name="__codelineno-33-18" href="#__codelineno-33-18"></a><span class="w">    </span><span class="nt">&quot;co2_kg&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0000139</span><span class="p">,</span>
+</span><span id="__span-33-19"><a id="__codelineno-33-19" name="__codelineno-33-19" href="#__codelineno-33-19"></a><span class="w">    </span><span class="nt">&quot;equivalent&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;~14 mg CO2&quot;</span>
+</span><span id="__span-33-20"><a id="__codelineno-33-20" name="__codelineno-33-20" href="#__codelineno-33-20"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-33-21"><a id="__codelineno-33-21" name="__codelineno-33-21" href="#__codelineno-33-21"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<hr />
+<h2 id="project-workspace">Project Workspace<a class="headerlink" href="#project-workspace" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1projectssave"><code>POST /v1/projects/save</code><a class="headerlink" href="#post-v1projectssave" title="Permanent link">&para;</a></h3>
+<p>Save a workspace.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="p">{</span>
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_cancer_binder&quot;</span><span class="p">,</span>
+</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-34-4"><a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="w">    </span><span class="nt">&quot;structures&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="err">...</span><span class="p">],</span>
+</span><span id="__span-34-5"><a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a><span class="w">    </span><span class="nt">&quot;sequences&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="err">...</span><span class="p">]</span>
+</span><span id="__span-34-6"><a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-34-7"><a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1projectsload"><code>POST /v1/projects/load</code><a class="headerlink" href="#post-v1projectsload" title="Permanent link">&para;</a></h3>
+<p>Load a workspace.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_cancer_binder&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1projects"><code>GET /v1/projects</code><a class="headerlink" href="#get-v1projects" title="Permanent link">&para;</a></h3>
+<p>List all saved projects.</p>
+<h3 id="delete-v1projectsname"><code>DELETE /v1/projects/{name}</code><a class="headerlink" href="#delete-v1projectsname" title="Permanent link">&para;</a></h3>
+<p>Delete a project.</p>
+<hr />
+<h2 id="job-status">Job Status<a class="headerlink" href="#job-status" title="Permanent link">&para;</a></h2>
+<h3 id="get-v1jobsjob_id"><code>GET /v1/jobs/{job_id}</code><a class="headerlink" href="#get-v1jobsjob_id" title="Permanent link">&para;</a></h3>
+<p>Get the status of a specific job.</p>
+<p><strong>Response:</strong> <code>JobResponse</code></p>
+<h3 id="get-v1jobs"><code>GET /v1/jobs</code><a class="headerlink" href="#get-v1jobs" title="Permanent link">&para;</a></h3>
+<p>List all jobs (capped at 50, most recent first).</p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="p">{</span>
+</span><span id="__span-36-2"><a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">  </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-36-3"><a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc123&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fold&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;completed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1704067200.0</span><span class="p">},</span>
+</span><span id="__span-36-4"><a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="w">    </span><span class="err">...</span>
+</span><span id="__span-36-5"><a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-36-6"><a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<hr />
+<h2 id="chat">Chat<a class="headerlink" href="#chat" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1chat"><code>POST /v1/chat</code><a class="headerlink" href="#post-v1chat" title="Permanent link">&para;</a></h3>
+<p>Parse a natural language message into an intent.</p>
+<p><strong>Request:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fold MKTVRQERLK&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div></p>
+<p><strong>Response:</strong>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="p">{</span>
+</span><span id="__span-38-2"><a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a><span class="w">  </span><span class="nt">&quot;action&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fold&quot;</span><span class="p">,</span>
+</span><span id="__span-38-3"><a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a><span class="w">  </span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKTVRQERLK&quot;</span><span class="p">,</span>
+</span><span id="__span-38-4"><a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a><span class="w">  </span><span class="nt">&quot;mutation&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-38-5"><a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a><span class="w">  </span><span class="nt">&quot;response&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Folding sequence (10 residues)...&quot;</span>
+</span><span id="__span-38-6"><a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Possible <code>action</code> values: <code>fold</code>, <code>score</code>, <code>design</code>, <code>mutate</code>, <code>explain</code>, <code>help</code>, <code>unknown</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dyber-pqc/OpenDNA" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
