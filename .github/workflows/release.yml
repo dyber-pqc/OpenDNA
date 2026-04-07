@@ -67,9 +67,93 @@ jobs:
           name: ui-bundle
           path: opendna-ui-*.tar.gz
 
+  desktop-build:
+    name: Desktop installer (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            artifact-name: desktop-macos
+          - platform: ubuntu-22.04
+            artifact-name: desktop-linux
+          - platform: windows-latest
+            artifact-name: desktop-windows
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./ui/src-tauri -> target
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Build UI
+        working-directory: ui
+        run: npm run build
+
+      - name: Build Tauri desktop app
+        working-directory: ui
+        run: npx tauri build
+
+      - name: Collect installer artifacts
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p desktop-bundles
+          # Copy all installer types
+          find ui/src-tauri/target/release/bundle -type f \( \
+            -name "*.dmg" -o \
+            -name "*.app.tar.gz" -o \
+            -name "*.deb" -o \
+            -name "*.rpm" -o \
+            -name "*.AppImage" -o \
+            -name "*.msi" -o \
+            -name "*-setup.exe" \
+          \) -exec cp {} desktop-bundles/ \; 2>/dev/null || true
+          ls -la desktop-bundles/ || echo "No desktop bundles found"
+
+      - name: Upload desktop bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: desktop-bundles/*
+          if-no-files-found: warn
+
   github-release:
-    name: Create GitHub Release
-    needs: [python-package, ui-bundle]
+    name: Create unified GitHub Release
+    needs: [python-package, ui-bundle, desktop-build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -82,12 +166,20 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create release
+      - name: List collected artifacts
+        run: |
+          echo "=== All artifacts ==="
+          find artifacts -type f -ls
+
+      - name: Create unified release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/python-package/*
             artifacts/ui-bundle/*
+            artifacts/desktop-macos/*
+            artifacts/desktop-linux/*
+            artifacts/desktop-windows/*
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
@@ -99,53 +191,65 @@ jobs:
 
             ---
 
-            ## 📦 What's in this release
+            ## 📦 Choose your download
 
-            ### Python package (Server + SDK + CLI)
+            ### 🖥️ Desktop installers (easiest — recommended for most users)
+
+            One-click installers that bundle the OpenDNA desktop app. You still need Python 3.10+ and `pip install opendna` for the backend.
+
+            | OS | File pattern | Notes |
+            |---|---|---|
+            | 🪟 **Windows** | `OpenDNA_*_x64_en-US.msi` | ⭐ Microsoft Installer (recommended) |
+            | 🪟 **Windows** | `OpenDNA_*-setup.exe` | NSIS installer (alternative) |
+            | 🍎 **macOS** | `OpenDNA_*_aarch64.dmg` | Apple Silicon |
+            | 🍎 **macOS** | `OpenDNA.app.tar.gz` | Pre-built app bundle |
+            | 🐧 **Linux** | `OpenDNA_*_amd64.AppImage` | ⭐ Single-file portable executable |
+            | 🐧 **Linux** | `OpenDNA_*_amd64.deb` | Debian/Ubuntu package |
+            | 🐧 **Linux** | `OpenDNA-*-1.x86_64.rpm` | Red Hat/Fedora package |
+
+            ⚠️ **These builds are unsigned.** On first launch:
+            - **Windows**: SmartScreen → "More info" → "Run anyway"
+            - **macOS**: Right-click → Open (don't double-click)
+            - **Linux AppImage**: `chmod +x OpenDNA_*.AppImage`
+
+            ### 🐍 Python package (for CLI, API server, and SDK use)
+
             - `opendna-X.Y.Z.tar.gz` — source distribution
             - `opendna-X.Y.Z-py3-none-any.whl` — pre-built wheel (Python 3.10+, all platforms)
 
-            ### UI bundle (Web frontend)
-            - `opendna-ui-${{ github.ref_name }}.tar.gz` — pre-built React + Vite static bundle, ready to serve from any HTTP server
+            Or install directly from PyPI:
+            ```bash
+            pip install opendna           # lightweight (no ML models)
+            pip install opendna[ml]       # with ESMFold + ESM-IF1
+            pip install opendna[all]      # everything (ML + MD + dev tooling)
+            ```
 
-            ### Desktop installers
-            Native desktop installers are built separately by the **Tauri Desktop Build** workflow and attached to a different release. Look for `.exe`, `.msi`, `.dmg`, `.AppImage`, and `.deb` files in [Releases](https://github.com/dyber-pqc/OpenDNA/releases).
+            ### 🌐 Web UI bundle (for self-hosted deployments)
+
+            - `opendna-ui-${{ github.ref_name }}.tar.gz` — pre-built React + Vite static bundle
+            - Serve from any static file server, point at an OpenDNA API server
 
             ---
 
-            ## 🚀 Quick install
+            ## 🚀 Quick start
 
-            ### Option 1: Python package (CLI + API server + SDK)
+            ### Path A: Desktop app (easiest)
+
+            1. Download the installer for your OS from the assets above
+            2. Install Python 3.10+ if you don't have it
+            3. Open a terminal and run: `pip install opendna[ml]`
+            4. Launch the OpenDNA desktop app
+            5. Click **Tools → Score Protein** with sequence `MKTVRQERLKSIVRILER` for an instant test
+            6. Click **Import → ubiquitin** to load a real protein and fold it
+
+            ### Path B: Python only (server + SDK)
 
             ```bash
-            # Core install (lightweight, no ML models)
-            pip install opendna
-
-            # With ML stack (ESMFold, ESM-IF1, ~3 GB of dependencies)
             pip install opendna[ml]
-
-            # With everything (ML + MD + dev tooling)
-            pip install opendna[all]
-            ```
-
-            Then start the server:
-            ```bash
             opendna serve --port 8765
             ```
 
-            ### Option 2: Web UI bundle
-
-            ```bash
-            tar -xzf opendna-ui-${{ github.ref_name }}.tar.gz
-            cd dist
-            python -m http.server 5173
-            # or use any static file server
-            ```
-
-            Then open http://localhost:5173 in your browser. The UI expects the API server at `http://localhost:8765`.
-
-            ### Option 3: Python SDK from your own scripts
-
+            Then use the Python SDK from your scripts:
             ```python
             from opendna.sdk import Client
 
@@ -159,25 +263,78 @@ jobs:
                 fold.save("output.pdb")
 
                 # Run the AI agent on a high-level goal
-                result = c.agent("Import ubiquitin and tell me about it")
+                result = c.agent("Import ubiquitin and tell me about its properties")
                 print(result["final_answer"])
             ```
+
+            ### Path C: Web UI + your own backend
+
+            ```bash
+            # Backend
+            pip install opendna[ml]
+            opendna serve --port 8765
+
+            # Frontend (in another terminal)
+            tar -xzf opendna-ui-${{ github.ref_name }}.tar.gz
+            cd dist
+            python -m http.server 5173
+            ```
+
+            Then open http://localhost:5173 in your browser.
 
             ---
 
             ## 🧪 What you can do with this release
 
+            ### Structure prediction & design
             - **Predict 3D protein structures** with ESMFold (state-of-the-art, no MSA needed)
             - **Design alternative sequences** with ESM-IF1 inverse folding
             - **Run automated optimization loops** (fold → design → fold → keep best → repeat)
-            - **Compute ~50 sequence and structure analyses**: Lipinski, hydropathy, disorder, transmembrane, signal peptides, aggregation, phosphorylation/glycosylation sites, secondary structure, Ramachandran, binding pockets, H-bonds, salt bridges, disulfides, pKa, QSAR descriptors, antibody CDR detection, MolProbity-style validation, and more
             - **Predict mutation effects** (ΔΔG estimation)
-            - **Estimate synthesis cost** (Twist Bioscience, IDT, GenScript) and carbon footprint
-            - **Import proteins** from UniProt, RCSB PDB, and AlphaFold DB
+            - **Constrained design** (preserve active site residues)
+            - **Multi-objective Pareto optimization** across stability, solubility, immunogenicity, etc.
+            - **Multimer prediction** with Boltz (when installed)
+
+            ### ~50 sequence and structure analyses
+            - **Drug-likeness**: Lipinski Rule of Five
+            - **Hydrophobicity**: Kyte-Doolittle profile
+            - **Disorder**: IUPred-like prediction
+            - **Membrane**: TMHMM-style transmembrane helix prediction
+            - **Secretion**: SignalP-style signal peptide detection
+            - **Aggregation**: TANGO-style propensity
+            - **Phosphorylation**: kinase consensus motifs (PKA, PKC, CK2, CDK, GSK3, MAPK)
+            - **Glycosylation**: N- and O-linked sites
+            - **Properties**: MW, pI, GRAVY, instability index, half-life, extinction coefficient
+            - **Structure**: secondary structure, Ramachandran, radius of gyration, SASA
+            - **Bonds**: H-bonds, salt bridges, disulfides
+            - **Pockets**: binding site detection
+            - **pKa**: PROPKA-style ionizable residue prediction
+            - **Validation**: MolProbity-style structure quality check
+            - **Antibodies**: Kabat/Chothia CDR detection
+            - **Pharmacophore**: 3D feature extraction
+            - **Conservation**: ESM-2 perplexity-based scoring
+            - **QSAR**: 26 descriptors
+            - **Alignment**: Needleman-Wunsch with BLOSUM62
+
+            ### Real-world workflows
+            - **Import proteins** from UniProt, RCSB PDB, AlphaFold DB (15 famous proteins shortcut)
             - **Compare structures** with Kabsch RMSD
             - **Run molecular dynamics** with OpenMM (when installed) and explicit TIP3P solvent
-            - **Use the LLM agent** for natural-language workflows (with Ollama/Anthropic/OpenAI support)
-            - **Run the self-benchmark** against AlphaFold DB references
+            - **Estimate synthesis cost** for Twist Bioscience, IDT, GenScript
+            - **Track carbon footprint** of computations
+            - **Save and share projects** as `.opendna` zip files
+            - **Run YAML workflows** for reproducible pipelines
+
+            ### AI agent
+            - **LLM tool calling** with Ollama (local), Anthropic, or OpenAI
+            - **Natural language workflows**: *"Import p53, score it, find its CDRs"*
+            - **Multi-step reasoning** with full execution trace
+            - **Heuristic fallback** when no LLM available
+
+            ### Validation
+            - **Self-benchmarking framework** comparing against AlphaFold DB references
+            - **48 unit tests** with reference data on real proteins
+            - **Cross-platform CI** (Win/Mac/Linux × Python 3.10/3.11/3.12)
 
             ---
 
@@ -215,6 +372,7 @@ jobs:
             - **[Troubleshooting](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/TROUBLESHOOTING.md)** — when things break
             - **[Roadmap](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/ROADMAP.md)** — what's coming next
             - **[Model Cards](https://github.com/dyber-pqc/OpenDNA/blob/main/MODEL_CARD.md)** — ML model details and limitations
+            - **[Preprint paper](https://github.com/dyber-pqc/OpenDNA/blob/main/paper/preprint.md)** — academic manuscript
 
             ---
 
