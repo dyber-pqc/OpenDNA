@@ -123,28 +123,39 @@ function ProteinViewer({
           label: "Predicted Structure",
         });
         const traj = await plugin.builders.structure.parseTrajectory(data, "pdb");
-        await plugin.builders.structure.hierarchy.applyPreset(traj, "default");
 
-        // Switch representation type based on repMode
+        // Map our repMode to the appropriate Molstar preset
+        const presetMap: Record<string, string> = {
+          "cartoon": "default",
+          "ball-and-stick": "atomic-detail",
+          "spacefill": "atomic-detail",
+          "surface": "default",
+        };
+        const presetName = presetMap[repMode] || "default";
+
         try {
-          const struct = plugin.managers.structure.hierarchy.current.structures[0];
-          if (struct?.components) {
-            const repTypeMap: Record<string, string> = {
-              "cartoon": "cartoon",
-              "ball-and-stick": "ball-and-stick",
-              "spacefill": "spacefill",
-              "surface": "molecular-surface",
-            };
-            const repType = repTypeMap[repMode] || "cartoon";
-            for (const comp of struct.components) {
-              await plugin.managers.structure.component.updateRepresentationsTheme(
-                [comp],
-                { type: repType as any }
-              );
+          await plugin.builders.structure.hierarchy.applyPreset(traj, presetName as any);
+        } catch {
+          await plugin.builders.structure.hierarchy.applyPreset(traj, "default");
+        }
+
+        // Add additional representations on top for surface/spacefill modes
+        if (repMode === "surface" || repMode === "spacefill") {
+          try {
+            const struct = plugin.managers.structure.hierarchy.current.structures[0];
+            if (struct?.components && struct.components.length > 0) {
+              const reprType = repMode === "surface" ? "molecular-surface" : "spacefill";
+              const builder = plugin.builders.structure.representation;
+              for (const comp of struct.components) {
+                await (builder as any).addRepresentation(comp.cell, {
+                  type: reprType,
+                  color: colorMode === "confidence" ? "plddt-confidence" : "chain-id",
+                });
+              }
             }
+          } catch (e) {
+            console.warn("Could not add representation:", e);
           }
-        } catch (e) {
-          console.warn("Could not switch representation:", e);
         }
 
         // Apply color theme: AlphaFold-style pLDDT or chain-id
