@@ -10,6 +10,7 @@ import Dashboard from "./components/Dashboard/Dashboard";
 import Academy from "./components/Academy/Academy";
 import IterativePanel from "./components/IterativePanel/IterativePanel";
 import AgentPanel from "./components/AgentPanel/AgentPanel";
+import BackendStatus from "./components/BackendStatus/BackendStatus";
 import { useToasts } from "./hooks/useToasts";
 import { useKeyboard } from "./hooks/useKeyboard";
 import * as api from "./api/client";
@@ -672,6 +673,7 @@ function App() {
       <JobMonitor jobs={jobs} />
       <Toasts toasts={toasts} onRemove={removeToast} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
+      <BackendStatus />
     </div>
   );
 }
