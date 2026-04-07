@@ -1,10 +1,13 @@
-"""FastAPI server for OpenDNA."""
+"""FastAPI server for OpenDNA v0.2."""
 
 from __future__ import annotations
 
 import asyncio
+import json
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, is_dataclass
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -15,7 +18,7 @@ from sse_starlette.sse import EventSourceResponse
 app = FastAPI(
     title="OpenDNA API",
     description="The People's Protein Engineering Platform",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -26,30 +29,108 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Thread pool for compute-heavy tasks
-executor = ThreadPoolExecutor(max_workers=2)
-
-# In-memory job store (replace with DB in production)
+executor = ThreadPoolExecutor(max_workers=4)
 jobs: dict[str, dict] = {}
+result_cache: dict[str, dict] = {}  # hash -> result
 
 
-# --- Request/Response Models ---
+def _to_dict(obj):
+    """Recursively convert dataclasses to dicts."""
+    if is_dataclass(obj):
+        return {k: _to_dict(v) for k, v in asdict(obj).items()}
+    if isinstance(obj, dict):
+        return {k: _to_dict(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_to_dict(v) for v in obj]
+    return obj
+
+
+# =====================================================
+# Request models
+# =====================================================
 
 class FoldRequest(BaseModel):
-    sequence: str = Field(..., description="Amino acid sequence")
-    method: str = Field("auto", description="Folding method")
-    device: Optional[str] = Field(None, description="Compute device")
+    sequence: str
+    method: str = "auto"
+    device: Optional[str] = None
 
 
 class DesignRequest(BaseModel):
-    pdb_string: str = Field(..., description="Input PDB structure")
+    pdb_string: str
     num_candidates: int = Field(10, ge=1, le=100)
     temperature: float = Field(0.1, ge=0.01, le=2.0)
     device: Optional[str] = None
 
 
+class IterativeRequest(BaseModel):
+    sequence: str
+    n_rounds: int = Field(5, ge=1, le=20)
+    candidates_per_round: int = Field(5, ge=1, le=20)
+    temperature: float = 0.2
+
+
 class EvaluateRequest(BaseModel):
-    sequence: str = Field(..., description="Amino acid sequence")
+    sequence: str
+
+
+class MutateRequest(BaseModel):
+    sequence: str
+    mutation: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class AnalyzeRequest(BaseModel):
+    sequence: str
+    pdb_string: Optional[str] = None
+
+
+class ExplainRequest(BaseModel):
+    sequence: str
+    pdb_string: Optional[str] = None
+
+
+class FetchUniProtRequest(BaseModel):
+    accession: str
+
+
+class FetchPdbRequest(BaseModel):
+    pdb_id: str
+
+
+class CompareRequest(BaseModel):
+    pdb_a: str
+    pdb_b: str
+
+
+class DockRequest(BaseModel):
+    pdb_string: str
+    ligand_smiles: str
+
+
+class ScreenRequest(BaseModel):
+    pdb_string: str
+    ligands: list[str]
+
+
+class MdRequest(BaseModel):
+    pdb_string: str
+    duration_ps: float = 100
+
+
+class CostRequest(BaseModel):
+    sequence: str
+
+
+class ProjectSaveRequest(BaseModel):
+    name: str
+    data: dict
+
+
+class ProjectLoadRequest(BaseModel):
+    name: str
 
 
 class JobResponse(BaseModel):
@@ -60,16 +141,16 @@ class JobResponse(BaseModel):
     error: Optional[str] = None
 
 
-class HealthResponse(BaseModel):
-    status: str
-    version: str
+# =====================================================
+# Health & meta
+# =====================================================
 
-
-# --- Endpoints ---
-
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health():
-    return HealthResponse(status="ok", version="0.1.0")
+    return {"status": "ok", "version": "0.2.0", "engines": [
+        "fold", "design", "iterative_design", "evaluate", "analyze", "explain",
+        "mutate", "compare", "dock", "screen", "md", "disorder",
+    ]}
 
 
 @app.get("/v1/hardware")
@@ -79,45 +160,170 @@ async def get_hardware():
     return {
         "cpu": hw.cpu_name,
         "cores": hw.cpu_cores,
-        "ram_gb": hw.total_ram_gb,
-        "gpu": {"name": hw.gpu.name, "vram_gb": hw.gpu.vram_gb, "backend": hw.gpu.backend.value} if hw.gpu else None,
+        "ram_gb": round(hw.total_ram_gb, 1),
+        "gpu": (
+            {"name": hw.gpu.name, "vram_gb": hw.gpu.vram_gb, "backend": hw.gpu.backend.value}
+            if hw.gpu else None
+        ),
         "recommended_tier": hw.recommended_tier.value,
         "recommended_backend": hw.recommended_backend.value,
         "recommended_precision": hw.recommended_precision.value,
     }
 
 
+# =====================================================
+# Folding & design
+# =====================================================
+
 @app.post("/v1/fold", response_model=JobResponse)
 async def submit_fold(request: FoldRequest):
+    cache_key = f"fold:{request.sequence}:{request.method}"
+    if cache_key in result_cache:
+        job_id = str(uuid.uuid4())[:8]
+        jobs[job_id] = {
+            "status": "completed",
+            "progress": 1.0,
+            "result": result_cache[cache_key],
+            "error": None,
+            "type": "fold",
+            "started_at": time.time(),
+        }
+        return JobResponse(job_id=job_id, status="completed", progress=1.0, result=result_cache[cache_key])
+
     job_id = str(uuid.uuid4())[:8]
-    jobs[job_id] = {"status": "running", "progress": 0.0, "result": None, "error": None}
-
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "fold", "started_at": time.time(),
+    }
     asyncio.get_event_loop().run_in_executor(
-        executor, _run_fold, job_id, request.sequence, request.method, request.device
+        executor, _run_fold, job_id, request.sequence, request.method, request.device, cache_key
     )
-
     return JobResponse(job_id=job_id, status="running")
 
 
 @app.post("/v1/design", response_model=JobResponse)
 async def submit_design(request: DesignRequest):
     job_id = str(uuid.uuid4())[:8]
-    jobs[job_id] = {"status": "running", "progress": 0.0, "result": None, "error": None}
-
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "design", "started_at": time.time(),
+    }
     asyncio.get_event_loop().run_in_executor(
-        executor, _run_design, job_id, request.pdb_string, request.num_candidates, request.temperature, request.device
+        executor, _run_design, job_id, request.pdb_string, request.num_candidates,
+        request.temperature, request.device,
     )
-
     return JobResponse(job_id=job_id, status="running")
 
 
-class MutateRequest(BaseModel):
-    sequence: str
-    mutation: str  # e.g. "G45D"
+@app.post("/v1/iterative_design", response_model=JobResponse)
+async def submit_iterative_design(request: IterativeRequest):
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "iterative_design", "started_at": time.time(),
+    }
+    asyncio.get_event_loop().run_in_executor(
+        executor, _run_iterative, job_id, request.sequence, request.n_rounds,
+        request.candidates_per_round, request.temperature,
+    )
+    return JobResponse(job_id=job_id, status="running")
 
 
-class ChatRequest(BaseModel):
-    message: str
+# =====================================================
+# Analysis (instant - no background job needed)
+# =====================================================
+
+@app.post("/v1/analyze")
+async def analyze(request: AnalyzeRequest):
+    """Run the full Schrödinger-equivalent analysis suite."""
+    from opendna.engines.analysis import (
+        compute_properties, hydropathy_profile, lipinski_rule_of_five,
+        secondary_structure, secondary_structure_summary, radius_of_gyration,
+        compute_dihedrals, sasa_estimate, detect_pockets,
+    )
+    from opendna.engines.disorder import predict_disorder
+    from opendna.models.protein import Structure
+
+    seq = request.sequence.upper().strip()
+    properties = _to_dict(compute_properties(seq))
+    lipinski = _to_dict(lipinski_rule_of_five(seq))
+    hydro = hydropathy_profile(seq)
+    disorder = predict_disorder(seq)
+
+    structure_analysis = None
+    if request.pdb_string:
+        try:
+            structure = Structure.from_pdb_string(request.pdb_string)
+            ss = secondary_structure(structure)
+            ss_summary = secondary_structure_summary(ss)
+            angles = compute_dihedrals(structure)
+            rg = radius_of_gyration(structure)
+            sasa = sasa_estimate(structure)
+            pockets = detect_pockets(structure)
+            structure_analysis = {
+                "secondary_structure": ss,
+                **ss_summary,
+                "ramachandran": [
+                    {"phi": a[0], "psi": a[1]} for a in angles
+                ],
+                "radius_of_gyration": rg,
+                "sasa_estimate": sasa,
+                "pockets": pockets,
+                "num_atoms": structure.num_atoms,
+            }
+        except Exception as e:
+            structure_analysis = {"error": str(e)}
+
+    return {
+        "properties": properties,
+        "lipinski": lipinski,
+        "hydropathy_profile": hydro,
+        "disorder": disorder,
+        "structure": structure_analysis,
+    }
+
+
+@app.post("/v1/evaluate")
+async def evaluate_protein(request: EvaluateRequest):
+    from opendna.engines.scoring import evaluate
+    result = evaluate(request.sequence)
+    return {
+        "overall": result.overall,
+        "confidence": result.confidence,
+        "breakdown": _to_dict(result.breakdown),
+        "summary": result.summary,
+        "recommendations": result.recommendations,
+    }
+
+
+@app.post("/v1/explain")
+async def explain(request: ExplainRequest):
+    from opendna.engines.analysis import compute_properties, secondary_structure, secondary_structure_summary
+    from opendna.engines.scoring import evaluate
+    from opendna.engines.explain import explain_protein
+    from opendna.models.protein import Structure
+
+    properties = _to_dict(compute_properties(request.sequence))
+    score_obj = evaluate(request.sequence)
+    score = {
+        "overall": score_obj.overall,
+        "summary": score_obj.summary,
+    }
+
+    structure_info = None
+    if request.pdb_string:
+        try:
+            structure = Structure.from_pdb_string(request.pdb_string)
+            ss = secondary_structure(structure)
+            structure_info = {
+                "mean_confidence": structure.mean_confidence,
+                **secondary_structure_summary(ss),
+            }
+        except Exception:
+            pass
+
+    text = explain_protein(request.sequence, properties, score, structure_info)
+    return {"explanation": text}
 
 
 @app.post("/v1/mutate")
@@ -146,25 +352,140 @@ async def chat(request: ChatRequest):
     }
 
 
-@app.post("/v1/evaluate")
-async def evaluate_protein(request: EvaluateRequest):
-    from opendna.engines.scoring import evaluate
+# =====================================================
+# Comparison
+# =====================================================
 
-    result = evaluate(request.sequence)
+@app.post("/v1/compare")
+async def compare_structures_endpoint(request: CompareRequest):
+    from opendna.engines.analysis import compare_structures
+    from opendna.models.protein import Structure
+    s1 = Structure.from_pdb_string(request.pdb_a)
+    s2 = Structure.from_pdb_string(request.pdb_b)
+    return compare_structures(s1, s2)
+
+
+# =====================================================
+# Docking
+# =====================================================
+
+@app.post("/v1/dock")
+async def dock_endpoint(request: DockRequest):
+    from opendna.engines.docking import dock_ligand
+    result = dock_ligand(request.pdb_string, request.ligand_smiles)
+    return _to_dict(result)
+
+
+@app.post("/v1/screen")
+async def screen_endpoint(request: ScreenRequest):
+    from opendna.engines.docking import virtual_screen
+    return {"results": virtual_screen(request.pdb_string, request.ligands)}
+
+
+# =====================================================
+# Molecular dynamics
+# =====================================================
+
+@app.post("/v1/md", response_model=JobResponse)
+async def md_endpoint(request: MdRequest):
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "md", "started_at": time.time(),
+    }
+    asyncio.get_event_loop().run_in_executor(
+        executor, _run_md, job_id, request.pdb_string, request.duration_ps
+    )
+    return JobResponse(job_id=job_id, status="running")
+
+
+# =====================================================
+# Data sources
+# =====================================================
+
+@app.post("/v1/fetch_uniprot")
+async def fetch_uniprot_endpoint(request: FetchUniProtRequest):
+    from opendna.data.sources import fetch_uniprot, FAMOUS_PROTEINS
+    accession = request.accession.strip()
+    # Allow famous-name shortcuts
+    if accession.lower() in FAMOUS_PROTEINS:
+        accession = FAMOUS_PROTEINS[accession.lower()]
+    entry = fetch_uniprot(accession)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"UniProt entry not found: {accession}")
+    return _to_dict(entry)
+
+
+@app.post("/v1/fetch_pdb")
+async def fetch_pdb_endpoint(request: FetchPdbRequest):
+    from opendna.data.sources import fetch_pdb
+    pdb = fetch_pdb(request.pdb_id)
+    if pdb is None:
+        raise HTTPException(status_code=404, detail=f"PDB entry not found: {request.pdb_id}")
+    return {"pdb_id": request.pdb_id.upper(), "pdb_string": pdb}
+
+
+@app.get("/v1/famous_proteins")
+async def famous_proteins():
+    from opendna.data.sources import FAMOUS_PROTEINS
+    return FAMOUS_PROTEINS
+
+
+# =====================================================
+# Cost & carbon
+# =====================================================
+
+@app.post("/v1/cost")
+async def cost_endpoint(request: CostRequest):
+    from opendna.data.synthesis import estimate_synthesis_cost, estimate_carbon, estimate_compute_time
+    cost = estimate_synthesis_cost(request.sequence)
+    duration = estimate_compute_time(len(request.sequence), "fold", "cpu")
+    carbon_cpu = estimate_carbon("fold", duration, "cpu")
+    carbon_gpu = estimate_carbon("fold", estimate_compute_time(len(request.sequence), "fold", "cuda"), "cuda")
     return {
-        "overall": result.overall,
-        "confidence": result.confidence,
-        "breakdown": {
-            "stability": result.breakdown.stability,
-            "solubility": result.breakdown.solubility,
-            "immunogenicity": result.breakdown.immunogenicity,
-            "developability": result.breakdown.developability,
-            "novelty": result.breakdown.novelty,
-        },
-        "summary": result.summary,
-        "recommendations": result.recommendations,
+        "synthesis": _to_dict(cost),
+        "compute_carbon_cpu": _to_dict(carbon_cpu),
+        "compute_carbon_gpu": _to_dict(carbon_gpu),
     }
 
+
+# =====================================================
+# Project workspace
+# =====================================================
+
+@app.post("/v1/projects/save")
+async def project_save(request: ProjectSaveRequest):
+    from opendna.storage.projects import save_project
+    path = save_project(request.name, request.data)
+    return {"name": request.name, "path": path}
+
+
+@app.post("/v1/projects/load")
+async def project_load(request: ProjectLoadRequest):
+    from opendna.storage.projects import load_project
+    data = load_project(request.name)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Project not found: {request.name}")
+    return data
+
+
+@app.get("/v1/projects")
+async def projects_list():
+    from opendna.storage.projects import list_projects
+    return {"projects": list_projects()}
+
+
+@app.delete("/v1/projects/{name}")
+async def project_delete(name: str):
+    from opendna.storage.projects import delete_project
+    if not delete_project(name):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"deleted": name}
+
+
+# =====================================================
+# Job status
+# =====================================================
 
 @app.get("/v1/jobs/{job_id}", response_model=JobResponse)
 async def get_job(job_id: str):
@@ -180,70 +501,53 @@ async def get_job(job_id: str):
     )
 
 
-@app.get("/v1/jobs/{job_id}/stream")
-async def stream_job(job_id: str):
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    async def event_generator():
-        import json
-        while True:
-            job = jobs.get(job_id)
-            if job is None:
-                break
-            yield {
-                "event": "progress",
-                "data": json.dumps({
-                    "status": job["status"],
-                    "progress": job["progress"],
-                }),
+@app.get("/v1/jobs")
+async def list_jobs():
+    return {
+        "jobs": [
+            {
+                "id": k,
+                "type": v.get("type"),
+                "status": v["status"],
+                "progress": v["progress"],
+                "started_at": v.get("started_at"),
             }
-            if job["status"] in ("completed", "failed"):
-                yield {
-                    "event": "complete",
-                    "data": json.dumps({
-                        "status": job["status"],
-                        "result": job["result"],
-                        "error": job["error"],
-                    }),
-                }
-                break
-            await asyncio.sleep(0.5)
-
-    return EventSourceResponse(event_generator())
+            for k, v in sorted(jobs.items(), key=lambda x: -x[1].get("started_at", 0))
+        ][:50]
+    }
 
 
-# --- Background job runners ---
+# =====================================================
+# Background runners
+# =====================================================
 
-def _run_fold(job_id: str, sequence: str, method: str, device: Optional[str]):
+def _run_fold(job_id: str, sequence: str, method: str, device: Optional[str], cache_key: str):
     try:
         from opendna.engines.folding import fold
-
         def on_progress(stage: str, frac: float):
             jobs[job_id]["progress"] = frac
-
         result = fold(sequence, method=method, device=device, on_progress=on_progress)
-        jobs[job_id]["status"] = "completed"
-        jobs[job_id]["progress"] = 1.0
-        jobs[job_id]["result"] = {
+        out = {
             "pdb": result.pdb_string,
             "mean_confidence": result.mean_confidence,
             "method": result.method,
             "explanation": result.explanation,
         }
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = out
+        result_cache[cache_key] = out
     except Exception as e:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["error"] = str(e)
 
 
-def _run_design(job_id: str, pdb_string: str, num_candidates: int, temperature: float, device: Optional[str]):
+def _run_design(job_id, pdb_string, n, temp, device):
     try:
         from opendna.engines.design import DesignConstraints, design
-
         def on_progress(stage: str, frac: float):
             jobs[job_id]["progress"] = frac
-
-        constraints = DesignConstraints(num_candidates=num_candidates, temperature=temperature)
+        constraints = DesignConstraints(num_candidates=n, temperature=temp)
         result = design(pdb_string, constraints=constraints, device=device, on_progress=on_progress)
         jobs[job_id]["status"] = "completed"
         jobs[job_id]["progress"] = 1.0
@@ -255,6 +559,54 @@ def _run_design(job_id: str, pdb_string: str, num_candidates: int, temperature: 
             "method": result.method,
             "explanation": result.explanation,
         }
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
+
+def _run_iterative(job_id, sequence, n_rounds, n_per_round, temp):
+    try:
+        from opendna.engines.iterative import iterative_design
+        def on_progress(stage: str, frac: float):
+            jobs[job_id]["progress"] = frac
+        result = iterative_design(
+            sequence, n_rounds=n_rounds, candidates_per_round=n_per_round,
+            temperature=temp, on_progress=on_progress,
+        )
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = {
+            "initial_sequence": result.initial_sequence,
+            "final_sequence": result.final_sequence,
+            "initial_score": result.initial_score,
+            "final_score": result.final_score,
+            "improvement": result.improvement,
+            "history": result.history,
+            "rounds": [
+                {
+                    "round": r.round,
+                    "sequence": r.sequence,
+                    "score": r.score,
+                    "confidence": r.confidence,
+                    "pdb": r.pdb,
+                }
+                for r in result.rounds
+            ],
+        }
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
+
+def _run_md(job_id, pdb_string, duration_ps):
+    try:
+        from opendna.engines.dynamics import quick_md
+        def on_progress(stage: str, frac: float):
+            jobs[job_id]["progress"] = frac
+        result = quick_md(pdb_string, duration_ps=duration_ps, on_progress=on_progress)
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = _to_dict(result)
     except Exception as e:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["error"] = str(e)
