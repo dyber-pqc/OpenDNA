@@ -292,9 +292,9 @@ export const smartChat = (message: string, history?: any[]) =>
   }>("/v1/smart_chat", { message, history });
 
 export const llmProviders = () =>
-  get<{ providers: { name: string; available: boolean; model: string }[] }>(
-    "/v1/llm/providers"
-  );
+  get<{
+    providers: { name: string; available: boolean; model: string; supports_tools: boolean }[];
+  }>("/v1/llm/providers");
 
 export const align = (seq1: string, seq2: string) =>
   post<{

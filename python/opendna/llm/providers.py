@@ -31,12 +31,29 @@ class LLMResponse:
     raw: dict
 
 
+# Models known to support tool/function calling in Ollama
+TOOL_CALLING_MODELS = {
+    "llama3.2", "llama3.1", "llama3.3",
+    "qwen2.5", "qwen3",
+    "mistral-nemo", "mistral-small",
+    "firefunction", "command-r",
+    "hermes3",
+}
+
+
+def supports_tool_calling(model_name: str) -> bool:
+    """Check if an Ollama model supports tool/function calling."""
+    name = model_name.lower()
+    return any(family in name for family in TOOL_CALLING_MODELS)
+
+
 @dataclass
 class LLMProvider:
     name: str
     available: bool
     model: str
     config: dict
+    supports_tools: bool = True
 
 
 def detect_providers() -> list[LLMProvider]:
@@ -50,11 +67,20 @@ def detect_providers() -> list[LLMProvider]:
             if r.status_code == 200:
                 data = r.json()
                 models = [m["name"] for m in data.get("models", [])]
+                # Prefer tool-calling models first
                 preferred_model = None
-                for candidate in ["llama3.2:3b", "llama3.2:1b", "llama3.1:8b", "qwen2.5:3b", "phi3:mini"]:
-                    if any(candidate in m for m in models):
-                        preferred_model = candidate
+                for candidate in ["llama3.2:3b", "llama3.2:1b", "llama3.1:8b", "qwen2.5:7b", "qwen2.5:3b"]:
+                    matching = [m for m in models if candidate in m]
+                    if matching:
+                        preferred_model = matching[0]
                         break
+                # Otherwise pick any tool-capable model
+                if not preferred_model:
+                    for m in models:
+                        if supports_tool_calling(m):
+                            preferred_model = m
+                            break
+                # Last resort: any model (works for plain chat, no tools)
                 if not preferred_model and models:
                     preferred_model = models[0]
                 if preferred_model:
@@ -63,6 +89,7 @@ def detect_providers() -> list[LLMProvider]:
                         available=True,
                         model=preferred_model,
                         config={"url": "http://localhost:11434"},
+                        supports_tools=supports_tool_calling(preferred_model),
                     ))
     except Exception:
         pass
@@ -159,13 +186,23 @@ def _ollama_chat(provider, messages, tools, system, temperature, max_tokens):
             "num_predict": max_tokens,
         },
     }
-    if tools:
+    # Only pass tools if the model supports it
+    if tools and provider.supports_tools:
         payload["tools"] = tools
 
-    with httpx.Client(timeout=120.0) as client:
+    with httpx.Client(timeout=180.0) as client:
         r = client.post(f"{provider.config['url']}/api/chat", json=payload)
         if r.status_code != 200:
-            raise Exception(f"Ollama returned {r.status_code}: {r.text[:200]}")
+            error_text = r.text[:300]
+            # If the error is about tool support, retry without tools
+            if "tool" in error_text.lower() and tools:
+                logger.info(f"Model {provider.model} doesn't support tools, retrying without")
+                payload.pop("tools", None)
+                r = client.post(f"{provider.config['url']}/api/chat", json=payload)
+                if r.status_code != 200:
+                    raise Exception(f"Ollama returned {r.status_code}: {r.text[:200]}")
+            else:
+                raise Exception(f"Ollama returned {r.status_code}: {error_text}")
         data = r.json()
 
     msg = data.get("message", {})

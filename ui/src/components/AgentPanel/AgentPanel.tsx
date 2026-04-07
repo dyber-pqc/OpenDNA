@@ -78,15 +78,31 @@ export default function AgentPanel({ onClose, onSequenceFound }: AgentPanelProps
 
       <div className="agent-providers">
         {providers.map((p) => (
-          <span key={p.name} className={`provider-badge ${p.name === usedProvider ? "active" : ""}`}>
+          <span
+            key={p.name}
+            className={`provider-badge ${p.name === usedProvider ? "active" : ""}`}
+            title={
+              p.supports_tools === false
+                ? `${p.model} does not support tool calling — agent will use plain chat only`
+                : ""
+            }
+          >
             {p.name === "ollama" && "🦙 "}
             {p.name === "anthropic" && "✦ "}
             {p.name === "openai" && "○ "}
             {p.name === "heuristic" && "⚙ "}
             {p.name} {p.model && p.name !== "heuristic" && `(${p.model})`}
+            {p.supports_tools === false && " ⚠"}
           </span>
         ))}
       </div>
+      {providers.find((p) => p.name === "ollama" && p.supports_tools === false) && (
+        <div className="agent-tip">
+          ⚠ Your Ollama model does not support tool calling. The agent can still
+          chat but cannot execute actions. For full tool support, run:{" "}
+          <code>ollama pull llama3.2:3b</code>
+        </div>
+      )}
 
       <div className="agent-input-row">
         <input

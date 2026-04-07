@@ -60,17 +60,28 @@ def run_agent(goal: str, max_steps: int = 8) -> AgentRun:
 
     Iterates: ask LLM what to do next → execute tool → feed result back to LLM
     until the LLM produces a final answer or max_steps is reached.
+
+    If the available LLM doesn't support tool calling, falls back to plain chat
+    (still useful for general questions and explanations).
     """
+    from opendna.llm.providers import detect_providers
     run = AgentRun(goal=goal)
     messages: list[dict] = [
         {"role": "user", "content": goal},
     ]
 
+    # Check if any non-heuristic provider supports tool calling
+    providers = detect_providers()
+    has_tool_capable = any(
+        p.supports_tools and p.name != "heuristic" for p in providers
+    )
+    use_tools = TOOL_SCHEMAS if has_tool_capable else None
+
     for step_num in range(1, max_steps + 1):
         try:
             response = chat(
                 messages=messages,
-                tools=TOOL_SCHEMAS,
+                tools=use_tools,
                 system=SYSTEM_PROMPT,
                 temperature=0.2,
                 max_tokens=800,
@@ -81,7 +92,7 @@ def run_agent(goal: str, max_steps: int = 8) -> AgentRun:
             run.final_answer = f"LLM failed: {e}"
             return run
 
-        # If no tool calls, this is the final answer
+        # If no tool calls (either model can't or it chose not to), return text
         if not response.tool_calls:
             run.final_answer = response.text or "(no response)"
             run.success = True
@@ -121,12 +132,19 @@ def run_agent(goal: str, max_steps: int = 8) -> AgentRun:
 
 def simple_chat(message: str, history: Optional[list[dict]] = None) -> dict:
     """Simple chat that uses tools when needed but isn't a multi-step agent."""
+    from opendna.llm.providers import detect_providers
     messages = history or []
     messages.append({"role": "user", "content": message})
 
+    providers = detect_providers()
+    has_tool_capable = any(
+        p.supports_tools and p.name != "heuristic" for p in providers
+    )
+    use_tools = TOOL_SCHEMAS if has_tool_capable else None
+
     response = chat(
         messages=messages,
-        tools=TOOL_SCHEMAS,
+        tools=use_tools,
         system=SYSTEM_PROMPT,
         temperature=0.3,
         max_tokens=600,

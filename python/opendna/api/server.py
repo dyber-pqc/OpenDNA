@@ -496,7 +496,12 @@ async def llm_providers():
     providers = detect_providers()
     return {
         "providers": [
-            {"name": p.name, "available": p.available, "model": p.model}
+            {
+                "name": p.name,
+                "available": p.available,
+                "model": p.model,
+                "supports_tools": p.supports_tools,
+            }
             for p in providers
         ]
     }

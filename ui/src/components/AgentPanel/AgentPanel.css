@@ -59,6 +59,25 @@
   border-color: var(--accent);
 }
 
+.agent-tip {
+  background: rgba(255, 152, 0, 0.1);
+  border-left: 3px solid var(--warning);
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 20px;
+  margin-top: 8px;
+  border-radius: 4px;
+}
+
+.agent-tip code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--accent);
+}
+
 .agent-input-row {
   display: flex;
   gap: 8px;
