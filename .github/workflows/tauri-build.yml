@@ -9,6 +9,8 @@ on:
 jobs:
   build-desktop:
     name: Build for ${{ matrix.platform }}
+    permissions:
+      contents: write   # required so tauri-action can create the GitHub Release
     strategy:
       fail-fast: false
       matrix:
