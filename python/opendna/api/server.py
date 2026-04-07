@@ -322,6 +322,214 @@ async def predict_ddg_endpoint(request: DdgRequest):
     return predict_ddg(request.sequence, request.mutation)
 
 
+# =====================================================
+# v0.3 - 9 NEW ANALYSES
+# =====================================================
+
+class ConservationRequest(BaseModel):
+    sequence: str
+
+
+@app.post("/v1/conservation")
+async def conservation_endpoint(request: ConservationRequest):
+    from opendna.engines.conservation import analyze_conservation
+    return _to_dict(analyze_conservation(request.sequence))
+
+
+class ConstrainedDesignRequest(BaseModel):
+    pdb_string: str
+    fixed_positions: list[int]
+    num_candidates: int = 10
+    temperature: float = 0.1
+
+
+@app.post("/v1/constrained_design", response_model=JobResponse)
+async def constrained_design_endpoint(request: ConstrainedDesignRequest):
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "constrained_design", "started_at": time.time(),
+    }
+    asyncio.get_event_loop().run_in_executor(
+        executor, _run_constrained_design, job_id, request.pdb_string,
+        request.fixed_positions, request.num_candidates, request.temperature,
+    )
+    return JobResponse(job_id=job_id, status="running")
+
+
+class MultiObjectiveRequest(BaseModel):
+    sequence: str
+    objectives: list[str]
+    num_candidates: int = 20
+
+
+@app.post("/v1/multi_objective_design", response_model=JobResponse)
+async def multi_objective_endpoint(request: MultiObjectiveRequest):
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "multi_objective", "started_at": time.time(),
+    }
+    asyncio.get_event_loop().run_in_executor(
+        executor, _run_multi_objective, job_id, request.sequence,
+        request.objectives, request.num_candidates,
+    )
+    return JobResponse(job_id=job_id, status="running")
+
+
+class PharmacophoreRequest(BaseModel):
+    pdb_string: str
+    pocket_residues: Optional[list[int]] = None
+
+
+@app.post("/v1/pharmacophore")
+async def pharmacophore_endpoint(request: PharmacophoreRequest):
+    from opendna.engines.pharmacophore import extract_pharmacophore
+    from opendna.models.protein import Structure
+    structure = Structure.from_pdb_string(request.pdb_string)
+    result = extract_pharmacophore(structure, request.pocket_residues)
+    return _to_dict(result)
+
+
+class AntibodyRequest(BaseModel):
+    sequence: str
+    scheme: str = "kabat"
+
+
+@app.post("/v1/antibody_numbering")
+async def antibody_endpoint(request: AntibodyRequest):
+    from opendna.engines.antibody import find_cdrs
+    return find_cdrs(request.sequence, request.scheme)
+
+
+class PdbStringRequest(BaseModel):
+    pdb_string: str
+
+
+@app.post("/v1/predict_pka")
+async def pka_endpoint(request: PdbStringRequest):
+    from opendna.engines.pka import predict_pka
+    from opendna.models.protein import Structure
+    structure = Structure.from_pdb_string(request.pdb_string)
+    return predict_pka(structure)
+
+
+@app.post("/v1/validate_structure")
+async def validate_endpoint(request: PdbStringRequest):
+    from opendna.engines.validation import validate_structure
+    from opendna.models.protein import Structure
+    structure = Structure.from_pdb_string(request.pdb_string)
+    return validate_structure(structure)
+
+
+class MmgbsaRequest(BaseModel):
+    pdb_string: str
+    ligand_smiles: str
+    pocket_residue: Optional[int] = None
+
+
+@app.post("/v1/mmgbsa")
+async def mmgbsa_endpoint(request: MmgbsaRequest):
+    from opendna.engines.mmgbsa import estimate_binding_energy
+    from opendna.models.protein import Structure
+    structure = Structure.from_pdb_string(request.pdb_string)
+    result = estimate_binding_energy(structure, request.ligand_smiles, request.pocket_residue)
+    return _to_dict(result)
+
+
+class QsarRequest(BaseModel):
+    sequence: str
+
+
+@app.post("/v1/qsar")
+async def qsar_endpoint(request: QsarRequest):
+    from opendna.engines.qsar import compute_qsar_descriptors
+    return compute_qsar_descriptors(request.sequence)
+
+
+# =====================================================
+# v0.3 - LLM AGENT
+# =====================================================
+
+class AgentGoalRequest(BaseModel):
+    goal: str
+    max_steps: int = 8
+
+
+@app.post("/v1/agent")
+async def agent_endpoint(request: AgentGoalRequest):
+    from opendna.llm.agent import run_agent
+    result = run_agent(request.goal, max_steps=request.max_steps)
+    return {
+        "goal": result.goal,
+        "steps": [
+            {
+                "step": s.step_number,
+                "thought": s.thought,
+                "tool": s.tool_called,
+                "arguments": s.tool_arguments,
+                "result": s.tool_result,
+            }
+            for s in result.steps
+        ],
+        "final_answer": result.final_answer,
+        "success": result.success,
+        "provider": result.provider,
+    }
+
+
+class SmartChatRequest(BaseModel):
+    message: str
+    history: Optional[list[dict]] = None
+
+
+@app.post("/v1/smart_chat")
+async def smart_chat_endpoint(request: SmartChatRequest):
+    """Real LLM chat with tool calling. Uses Ollama / Anthropic / OpenAI / fallback."""
+    from opendna.llm.agent import simple_chat
+    return simple_chat(request.message, request.history)
+
+
+@app.get("/v1/llm/providers")
+async def llm_providers():
+    from opendna.llm.providers import detect_providers
+    providers = detect_providers()
+    return {
+        "providers": [
+            {"name": p.name, "available": p.available, "model": p.model}
+            for p in providers
+        ]
+    }
+
+
+# =====================================================
+# Background runners for new jobs
+# =====================================================
+
+def _run_constrained_design(job_id, pdb_string, fixed_positions, n, temp):
+    try:
+        from opendna.engines.constrained_design import constrained_design
+        result = constrained_design(pdb_string, fixed_positions, n, temp)
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = _to_dict(result)
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
+
+def _run_multi_objective(job_id, sequence, objectives, n):
+    try:
+        from opendna.engines.multi_objective import design_multi_objective
+        result = design_multi_objective(sequence, objectives, n)
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["progress"] = 1.0
+        jobs[job_id]["result"] = result
+    except Exception as e:
+        jobs[job_id]["status"] = "failed"
+        jobs[job_id]["error"] = str(e)
+
+
 @app.post("/v1/evaluate")
 async def evaluate_protein(request: EvaluateRequest):
     from opendna.engines.scoring import evaluate

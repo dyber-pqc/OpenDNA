@@ -9,6 +9,7 @@ import AnalysisPanel from "./components/AnalysisPanel/AnalysisPanel";
 import Dashboard from "./components/Dashboard/Dashboard";
 import Academy from "./components/Academy/Academy";
 import IterativePanel from "./components/IterativePanel/IterativePanel";
+import AgentPanel from "./components/AgentPanel/AgentPanel";
 import { useToasts } from "./hooks/useToasts";
 import { useKeyboard } from "./hooks/useKeyboard";
 import * as api from "./api/client";
@@ -39,7 +40,7 @@ interface DesignCandidate {
   recovery: number;
 }
 
-type Overlay = "none" | "analysis" | "dashboard" | "academy";
+type Overlay = "none" | "analysis" | "dashboard" | "academy" | "agent";
 
 function App() {
   const [structures, setStructures] = useState<StoredStructure[]>([]);
@@ -294,17 +295,28 @@ function App() {
 
   const handleChat = async (message: string): Promise<string> => {
     try {
-      const intent = await api.chat(message);
-      if (intent.action === "fold" && intent.sequence) {
-        handleFold(intent.sequence);
-      } else if (intent.action === "score" && intent.sequence) {
-        handleEvaluate(intent.sequence);
-      } else if (intent.action === "mutate" && intent.mutation) {
-        handleMutate(intent.mutation);
-      } else if (intent.action === "explain") {
-        handleExplain();
+      // Try smart chat first (uses LLM with tool calling)
+      const r = await api.smartChat(message);
+      let reply = r.text || "";
+      // If there were tool calls, summarize them
+      if (r.tool_results && r.tool_results.length > 0) {
+        for (const tr of r.tool_results) {
+          if (tr.tool === "fold_protein" && tr.result?.mean_confidence) {
+            reply += `\n[Folded with pLDDT ${(tr.result.mean_confidence * 100).toFixed(0)}]`;
+          } else if (tr.tool === "score_protein" && tr.result?.overall) {
+            reply += `\n[Scored: ${(tr.result.overall * 100).toFixed(0)}/100]`;
+          }
+        }
       }
-      return intent.response;
+      // Fallback: also handle the simple intent parser actions
+      if (!reply || reply.trim().length === 0) {
+        const intent = await api.chat(message);
+        if (intent.action === "fold" && intent.sequence) handleFold(intent.sequence);
+        else if (intent.action === "score" && intent.sequence) handleEvaluate(intent.sequence);
+        else if (intent.action === "mutate" && intent.mutation) handleMutate(intent.mutation);
+        return intent.response;
+      }
+      return reply + (r.provider !== "heuristic" ? ` (${r.provider})` : "");
     } catch (e: any) {
       return `Error: ${e.message}`;
     }
@@ -486,6 +498,7 @@ function App() {
       { id: "import-kras", group: "Import", label: "Import KRAS", action: () => handleImport("uniprot", "kras") },
       { id: "open-dash", group: "View", label: "Open Dashboard", action: () => setOverlay("dashboard") },
       { id: "open-acad", group: "View", label: "Open Protein Academy", action: () => setOverlay("academy") },
+      { id: "open-agent", group: "View", label: "Open AI Agent", action: () => setOverlay("agent") },
       { id: "theme", group: "View", label: "Toggle dark/light mode", action: () => setDarkMode((d) => !d) },
     ],
     [currentSequence, activeStructure]
@@ -524,6 +537,9 @@ function App() {
         <div className="header-right">
           <button className="header-btn small" onClick={() => setPaletteOpen(true)} title="Command palette (Ctrl+K)">
             ⌘K
+          </button>
+          <button className="header-btn small" onClick={() => setOverlay("agent")} title="AI Agent">
+            🤖 Agent
           </button>
           <button className="header-btn small" onClick={() => setOverlay("dashboard")}>Dashboard</button>
           <button className="header-btn small" onClick={() => setOverlay("academy")}>Academy</button>
@@ -591,6 +607,12 @@ function App() {
                   setXp((x) => x + amt);
                   addToast({ kind: "success", message: `+${amt} XP` });
                 }}
+              />
+            )}
+            {overlay === "agent" && (
+              <AgentPanel
+                onClose={() => setOverlay("none")}
+                onSequenceFound={(seq) => setCurrentSequence(seq)}
               />
             )}
 

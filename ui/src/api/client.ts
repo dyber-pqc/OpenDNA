@@ -205,6 +205,97 @@ export const screen = (pdb_string: string, ligands: string[]) =>
 export const md = (pdb_string: string, duration_ps = 100) =>
   post<{ job_id: string }>("/v1/md", { pdb_string, duration_ps });
 
+// === v0.3 endpoints ===
+
+export const conservation = (sequence: string) =>
+  post<{
+    scores: number[];
+    most_conserved: number[];
+    most_variable: number[];
+    method: string;
+    note: string;
+  }>("/v1/conservation", { sequence });
+
+export const constrainedDesign = (
+  pdb_string: string,
+  fixed_positions: number[],
+  num_candidates = 10,
+  temperature = 0.1
+) =>
+  post<{ job_id: string }>("/v1/constrained_design", {
+    pdb_string,
+    fixed_positions,
+    num_candidates,
+    temperature,
+  });
+
+export const multiObjectiveDesign = (
+  sequence: string,
+  objectives: string[],
+  num_candidates = 20
+) =>
+  post<{ job_id: string }>("/v1/multi_objective_design", {
+    sequence,
+    objectives,
+    num_candidates,
+  });
+
+export const pharmacophore = (pdb_string: string, pocket_residues?: number[]) =>
+  post<any>("/v1/pharmacophore", { pdb_string, pocket_residues });
+
+export const antibodyNumbering = (sequence: string, scheme = "kabat") =>
+  post<{
+    chain_type: string;
+    scheme: string;
+    cdrs: { name: string; start: number; end: number; sequence: string; length: number }[];
+    n_cdrs: number;
+    is_antibody: boolean;
+  }>("/v1/antibody_numbering", { sequence, scheme });
+
+export const predictPka = (pdb_string: string) =>
+  post<any>("/v1/predict_pka", { pdb_string });
+
+export const validateStructure = (pdb_string: string) =>
+  post<{
+    n_issues: number;
+    issues: any[];
+    ramachandran_favored_pct: number;
+    ramachandran_outliers: number;
+    clash_count: number;
+    clash_score: number;
+    molprobity_score: number;
+    quality_grade: string;
+  }>("/v1/validate_structure", { pdb_string });
+
+export const mmgbsa = (pdb_string: string, ligand_smiles: string) =>
+  post<any>("/v1/mmgbsa", { pdb_string, ligand_smiles });
+
+export const qsar = (sequence: string) =>
+  post<any>("/v1/qsar", { sequence });
+
+export const runAgent = (goal: string, max_steps = 8) =>
+  post<{
+    goal: string;
+    steps: any[];
+    final_answer: string;
+    success: boolean;
+    provider: string;
+  }>("/v1/agent", { goal, max_steps });
+
+export const smartChat = (message: string, history?: any[]) =>
+  post<{
+    text: string;
+    provider: string;
+    model: string;
+    tool_calls: any[];
+    tool_results: any[];
+  }>("/v1/smart_chat", { message, history });
+
+export const llmProviders = () =>
+  get<{ providers: { name: string; available: boolean; model: string }[] }>(
+    "/v1/llm/providers"
+  );
+
 export const align = (seq1: string, seq2: string) =>
   post<{
     score: number;
