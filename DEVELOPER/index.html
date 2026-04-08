@@ -2455,6 +2455,183 @@
 <hr />
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
 <p>By contributing, you agree to license your contributions under the same Apache 2.0 + Commons Clause as the rest of the project.</p>
+<hr />
+<h1 id="v050-developer-recipes">v0.5.0 developer recipes<a class="headerlink" href="#v050-developer-recipes" title="Permanent link">&para;</a></h1>
+<p>Short how-tos for the most common extension points introduced in v0.5.0-rc1.</p>
+<h2 id="adding-a-new-component-manager-entry">Adding a new Component Manager entry<a class="headerlink" href="#adding-a-new-component-manager-entry" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Open <code>python/opendna/components/registry.py</code>.</li>
+<li>Append a new <code>Component(...)</code> to <code>_REGISTRY</code>. Pick an <code>install_kind</code>:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>kind</th>
+<th>When to use</th>
+<th><code>install_target</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pip</code></td>
+<td>The component is a plain PyPI package</td>
+<td><code>"mypkg&gt;=1.0"</code></td>
+</tr>
+<tr>
+<td><code>hf</code></td>
+<td>Weights live on HuggingFace Hub</td>
+<td><code>"org/repo"</code></td>
+</tr>
+<tr>
+<td><code>script</code></td>
+<td>Needs a custom build (e.g. RFdiffusion)</td>
+<td>logical name, docs via <code>homepage</code></td>
+</tr>
+<tr>
+<td><code>ollama</code></td>
+<td>LLM distributed via Ollama</td>
+<td><code>"model:tag"</code></td>
+</tr>
+</tbody>
+</table>
+<ol>
+<li>Set <code>import_check</code> to a Python statement that raises on missing install
+   (e.g. <code>"import mypkg"</code>). This is the fallback probe when the marker file
+   is absent.</li>
+<li>Fill <code>size_mb</code>, <code>version</code>, <code>license</code>, <code>homepage</code> — the UI displays all of these.</li>
+<li>Test:</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from opendna.components import list_components, get_status; \</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="s2">           [print(c.name, get_status(c.name)) for c in list_components()]&quot;</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:8765/v1/components/&lt;name&gt;/install
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>curl<span class="w"> </span>http://127.0.0.1:8765/v1/components/jobs/&lt;returned_job_id&gt;
+</span></code></pre></div>
+<ol>
+<li>If the install needs custom logic beyond <code>_run(...)</code>, extend
+   <code>install_component()</code> in <code>manager.py</code> with a new branch.</li>
+</ol>
+<h2 id="adding-a-new-workflow-node-type">Adding a new workflow node type<a class="headerlink" href="#adding-a-new-workflow-node-type" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Open <code>python/opendna/workflows/graph_runner.py</code>.</li>
+<li>Write a node implementation:</li>
+</ol>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">_my_node</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">opendna.engines.something</span><span class="w"> </span><span class="kn">import</span> <span class="n">do_it</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">do_it</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;input_key&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)))</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;output_key&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">}</span>
+</span></code></pre></div>
+<ol>
+<li>Register it at module import time:</li>
+</ol>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">register_node</span><span class="p">(</span><span class="s2">&quot;my_node&quot;</span><span class="p">,</span> <span class="n">_my_node</span><span class="p">)</span>
+</span></code></pre></div>
+<ol>
+<li>Add an entry to <code>list_node_types()</code> so the UI workflow editor sees it:</li>
+</ol>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span><span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;my_node&quot;</span><span class="p">,</span> <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="s2">&quot;score&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;My node&quot;</span><span class="p">,</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a> <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input_key&quot;</span><span class="p">],</span> <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output_key&quot;</span><span class="p">]},</span>
+</span></code></pre></div>
+<ol>
+<li>Verify with <code>GET /v1/workflow/node_types</code> and by running a minimal graph
+   through <code>POST /v1/workflow/run_graph</code>.</li>
+</ol>
+<h2 id="writing-a-new-reliability-health-check">Writing a new reliability health check<a class="headerlink" href="#writing-a-new-reliability-health-check" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Import the healer and register your check at startup:</li>
+</ol>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">opendna.reliability</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_healer</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">_check_external_api</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>        <span class="k">return</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://rest.uniprot.org/&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">ok</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>        <span class="k">return</span> <span class="kc">False</span>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">_fix_external_api</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>    <span class="c1"># maybe clear DNS cache, switch mirror, etc.</span>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>    <span class="k">pass</span>
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="n">get_healer</span><span class="p">()</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;external_api&quot;</span><span class="p">,</span> <span class="n">_check_external_api</span><span class="p">,</span> <span class="n">_fix_external_api</span><span class="p">)</span>
+</span></code></pre></div>
+<ol>
+<li>
+<p>The check runs every 60s (default interval) on a background thread. It also
+   runs on-demand via <code>GET /v1/health</code>. The <code>fix</code> callback is only invoked when
+   <code>check()</code> returns <code>False</code>.</p>
+</li>
+<li>
+<p>Keep both callbacks side-effect-bounded — they run unsupervised and must
+   never raise.</p>
+</li>
+</ol>
+<h2 id="adding-a-new-api-endpoint">Adding a new API endpoint<a class="headerlink" href="#adding-a-new-api-endpoint" title="Permanent link">&para;</a></h2>
+<p>Boilerplate for a new <code>POST</code> endpoint with a Pydantic body and an audit log entry:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">Depends</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">opendna.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_audit_log</span>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">_MyRequest</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    <span class="n">target</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>
+</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">_MyResponse</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-24-10"><a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>    <span class="n">result</span><span class="p">:</span> <span class="nb">list</span>
+</span><span id="__span-24-11"><a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>    <span class="n">elapsed_s</span><span class="p">:</span> <span class="nb">float</span>
+</span><span id="__span-24-12"><a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>
+</span><span id="__span-24-13"><a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/v1/my_feature&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">_MyResponse</span><span class="p">)</span>
+</span><span id="__span-24-14"><a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_feature</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="n">_MyRequest</span><span class="p">,</span> <span class="n">ctx</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">require_auth</span><span class="p">)):</span>
+</span><span id="__span-24-15"><a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span id="__span-24-16"><a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span id="__span-24-17"><a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">opendna.engines.mine</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_mine</span>
+</span><span id="__span-24-18"><a id="__codelineno-24-18" name="__codelineno-24-18" href="#__codelineno-24-18"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">run_mine</span><span class="p">(</span><span class="n">body</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">body</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+</span><span id="__span-24-19"><a id="__codelineno-24-19" name="__codelineno-24-19" href="#__codelineno-24-19"></a>    <span class="n">get_audit_log</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span id="__span-24-20"><a id="__codelineno-24-20" name="__codelineno-24-20" href="#__codelineno-24-20"></a>        <span class="s2">&quot;my_feature.run&quot;</span><span class="p">,</span>
+</span><span id="__span-24-21"><a id="__codelineno-24-21" name="__codelineno-24-21" href="#__codelineno-24-21"></a>        <span class="n">actor</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">user_id</span> <span class="k">if</span> <span class="n">ctx</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-24-22"><a id="__codelineno-24-22" name="__codelineno-24-22" href="#__codelineno-24-22"></a>        <span class="n">resource</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">target</span><span class="p">,</span>
+</span><span id="__span-24-23"><a id="__codelineno-24-23" name="__codelineno-24-23" href="#__codelineno-24-23"></a>        <span class="n">details</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="n">body</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)},</span>
+</span><span id="__span-24-24"><a id="__codelineno-24-24" name="__codelineno-24-24" href="#__codelineno-24-24"></a>    <span class="p">)</span>
+</span><span id="__span-24-25"><a id="__codelineno-24-25" name="__codelineno-24-25" href="#__codelineno-24-25"></a>    <span class="k">return</span> <span class="n">_MyResponse</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="n">result</span><span class="p">,</span> <span class="n">elapsed_s</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Notes:</p>
+<ul>
+<li>Use <code>Depends(require_auth)</code> whenever the endpoint mutates state or exposes
+  PII. In open mode <code>ctx</code> will be <code>None</code> and the dependency is a no-op.</li>
+<li>For long-running work, submit a queue job instead of doing the work inline:
+  <code>job_id = await get_queue().submit(fn, priority=1, job_type="my_feature")</code>.</li>
+</ul>
+<h2 id="running-the-pyinstaller-sidecar-build-locally">Running the PyInstaller sidecar build locally<a class="headerlink" href="#running-the-pyinstaller-sidecar-build-locally" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nb">cd</span><span class="w"> </span>H:/opendna
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>python<span class="w"> </span>scripts/build_sidecar.py
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="c1"># Output:</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1">#   ui/src-tauri/binaries/opendna-server-&lt;target-triple&gt;(.exe)</span>
+</span></code></pre></div>
+<p>The script invokes PyInstaller with <code>python/opendna_server/__main__.py</code> as the
+entry point and writes the binary into the location Tauri's <code>externalBin</code>
+declaration expects. To smoke-test it stand-alone:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>ui/src-tauri/binaries/opendna-server<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8765</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>curl<span class="w"> </span>http://127.0.0.1:8765/v1/auth/status
+</span></code></pre></div>
+<p>Once the binary is in place, <code>npm run tauri dev</code> (or <code>tauri build</code>) will pick
+it up automatically and you can delete any system-Python install of opendna
+to verify the fallback chain.</p>
+<h2 id="running-playwright-e2e-tests">Running Playwright E2E tests<a class="headerlink" href="#running-playwright-e2e-tests" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="nb">cd</span><span class="w"> </span>ui
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>npx<span class="w"> </span>playwright<span class="w"> </span>install<span class="w">    </span><span class="c1"># first time only — downloads Chromium/Firefox/WebKit</span>
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span>
+</span></code></pre></div>
+<p>The tests launch the Vite dev server, spawn the Python API, and drive the UI
+end-to-end. If the first run fails on missing browsers, re-run
+<code>npx playwright install --with-deps</code> on Linux to pull system dependencies.</p>
+<h2 id="running-the-v050-pytest-suite">Running the v0.5.0 pytest suite<a class="headerlink" href="#running-the-v050-pytest-suite" title="Permanent link">&para;</a></h2>
+<p>A single suite exercises every new phase in one process:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nb">cd</span><span class="w"> </span>H:/opendna
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/test_v050_phases.py<span class="w"> </span>-v
+</span></code></pre></div>
+<p>Add <code>-k &lt;phase&gt;</code> to target a subset (e.g. <code>-k "phase6 or phase8"</code>). The suite
+uses temporary directories for all of its SQLite databases (<code>OPENDNA_AUTH_DIR</code>,
+<code>OPENDNA_WORKSPACES_DIR</code>, <code>OPENDNA_JOBS_DB</code>, <code>OPENDNA_CRDT_DIR</code>) so it never
+pollutes your real <code>~/.opendna</code>.</p>
 
 
 

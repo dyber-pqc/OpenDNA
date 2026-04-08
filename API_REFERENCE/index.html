@@ -2620,6 +2620,475 @@
 </span><span id="__span-38-6"><a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a><span class="p">}</span>
 </span></code></pre></div></p>
 <p>Possible <code>action</code> values: <code>fold</code>, <code>score</code>, <code>design</code>, <code>mutate</code>, <code>explain</code>, <code>help</code>, <code>unknown</code>.</p>
+<hr />
+<h1 id="v050-rc1-api-surface">v0.5.0-rc1 API surface<a class="headerlink" href="#v050-rc1-api-surface" title="Permanent link">&para;</a></h1>
+<p>The sections below document every endpoint added in v0.5.0, grouped by phase.
+All new endpoints share the same base URL (<code>http://127.0.0.1:8765</code> by default)
+and JSON conventions as the v0.2-v0.4 API above. Auth headers are only enforced
+when the server is started with <code>OPENDNA_AUTH_REQUIRED=1</code>; otherwise the API
+remains in "open mode" for local desktop use.</p>
+<p>Common status codes: <code>200 OK</code> on success, <code>400</code> on bad input, <code>401</code> when auth
+is required but missing/invalid, <code>403</code> on scope mismatch, <code>404</code> on missing
+resource, <code>409</code> on conflict (e.g. user already exists), <code>503</code> when a required
+backend is not installed.</p>
+<h2 id="phase-2-component-manager">Phase 2: Component Manager<a class="headerlink" href="#phase-2-component-manager" title="Permanent link">&para;</a></h2>
+<p>Heavy ML models, MD engines, QM tools, and LLMs are installed on-demand via
+the Component Manager. Every component is one of four install kinds
+(<code>pip</code> / <code>hf</code> / <code>script</code> / <code>ollama</code>) and a marker file at
+<code>~/.opendna/components/&lt;name&gt;.installed</code> tracks successful installs.</p>
+<h3 id="get-v1components"><code>GET /v1/components</code><a class="headerlink" href="#get-v1components" title="Permanent link">&para;</a></h3>
+<p>List every registered component along with its current install status.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="p">{</span>
+</span><span id="__span-39-2"><a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a><span class="w">  </span><span class="nt">&quot;components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-39-3"><a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-39-4"><a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;esmfold&quot;</span><span class="p">,</span>
+</span><span id="__span-39-5"><a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a><span class="w">      </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ESMFold v1&quot;</span><span class="p">,</span>
+</span><span id="__span-39-6"><a id="__codelineno-39-6" name="__codelineno-39-6" href="#__codelineno-39-6"></a><span class="w">      </span><span class="nt">&quot;category&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;folding&quot;</span><span class="p">,</span>
+</span><span id="__span-39-7"><a id="__codelineno-39-7" name="__codelineno-39-7" href="#__codelineno-39-7"></a><span class="w">      </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Meta&#39;s single-sequence predictor. ~8 GB.&quot;</span><span class="p">,</span>
+</span><span id="__span-39-8"><a id="__codelineno-39-8" name="__codelineno-39-8" href="#__codelineno-39-8"></a><span class="w">      </span><span class="nt">&quot;size_mb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8000</span><span class="p">,</span>
+</span><span id="__span-39-9"><a id="__codelineno-39-9" name="__codelineno-39-9" href="#__codelineno-39-9"></a><span class="w">      </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v1&quot;</span><span class="p">,</span>
+</span><span id="__span-39-10"><a id="__codelineno-39-10" name="__codelineno-39-10" href="#__codelineno-39-10"></a><span class="w">      </span><span class="nt">&quot;install_kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;hf&quot;</span><span class="p">,</span>
+</span><span id="__span-39-11"><a id="__codelineno-39-11" name="__codelineno-39-11" href="#__codelineno-39-11"></a><span class="w">      </span><span class="nt">&quot;install_target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;facebook/esmfold_v1&quot;</span><span class="p">,</span>
+</span><span id="__span-39-12"><a id="__codelineno-39-12" name="__codelineno-39-12" href="#__codelineno-39-12"></a><span class="w">      </span><span class="nt">&quot;import_check&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;import transformers; transformers.EsmForProteinFolding&quot;</span><span class="p">,</span>
+</span><span id="__span-39-13"><a id="__codelineno-39-13" name="__codelineno-39-13" href="#__codelineno-39-13"></a><span class="w">      </span><span class="nt">&quot;homepage&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/facebookresearch/esm&quot;</span><span class="p">,</span>
+</span><span id="__span-39-14"><a id="__codelineno-39-14" name="__codelineno-39-14" href="#__codelineno-39-14"></a><span class="w">      </span><span class="nt">&quot;license&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span><span class="p">,</span>
+</span><span id="__span-39-15"><a id="__codelineno-39-15" name="__codelineno-39-15" href="#__codelineno-39-15"></a><span class="w">      </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;not_installed&quot;</span>
+</span><span id="__span-39-16"><a id="__codelineno-39-16" name="__codelineno-39-16" href="#__codelineno-39-16"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-39-17"><a id="__codelineno-39-17" name="__codelineno-39-17" href="#__codelineno-39-17"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-39-18"><a id="__codelineno-39-18" name="__codelineno-39-18" href="#__codelineno-39-18"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p><code>status</code> is one of <code>installed</code>, <code>not_installed</code>, <code>unknown</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-40-1"><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>curl<span class="w"> </span>http://127.0.0.1:8765/v1/components
+</span></code></pre></div>
+<h3 id="get-v1componentsname"><code>GET /v1/components/{name}</code><a class="headerlink" href="#get-v1componentsname" title="Permanent link">&para;</a></h3>
+<p>Return the full record for a single component. <code>404</code> if unknown.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-41-1"><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>curl<span class="w"> </span>http://127.0.0.1:8765/v1/components/diffdock
+</span></code></pre></div>
+<h3 id="post-v1componentsnameinstall"><code>POST /v1/components/{name}/install</code><a class="headerlink" href="#post-v1componentsnameinstall" title="Permanent link">&para;</a></h3>
+<p>Start a non-blocking install job. Returns a <code>job_id</code> that can be polled.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-42-1"><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="p">{</span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;comp-a1b2c3d4e5f6&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;component&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;diffdock&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-43-1"><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:8765/v1/components/diffdock/install
+</span></code></pre></div>
+<h3 id="post-v1componentsnameuninstall"><code>POST /v1/components/{name}/uninstall</code><a class="headerlink" href="#post-v1componentsnameuninstall" title="Permanent link">&para;</a></h3>
+<p>Removes the marker file and (for <code>pip</code> components) runs <code>pip uninstall -y</code>.</p>
+<p>Response: <code>{"status": "uninstalled", "component": "diffdock"}</code>.</p>
+<h3 id="get-v1componentsjobsjob_id"><code>GET /v1/components/jobs/{job_id}</code><a class="headerlink" href="#get-v1componentsjobsjob_id" title="Permanent link">&para;</a></h3>
+<p>Poll install progress. Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>component</code></td>
+<td>string</td>
+<td>Component being installed</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>running</code> / <code>completed</code> / <code>failed</code></td>
+</tr>
+<tr>
+<td><code>progress</code></td>
+<td>float</td>
+<td>0.0 - 1.0</td>
+</tr>
+<tr>
+<td><code>messages</code></td>
+<td>array of string</td>
+<td>Tail of subprocess output (capped at 500 lines)</td>
+</tr>
+<tr>
+<td><code>result</code></td>
+<td>object</td>
+<td>Present once status transitions to <code>completed</code></td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>string</td>
+<td>Present on failure</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-44-1"><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>curl<span class="w"> </span>http://127.0.0.1:8765/v1/components/jobs/comp-a1b2c3d4e5f6
+</span></code></pre></div>
+<h2 id="phase-3-real-heavy-model-backends">Phase 3: Real heavy-model backends<a class="headerlink" href="#phase-3-real-heavy-model-backends" title="Permanent link">&para;</a></h2>
+<p>These endpoints expose physics/ML backends that are opt-in via the Component
+Manager. Each returns <code>503</code> with <code>{"error": "..."}</code> when the underlying
+package (DiffDock, RFdiffusion, xTB, TorchANI) is not installed.</p>
+<h3 id="get-v1backends"><code>GET /v1/backends</code><a class="headerlink" href="#get-v1backends" title="Permanent link">&para;</a></h3>
+<p>Report which Phase 3 backends are currently importable.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-45-1"><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="p">{</span><span class="nt">&quot;backends&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;diffdock&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rfdiffusion&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;xtb&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ani&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;boltz&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">}}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1qmsingle_point"><code>POST /v1/qm/single_point</code><a class="headerlink" href="#post-v1qmsingle_point" title="Permanent link">&para;</a></h3>
+<p>Run a semi-empirical (xTB) or ML-potential (TorchANI ANI-2x) single-point
+energy on a PDB string. Tries xTB first by default, ANI second.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-46-1"><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="p">{</span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATOM ...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;xtb&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Response (example):
+<div class="language-json highlight"><pre><span></span><code><span id="__span-47-1"><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="p">{</span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;xtb&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;energy_hartree&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-114.523</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;energy_kcalmol&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-71842.1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gradient_norm&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0041</span><span class="p">}</span>
+</span></code></pre></div></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-48-1"><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:8765/v1/qm/single_point<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-48-2"><a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-48-3"><a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;pdb_string&quot;: &quot;...&quot;, &quot;engine&quot;: &quot;xtb&quot;}&#39;</span>
+</span></code></pre></div>
+<h3 id="post-v1design_denovo"><code>POST /v1/design_denovo</code><a class="headerlink" href="#post-v1design_denovo" title="Permanent link">&para;</a></h3>
+<p>RFdiffusion de novo backbone generation.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-49-1"><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a><span class="p">{</span><span class="nt">&quot;length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;contigs&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;A1-50/0 10-20&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;num_designs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Response: <code>{"designs": [{"pdb": "..."}], "num": 4}</code>. <code>503</code> if RFdiffusion is not installed.</p>
+<h2 id="phase-4-pqc-auth-layer">Phase 4: PQC auth layer<a class="headerlink" href="#phase-4-pqc-auth-layer" title="Permanent link">&para;</a></h2>
+<p>PQC (ML-DSA-65 / ML-KEM-768 via liboqs) is used when available; otherwise an
+HMAC-SHA256 fallback kicks in so CI and open-mode deployments still work.
+All mutating auth actions are appended to the hash-chained audit log.</p>
+<h3 id="post-v1authregister"><code>POST /v1/auth/register</code><a class="headerlink" href="#post-v1authregister" title="Permanent link">&para;</a></h3>
+<p>Create a new user and return a bearer token.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-50-1"><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a><span class="p">{</span><span class="nt">&quot;user_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;s3cret&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;scopes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;user&quot;</span><span class="p">]}</span>
+</span></code></pre></div></p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-51-1"><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a><span class="p">{</span><span class="nt">&quot;user_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eyJ...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ML-DSA-65&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pqc_available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Status codes: <code>200</code> on success, <code>409</code> if the user already exists.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-52-1"><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:8765/v1/auth/register<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-52-2"><a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-52-3"><a id="__codelineno-52-3" name="__codelineno-52-3" href="#__codelineno-52-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;user_id&quot;: &quot;alice&quot;, &quot;password&quot;: &quot;s3cret&quot;}&#39;</span>
+</span></code></pre></div>
+<h3 id="post-v1authlogin"><code>POST /v1/auth/login</code><a class="headerlink" href="#post-v1authlogin" title="Permanent link">&para;</a></h3>
+<p>Verify credentials and issue a new token.</p>
+<p>Request: <code>{"user_id": "alice", "password": "s3cret"}</code>
+Response: <code>{"user_id": "alice", "token": "eyJ...", "pqc": true}</code>
+<code>401</code> on invalid credentials.</p>
+<h3 id="get-v1authme"><code>GET /v1/auth/me</code><a class="headerlink" href="#get-v1authme" title="Permanent link">&para;</a></h3>
+<p>Return the current auth context. In open mode returns <code>{"auth_required": false, "mode": "open"}</code>.</p>
+<h3 id="post-v1authapi_keys"><code>POST /v1/auth/api_keys</code><a class="headerlink" href="#post-v1authapi_keys" title="Permanent link">&para;</a></h3>
+<p>Mint a new API key for the caller.</p>
+<p>Request: <code>{"name": "ci-runner"}</code>
+Response: <code>{"api_key": "od_...", "user_id": "alice"}</code></p>
+<h3 id="get-v1authstatus"><code>GET /v1/auth/status</code><a class="headerlink" href="#get-v1authstatus" title="Permanent link">&para;</a></h3>
+<p>Report whether PQC is available and which algorithms are in use.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-53-1"><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a><span class="p">{</span><span class="nt">&quot;pqc_available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;auth_required&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;sig_algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ML-DSA-65&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;kem_algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ML-KEM-768&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1authauditlimit100"><code>GET /v1/auth/audit?limit=100</code><a class="headerlink" href="#get-v1authauditlimit100" title="Permanent link">&para;</a></h3>
+<p>Return the tail of the hash-chained audit log plus a chain-verification result.
+Requires the <code>admin</code> scope when auth is enforced.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-54-1"><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a><span class="p">{</span><span class="nt">&quot;chain&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;verified&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">132</span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">132</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1712500000.1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;actor&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;action&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user.login&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ip&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;record_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">}]}</span>
+</span></code></pre></div></p>
+<h2 id="phase-5-per-user-workspaces">Phase 5: Per-user workspaces<a class="headerlink" href="#phase-5-per-user-workspaces" title="Permanent link">&para;</a></h2>
+<p>Workspaces live under <code>~/.opendna/workspaces/&lt;user&gt;/&lt;name&gt;/</code>. When a password
+is supplied, projects are AES-256-GCM encrypted with a scrypt-derived key. A
+wrap-check ciphertext verifies the password before anything is decrypted.</p>
+<h3 id="post-v1workspacesopen"><code>POST /v1/workspaces/open</code><a class="headerlink" href="#post-v1workspacesopen" title="Permanent link">&para;</a></h3>
+<p>Open (create if missing) a workspace.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-55-1"><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a><span class="p">{</span><span class="nt">&quot;user_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;s3cret&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-56-1"><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a><span class="p">{</span><span class="nt">&quot;user_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;encrypted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;encryption_available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;projects&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;my-protein&quot;</span><span class="p">]}</span>
+</span></code></pre></div></p>
+<p><code>401</code> if the password is wrong (wrap-check fails).</p>
+<h3 id="get-v1workspacesuser_id"><code>GET /v1/workspaces/{user_id}</code><a class="headerlink" href="#get-v1workspacesuser_id" title="Permanent link">&para;</a></h3>
+<p>List every workspace name for a user.</p>
+<p>Response: <code>{"workspaces": ["default", "research"]}</code>.</p>
+<h3 id="post-v1workspacessave_project"><code>POST /v1/workspaces/save_project</code><a class="headerlink" href="#post-v1workspacessave_project" title="Permanent link">&para;</a></h3>
+<p>Persist a project payload to the workspace.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-57-1"><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a><span class="p">{</span><span class="nt">&quot;user_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;password&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;s3cret&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+</span><span id="__span-57-2"><a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a><span class="w"> </span><span class="nt">&quot;project_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-protein&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;pdb&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">}}</span>
+</span></code></pre></div></p>
+<p>Response: <code>{"path": "/.../my-protein.json", "encrypted": true}</code>.</p>
+<h3 id="post-v1workspacesload_project"><code>POST /v1/workspaces/load_project</code><a class="headerlink" href="#post-v1workspacesload_project" title="Permanent link">&para;</a></h3>
+<p>Load and return a project payload.</p>
+<p>Response: <code>{"project": {...}}</code>. <code>404</code> if the project does not exist.</p>
+<h2 id="phase-6-priority-queue-pubsub-gpu-pool">Phase 6: Priority queue, pub/sub, GPU pool<a class="headerlink" href="#phase-6-priority-queue-pubsub-gpu-pool" title="Permanent link">&para;</a></h2>
+<p>All heavy jobs now flow through a single priority queue (SQLite-backed at
+<code>~/.opendna/jobs.db</code>) with three priority levels: <code>0</code> interactive,
+<code>1</code> normal, <code>2</code> batch. Progress events are streamed via WebSocket.</p>
+<h3 id="get-v1queuestats"><code>GET /v1/queue/stats</code><a class="headerlink" href="#get-v1queuestats" title="Permanent link">&para;</a></h3>
+<p>Return queue + GPU pool snapshot.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-58-1"><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a><span class="p">{</span>
+</span><span id="__span-58-2"><a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a><span class="w">  </span><span class="nt">&quot;queue&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;queued&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;running&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;completed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;failed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;workers&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span>
+</span><span id="__span-58-3"><a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a><span class="w">  </span><span class="nt">&quot;gpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;backend&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;total_mb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24564</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;free_mb&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20800</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;warm_models&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span>
+</span><span id="__span-58-4"><a id="__codelineno-58-4" name="__codelineno-58-4" href="#__codelineno-58-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1queuejobsuser_idalice"><code>GET /v1/queue/jobs?user_id=alice</code><a class="headerlink" href="#get-v1queuejobsuser_idalice" title="Permanent link">&para;</a></h3>
+<p>List jobs (optionally filtered by user).</p>
+<h3 id="get-v1queuejobsjob_id"><code>GET /v1/queue/jobs/{job_id}</code><a class="headerlink" href="#get-v1queuejobsjob_id" title="Permanent link">&para;</a></h3>
+<p>Return a single job record: <code>id, type, status, progress, priority, user_id, created_at, started_at, finished_at, result, error, messages</code>.</p>
+<h3 id="post-v1queueenqueue"><code>POST /v1/queue/enqueue</code><a class="headerlink" href="#post-v1queueenqueue" title="Permanent link">&para;</a></h3>
+<p>Submit a new job. Supported <code>kind</code>s: <code>fold</code>, <code>design</code>, <code>md</code>, <code>dock</code>, <code>multimer</code>.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-59-1"><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a><span class="p">{</span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fold&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKT...&quot;</span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;user_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Response: <code>{"job_id": "job-...", "priority": 0}</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-60-1"><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:8765/v1/queue/enqueue<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-60-2"><a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-60-3"><a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;kind&quot;: &quot;fold&quot;, &quot;params&quot;: {&quot;sequence&quot;: &quot;MKT&quot;}, &quot;priority&quot;: 0}&#39;</span>
+</span></code></pre></div>
+<h3 id="ws-v1wsjobsjob_id">WS <code>/v1/ws/jobs/{job_id}</code><a class="headerlink" href="#ws-v1wsjobsjob_id" title="Permanent link">&para;</a></h3>
+<p>Stream job progress. Messages are JSON objects with an <code>event</code> field:</p>
+<table>
+<thead>
+<tr>
+<th>event</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>snapshot</code></td>
+<td>Initial state on connect</td>
+</tr>
+<tr>
+<td><code>progress</code></td>
+<td><code>{stage, fraction}</code> update</td>
+</tr>
+<tr>
+<td><code>finished</code></td>
+<td>Terminal event, job succeeded</td>
+</tr>
+<tr>
+<td><code>final</code></td>
+<td>Catch-up terminal state for clients joining after completion</td>
+</tr>
+<tr>
+<td><code>heartbeat</code></td>
+<td>Sent every 30s when idle</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td><code>reason</code> field describes failure</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-v1gpuinfo"><code>GET /v1/gpu/info</code><a class="headerlink" href="#get-v1gpuinfo" title="Permanent link">&para;</a></h3>
+<p>Return GPU backend info: <code>{backend, device, total_mb, free_mb, warm_models}</code>.</p>
+<h3 id="post-v1gpuevict_warmolder_than_s300"><code>POST /v1/gpu/evict_warm?older_than_s=300</code><a class="headerlink" href="#post-v1gpuevict_warmolder_than_s300" title="Permanent link">&para;</a></h3>
+<p>Evict warm-cached models older than N seconds. Response: <code>{"evicted": &lt;int&gt;}</code>.</p>
+<h2 id="phase-7-reliability">Phase 7: Reliability<a class="headerlink" href="#phase-7-reliability" title="Permanent link">&para;</a></h2>
+<h3 id="get-v1health"><code>GET /v1/health</code><a class="headerlink" href="#get-v1health" title="Permanent link">&para;</a></h3>
+<p>Run every registered health check once and return results.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-61-1"><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a><span class="p">{</span><span class="nt">&quot;overall&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;checks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu_memory&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;fixed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;disk_space&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ok&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}]}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1crasheslimit50"><code>GET /v1/crashes?limit=50</code><a class="headerlink" href="#get-v1crasheslimit50" title="Permanent link">&para;</a></h3>
+<p>Return the tail of the local crash log (PII redacted via regex).</p>
+<h3 id="delete-v1crashes"><code>DELETE /v1/crashes</code><a class="headerlink" href="#delete-v1crashes" title="Permanent link">&para;</a></h3>
+<p>Clear the crash log. Response: <code>{"deleted": &lt;int&gt;}</code>.</p>
+<h2 id="phase-8-provenance-dag-time-machine">Phase 8: Provenance DAG + time machine<a class="headerlink" href="#phase-8-provenance-dag-time-machine" title="Permanent link">&para;</a></h2>
+<p>Every compute step can be recorded as a node in a per-project provenance
+graph stored at <code>~/.opendna/provenance.db</code>. Nodes carry inputs, outputs, an
+optional score, and parent node IDs.</p>
+<h3 id="post-v1provenancerecord"><code>POST /v1/provenance/record</code><a class="headerlink" href="#post-v1provenancerecord" title="Permanent link">&para;</a></h3>
+<p>Record a step.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-62-1"><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a><span class="p">{</span>
+</span><span id="__span-62-2"><a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a><span class="w">  </span><span class="nt">&quot;project_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-protein&quot;</span><span class="p">,</span>
+</span><span id="__span-62-3"><a id="__codelineno-62-3" name="__codelineno-62-3" href="#__codelineno-62-3"></a><span class="w">  </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;design&quot;</span><span class="p">,</span>
+</span><span id="__span-62-4"><a id="__codelineno-62-4" name="__codelineno-62-4" href="#__codelineno-62-4"></a><span class="w">  </span><span class="nt">&quot;inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;pdb_string&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">},</span>
+</span><span id="__span-62-5"><a id="__codelineno-62-5" name="__codelineno-62-5" href="#__codelineno-62-5"></a><span class="w">  </span><span class="nt">&quot;outputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MKT...&quot;</span><span class="p">},</span>
+</span><span id="__span-62-6"><a id="__codelineno-62-6" name="__codelineno-62-6" href="#__codelineno-62-6"></a><span class="w">  </span><span class="nt">&quot;score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.82</span><span class="p">,</span>
+</span><span id="__span-62-7"><a id="__codelineno-62-7" name="__codelineno-62-7" href="#__codelineno-62-7"></a><span class="w">  </span><span class="nt">&quot;parent_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;node-abc&quot;</span><span class="p">],</span>
+</span><span id="__span-62-8"><a id="__codelineno-62-8" name="__codelineno-62-8" href="#__codelineno-62-8"></a><span class="w">  </span><span class="nt">&quot;actor&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span>
+</span><span id="__span-62-9"><a id="__codelineno-62-9" name="__codelineno-62-9" href="#__codelineno-62-9"></a><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Response: the created node record (<code>{id, ts, project_id, kind, inputs, outputs, score, actor}</code>).</p>
+<h3 id="get-v1provenanceproject_id"><code>GET /v1/provenance/{project_id}</code><a class="headerlink" href="#get-v1provenanceproject_id" title="Permanent link">&para;</a></h3>
+<p>Return the full DAG for a project: <code>{nodes, edges, stats}</code>.</p>
+<h3 id="get-v1provenancenodenode_id"><code>GET /v1/provenance/node/{node_id}</code><a class="headerlink" href="#get-v1provenancenodenode_id" title="Permanent link">&para;</a></h3>
+<p>Return a single node record. <code>404</code> if not found.</p>
+<h3 id="get-v1provenancelineagenode_id"><code>GET /v1/provenance/lineage/{node_id}</code><a class="headerlink" href="#get-v1provenancelineagenode_id" title="Permanent link">&para;</a></h3>
+<p>Walk parents all the way back; returns every ancestor node in order.</p>
+<h3 id="get-v1provenancediffaidbid"><code>GET /v1/provenance/diff?a=&lt;id&gt;&amp;b=&lt;id&gt;</code><a class="headerlink" href="#get-v1provenancediffaidbid" title="Permanent link">&para;</a></h3>
+<p>Diff two provenance nodes, returning changed input/output keys and score delta.</p>
+<h3 id="get-v1provenanceblameproject_idresidueint"><code>GET /v1/provenance/blame?project_id=...&amp;residue=&lt;int&gt;</code><a class="headerlink" href="#get-v1provenanceblameproject_idresidueint" title="Permanent link">&para;</a></h3>
+<p>Given a residue index, return the sequence of design steps that touched it.</p>
+<h3 id="get-v1provenancebisectproject_idthreshold00"><code>GET /v1/provenance/bisect?project_id=...&amp;threshold=0.0</code><a class="headerlink" href="#get-v1provenancebisectproject_idthreshold00" title="Permanent link">&para;</a></h3>
+<p>Walk the DAG and report the first node whose score dropped below the threshold.</p>
+<h2 id="phase-9-visual-workflow-editor">Phase 9: Visual workflow editor<a class="headerlink" href="#phase-9-visual-workflow-editor" title="Permanent link">&para;</a></h2>
+<h3 id="get-v1workflownode_types"><code>GET /v1/workflow/node_types</code><a class="headerlink" href="#get-v1workflownode_types" title="Permanent link">&para;</a></h3>
+<p>Enumerate every registered node type for the graph editor. Built-ins include
+<code>fold</code>, <code>design</code>, <code>evaluate</code>, <code>analyze</code>, <code>dock</code>, <code>md</code>, <code>multimer</code>,
+<code>fetch_uniprot</code>, <code>fetch_pdb</code>, <code>constant</code>.</p>
+<h3 id="post-v1workflowrun_graph"><code>POST /v1/workflow/run_graph</code><a class="headerlink" href="#post-v1workflowrun_graph" title="Permanent link">&para;</a></h3>
+<p>Submit a workflow DAG to the priority queue.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-63-1"><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a><span class="p">{</span>
+</span><span id="__span-63-2"><a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a><span class="w">  </span><span class="nt">&quot;workflow&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-63-3"><a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a><span class="w">    </span><span class="nt">&quot;nodes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;n1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fetch_uniprot&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;accession&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;P01308&quot;</span><span class="p">}},</span>
+</span><span id="__span-63-4"><a id="__codelineno-63-4" name="__codelineno-63-4" href="#__codelineno-63-4"></a><span class="w">              </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;n2&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fold&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}}],</span>
+</span><span id="__span-63-5"><a id="__codelineno-63-5" name="__codelineno-63-5" href="#__codelineno-63-5"></a><span class="w">    </span><span class="nt">&quot;edges&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;n1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;n2&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;out_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sequence&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;in_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sequence&quot;</span><span class="p">}]</span>
+</span><span id="__span-63-6"><a id="__codelineno-63-6" name="__codelineno-63-6" href="#__codelineno-63-6"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-63-7"><a id="__codelineno-63-7" name="__codelineno-63-7" href="#__codelineno-63-7"></a><span class="w">  </span><span class="nt">&quot;project_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;insulin&quot;</span><span class="p">,</span>
+</span><span id="__span-63-8"><a id="__codelineno-63-8" name="__codelineno-63-8" href="#__codelineno-63-8"></a><span class="w">  </span><span class="nt">&quot;actor&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span>
+</span><span id="__span-63-9"><a id="__codelineno-63-9" name="__codelineno-63-9" href="#__codelineno-63-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Response: <code>{"job_id": "job-..."}</code>. Subscribe to <code>/v1/ws/jobs/{job_id}</code> for progress.</p>
+<h2 id="phase-10-external-services-vendors-webhooks">Phase 10: External services + vendors + webhooks<a class="headerlink" href="#phase-10-external-services-vendors-webhooks" title="Permanent link">&para;</a></h2>
+<h3 id="get-v1ncbisearchdbproteinterminsulinretmax20"><code>GET /v1/ncbi/search?db=protein&amp;term=insulin&amp;retmax=20</code><a class="headerlink" href="#get-v1ncbisearchdbproteinterminsulinretmax20" title="Permanent link">&para;</a></h3>
+<p>ESearch against NCBI E-utils.</p>
+<h3 id="get-v1ncbifetchdbproteinidp01308rettypefasta"><code>GET /v1/ncbi/fetch?db=protein&amp;id=P01308&amp;rettype=fasta</code><a class="headerlink" href="#get-v1ncbifetchdbproteinidp01308rettypefasta" title="Permanent link">&para;</a></h3>
+<p>EFetch a single record.</p>
+<h3 id="get-v1pubmedsearchqueryalphafoldretmax20"><code>GET /v1/pubmed/search?query=alphafold&amp;retmax=20</code><a class="headerlink" href="#get-v1pubmedsearchqueryalphafoldretmax20" title="Permanent link">&para;</a></h3>
+<p>PubMed literature search.</p>
+<h3 id="get-v1pubmedsummarizepmid35981056"><code>GET /v1/pubmed/summarize?pmid=35981056</code><a class="headerlink" href="#get-v1pubmedsummarizepmid35981056" title="Permanent link">&para;</a></h3>
+<p>Return ESummary metadata for a single PMID.</p>
+<h3 id="get-v1uniprotsearchqueryinsulinsize25reviewed_onlytrueorganismhomosapiens"><code>GET /v1/uniprot/search?query=insulin&amp;size=25&amp;reviewed_only=true&amp;organism=Homo+sapiens</code><a class="headerlink" href="#get-v1uniprotsearchqueryinsulinsize25reviewed_onlytrueorganismhomosapiens" title="Permanent link">&para;</a></h3>
+<p>Search UniProt. Response is the UniProt REST JSON trimmed to essentials.</p>
+<h3 id="get-v1uniprotaccession"><code>GET /v1/uniprot/{accession}</code><a class="headerlink" href="#get-v1uniprotaccession" title="Permanent link">&para;</a></h3>
+<p>Return the sequence + metadata for a UniProt accession.</p>
+<h3 id="get-v1alphafolduniprot_idwith_metafalse"><code>GET /v1/alphafold/{uniprot_id}?with_meta=false</code><a class="headerlink" href="#get-v1alphafolduniprot_idwith_metafalse" title="Permanent link">&para;</a></h3>
+<p>Fetch the AlphaFold DB structure for a UniProt ID. With <code>with_meta=true</code> returns
+pLDDT and PAE metadata alongside the PDB.</p>
+<h3 id="get-v1vendors"><code>GET /v1/vendors</code><a class="headerlink" href="#get-v1vendors" title="Permanent link">&para;</a></h3>
+<p>List supported synthesis vendors.</p>
+<h3 id="post-v1vendorsquote"><code>POST /v1/vendors/quote</code><a class="headerlink" href="#post-v1vendorsquote" title="Permanent link">&para;</a></h3>
+<p>Request a synthesis price quote.</p>
+<p>Request: <code>{"sequence": "ATGCC...", "kind": "dna_gene", "vendor": "idt"}</code>
+Response: <code>{"vendor": "idt", "price_usd": 285.0, "lead_time_days": 10}</code></p>
+<h3 id="post-v1vendorsorder"><code>POST /v1/vendors/order</code><a class="headerlink" href="#post-v1vendorsorder" title="Permanent link">&para;</a></h3>
+<p>Place a synthesis order. Fires webhooks on <code>vendor.order</code> and records an audit entry.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-64-1"><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a><span class="p">{</span><span class="nt">&quot;sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATGCC...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;vendor&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;idt&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;product&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gblock&quot;</span><span class="p">,</span>
+</span><span id="__span-64-2"><a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a><span class="w"> </span><span class="nt">&quot;customer_email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice@lab.org&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Response: <code>{"order_id": "ord-...", "status": "submitted"}</code>.</p>
+<h3 id="post-v1notify"><code>POST /v1/notify</code><a class="headerlink" href="#post-v1notify" title="Permanent link">&para;</a></h3>
+<p>Send a Slack/Teams/Discord notification via incoming webhook.</p>
+<p>Request: <code>{"text": "MD finished!", "channel": "slack", "webhook_url": "https://hooks.slack.com/..."}</code>
+Response: <code>{"sent": true}</code>.</p>
+<h3 id="get-v1webhooks"><code>GET /v1/webhooks</code><a class="headerlink" href="#get-v1webhooks" title="Permanent link">&para;</a></h3>
+<p>List all registered outbound webhooks.</p>
+<h3 id="post-v1webhooks"><code>POST /v1/webhooks</code><a class="headerlink" href="#post-v1webhooks" title="Permanent link">&para;</a></h3>
+<p>Register a webhook.</p>
+<p>Request: <code>{"url": "https://example.com/hook", "event": "vendor.order", "secret": "sh..."}</code>
+Response: <code>{"id": "wh-..."}</code>.</p>
+<h3 id="delete-v1webhookswid"><code>DELETE /v1/webhooks/{wid}</code><a class="headerlink" href="#delete-v1webhookswid" title="Permanent link">&para;</a></h3>
+<p>Delete a webhook. Response: <code>{"deleted": true}</code>.</p>
+<h2 id="phase-12-lab-notebook-doizenodo-figure3d-export">Phase 12: Lab notebook, DOI/Zenodo, figure/3D export<a class="headerlink" href="#phase-12-lab-notebook-doizenodo-figure3d-export" title="Permanent link">&para;</a></h2>
+<h3 id="post-v1notebookentries"><code>POST /v1/notebook/entries</code><a class="headerlink" href="#post-v1notebookentries" title="Permanent link">&para;</a></h3>
+<p>Append a markdown entry to a project notebook. Optionally attach a list of
+provenance node IDs.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-65-1"><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a><span class="p">{</span><span class="nt">&quot;project_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-protein&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Run 3 design sweep&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;body_md&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Results...&quot;</span><span class="p">,</span>
+</span><span id="__span-65-2"><a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a><span class="w"> </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;design&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;prov_node_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;node-abc&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1notebookproject_identries"><code>GET /v1/notebook/{project_id}/entries</code><a class="headerlink" href="#get-v1notebookproject_identries" title="Permanent link">&para;</a></h3>
+<p>List entries for a project.</p>
+<h3 id="get-v1notebookproject_identriesentry_id"><code>GET /v1/notebook/{project_id}/entries/{entry_id}</code><a class="headerlink" href="#get-v1notebookproject_identriesentry_id" title="Permanent link">&para;</a></h3>
+<p>Return a single entry. <code>404</code> if not found.</p>
+<h3 id="get-v1notebookproject_idattachments"><code>GET /v1/notebook/{project_id}/attachments</code><a class="headerlink" href="#get-v1notebookproject_idattachments" title="Permanent link">&para;</a></h3>
+<p>List files in the project's notebook attachment directory.</p>
+<h3 id="post-v1zenodomint"><code>POST /v1/zenodo/mint</code><a class="headerlink" href="#post-v1zenodomint" title="Permanent link">&para;</a></h3>
+<p>Mint a Zenodo DOI for a dataset / software release. Creates a local deposit
+stub when <code>ZENODO_TOKEN</code> is not set.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-66-1"><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a><span class="p">{</span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenDNA results&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;creators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice&quot;</span><span class="p">}],</span>
+</span><span id="__span-66-2"><a id="__codelineno-66-2" name="__codelineno-66-2" href="#__codelineno-66-2"></a><span class="w"> </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;report.pdf&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;keywords&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;protein design&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;upload_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;software&quot;</span><span class="p">}</span>
+</span></code></pre></div></p>
+<h3 id="get-v1zenododeposits"><code>GET /v1/zenodo/deposits</code><a class="headerlink" href="#get-v1zenododeposits" title="Permanent link">&para;</a></h3>
+<p>List locally recorded Zenodo deposits.</p>
+<h3 id="post-v1exportfigure"><code>POST /v1/export/figure</code><a class="headerlink" href="#post-v1exportfigure" title="Permanent link">&para;</a></h3>
+<p>Render a figure from a data dict to SVG or PNG.</p>
+<p>Request: <code>{"data": {"x": [1,2,3], "y": [4,5,6]}, "title": "MD RMSD", "xlabel": "ns", "ylabel": "Å", "format": "svg"}</code>
+Response: <code>{"format": "svg", "svg": "&lt;svg&gt;...&lt;/svg&gt;"}</code> or <code>{"format": "png", "base64": "..."}</code>.</p>
+<h3 id="post-v1export3d"><code>POST /v1/export/3d</code><a class="headerlink" href="#post-v1export3d" title="Permanent link">&para;</a></h3>
+<p>Convert a PDB string to glTF or OBJ for 3D printing / web viewers.</p>
+<p>Request: <code>{"pdb_string": "...", "format": "gltf"}</code>
+Response: <code>{"format": "gltf", "gltf": "..."}</code> or <code>{"format": "obj", "text": "..."}</code>.</p>
+<h3 id="post-v1exporttrajectory_gif"><code>POST /v1/export/trajectory_gif</code><a class="headerlink" href="#post-v1exporttrajectory_gif" title="Permanent link">&para;</a></h3>
+<p>Render a multi-frame PDB trajectory to an animated GIF.</p>
+<p>Request: <code>{"pdb_frames": ["FRAME1...", "FRAME2..."], "fps": 10}</code>
+Response: <code>{"path": "/tmp/...gif", "frames": 50, "fps": 10, "gif_b64": "..."}</code>.</p>
+<h2 id="phase-13-crdt-real-time-co-editing">Phase 13: CRDT real-time co-editing<a class="headerlink" href="#phase-13-crdt-real-time-co-editing" title="Permanent link">&para;</a></h2>
+<p>The server acts as a y-websocket compatible relay with per-room append-only
+persistent logs at <code>~/.opendna/crdt/&lt;room&gt;.ylog</code>.</p>
+<h3 id="ws-v1crdtroom_name">WS <code>/v1/crdt/{room_name}</code><a class="headerlink" href="#ws-v1crdtroom_name" title="Permanent link">&para;</a></h3>
+<p>Connect to a Yjs room. Binary messages are relayed to all other peers; any
+non-awareness update is persisted. New clients receive a replay of the log on
+connect so they converge to current state.</p>
+<h3 id="get-v1crdt"><code>GET /v1/crdt</code><a class="headerlink" href="#get-v1crdt" title="Permanent link">&para;</a></h3>
+<p>Return active room statistics: <code>{"rooms": [{"name": "alice/my-protein", "clients": 2, "log_size": 4096}]}</code>.</p>
+<h2 id="phase-14-academy">Phase 14: Academy<a class="headerlink" href="#phase-14-academy" title="Permanent link">&para;</a></h2>
+<h3 id="get-v1academylevels"><code>GET /v1/academy/levels</code><a class="headerlink" href="#get-v1academylevels" title="Permanent link">&para;</a></h3>
+<p>List every training level (1-7) with metadata.</p>
+<h3 id="get-v1academylevelslevel_id"><code>GET /v1/academy/levels/{level_id}</code><a class="headerlink" href="#get-v1academylevelslevel_id" title="Permanent link">&para;</a></h3>
+<p>Return one level's full content. <code>404</code> if the level does not exist.</p>
+<h3 id="get-v1academybadges"><code>GET /v1/academy/badges</code><a class="headerlink" href="#get-v1academybadges" title="Permanent link">&para;</a></h3>
+<p>Return the badge catalog.</p>
+<h3 id="get-v1academyglossary"><code>GET /v1/academy/glossary</code><a class="headerlink" href="#get-v1academyglossary" title="Permanent link">&para;</a></h3>
+<p>Return the in-app glossary.</p>
+<h3 id="get-v1academydailydateyyyy-mm-dd"><code>GET /v1/academy/daily?date=YYYY-MM-DD</code><a class="headerlink" href="#get-v1academydailydateyyyy-mm-dd" title="Permanent link">&para;</a></h3>
+<p>Return the daily challenge (today if date omitted).</p>
+<h3 id="post-v1academydailyanswer"><code>POST /v1/academy/daily/answer</code><a class="headerlink" href="#post-v1academydailyanswer" title="Permanent link">&para;</a></h3>
+<p>Submit a daily-challenge answer.</p>
+<p>Request: <code>{"user_id": "alice", "sequence": "MKT...", "date": "2026-04-07"}</code>
+Response: <code>{"correct": true, "score": 0.95, "badge_awarded": "daily-streak-7"}</code>.</p>
+<h3 id="get-v1academyleaderboardlimit20"><code>GET /v1/academy/leaderboard?limit=20</code><a class="headerlink" href="#get-v1academyleaderboardlimit20" title="Permanent link">&para;</a></h3>
+<p>Return the top N users with their points.</p>
+<h2 id="phase-15-llm-polish-ollama-manager">Phase 15: LLM polish (Ollama manager)<a class="headerlink" href="#phase-15-llm-polish-ollama-manager" title="Permanent link">&para;</a></h2>
+<h3 id="get-v1llmollamastatus"><code>GET /v1/llm/ollama/status</code><a class="headerlink" href="#get-v1llmollamastatus" title="Permanent link">&para;</a></h3>
+<p>Report install + runtime status of the local Ollama daemon.</p>
+<p>Response:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-67-1"><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a><span class="p">{</span><span class="nt">&quot;installed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;running&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;default_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;llama3.2:3b&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;models&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;llama3.2:3b&quot;</span><span class="p">]}</span>
+</span></code></pre></div></p>
+<h3 id="post-v1llmollamainstall"><code>POST /v1/llm/ollama/install</code><a class="headerlink" href="#post-v1llmollamainstall" title="Permanent link">&para;</a></h3>
+<p>Attempt a best-effort auto-install of Ollama for the current platform.</p>
+<h3 id="post-v1llmollamapull"><code>POST /v1/llm/ollama/pull</code><a class="headerlink" href="#post-v1llmollamapull" title="Permanent link">&para;</a></h3>
+<p>Pull a model.</p>
+<p>Request: <code>{"model": "llama3.2:3b"}</code>
+Response: <code>{"model": "llama3.2:3b", "status": "pulled"}</code>.</p>
+<h3 id="post-v1llmchatstream"><code>POST /v1/llm/chat/stream</code><a class="headerlink" href="#post-v1llmchatstream" title="Permanent link">&para;</a></h3>
+<p>Streaming chat completion with multi-turn session memory.</p>
+<p>Request:
+<div class="language-json highlight"><pre><span></span><code><span id="__span-68-1"><a id="__codelineno-68-1" name="__codelineno-68-1" href="#__codelineno-68-1"></a><span class="p">{</span><span class="nt">&quot;session_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sess-1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Explain the pLDDT score&quot;</span><span class="p">,</span>
+</span><span id="__span-68-2"><a id="__codelineno-68-2" name="__codelineno-68-2" href="#__codelineno-68-2"></a><span class="w"> </span><span class="nt">&quot;system&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;You are...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;llama3.2:3b&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;temperature&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.7</span><span class="p">}</span>
+</span></code></pre></div></p>
+<p>Response: <code>text/plain</code> stream of token chunks. The assistant reply is auto-appended to session history.</p>
+<h3 id="get-v1llmchathistorysession_id"><code>GET /v1/llm/chat/history/{session_id}</code><a class="headerlink" href="#get-v1llmchathistorysession_id" title="Permanent link">&para;</a></h3>
+<p>Return the stored chat history for a session.</p>
+<h3 id="delete-v1llmchathistorysession_id"><code>DELETE /v1/llm/chat/history/{session_id}</code><a class="headerlink" href="#delete-v1llmchathistorysession_id" title="Permanent link">&para;</a></h3>
+<p>Clear a session's history.</p>
+<h2 id="phase-16-compliance">Phase 16: Compliance<a class="headerlink" href="#phase-16-compliance" title="Permanent link">&para;</a></h2>
+<h3 id="get-v1compliancesbom"><code>GET /v1/compliance/sbom</code><a class="headerlink" href="#get-v1compliancesbom" title="Permanent link">&para;</a></h3>
+<p>Generate a CycloneDX 1.5 SBOM of the running environment.</p>
+<h3 id="get-v1complianceairgap"><code>GET /v1/compliance/airgap</code><a class="headerlink" href="#get-v1complianceairgap" title="Permanent link">&para;</a></h3>
+<p>Report air-gap readiness (cached models, sidecar present, external endpoints disabled).</p>
+<h3 id="post-v1complianceairgapbundle"><code>POST /v1/compliance/airgap/bundle</code><a class="headerlink" href="#post-v1complianceairgapbundle" title="Permanent link">&para;</a></h3>
+<p>Build an offline artifact bundle.</p>
+<p>Request: <code>{"out_dir": "./opendna-airgap"}</code>
+Response: <code>{"out_dir": "...", "files": [...], "total_mb": 15234}</code>.</p>
+<h3 id="get-v1complianceprivacy"><code>GET /v1/compliance/privacy</code><a class="headerlink" href="#get-v1complianceprivacy" title="Permanent link">&para;</a></h3>
+<p>Return the local data inventory + what leaves the machine.</p>
+<h3 id="get-v1compliancehipaa"><code>GET /v1/compliance/hipaa</code><a class="headerlink" href="#get-v1compliancehipaa" title="Permanent link">&para;</a></h3>
+<p>Return the HIPAA readiness checklist with pass/fail per control.</p>
+<h3 id="get-v1compliancegdpr"><code>GET /v1/compliance/gdpr</code><a class="headerlink" href="#get-v1compliancegdpr" title="Permanent link">&para;</a></h3>
+<p>Return the GDPR readiness checklist.</p>
+<h3 id="post-v1complianceexport_user_data"><code>POST /v1/compliance/export_user_data</code><a class="headerlink" href="#post-v1complianceexport_user_data" title="Permanent link">&para;</a></h3>
+<p>GDPR right-to-data-portability. Packs every record tied to <code>user_id</code> into a zip.</p>
+<p>Request: <code>{"user_id": "alice", "out_path": "./alice-export.zip"}</code>
+Response: <code>{"zip": "./alice-export.zip", "items": 42, "bytes": 102400}</code>.</p>
+<h3 id="post-v1compliancedelete_user_data"><code>POST /v1/compliance/delete_user_data</code><a class="headerlink" href="#post-v1compliancedelete_user_data" title="Permanent link">&para;</a></h3>
+<p>GDPR right-to-erasure. Deletes workspaces, audit entries, and chat history for the user, then appends a <code>gdpr.erasure</code> audit event.</p>
+<p>Request: <code>{"user_id": "alice"}</code>
+Response: <code>{"deleted": {"workspaces": 1, "projects": 7, "audit_entries": 0, "chat_sessions": 3}}</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-69-1"><a id="__codelineno-69-1" name="__codelineno-69-1" href="#__codelineno-69-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:8765/v1/compliance/delete_user_data<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-69-2"><a id="__codelineno-69-2" name="__codelineno-69-2" href="#__codelineno-69-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-69-3"><a id="__codelineno-69-3" name="__codelineno-69-3" href="#__codelineno-69-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;user_id&quot;: &quot;alice&quot;}&#39;</span>
+</span></code></pre></div>
 
 
 

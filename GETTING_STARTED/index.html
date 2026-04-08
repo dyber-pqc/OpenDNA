@@ -880,6 +880,72 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-desktop-app-v05" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Desktop App (v0.5+)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-header-buttons-v05" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Header Buttons (v0.5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-manager-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Manager Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-minute-tour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5-Minute Tour
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-quantum-auth-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-Quantum Auth Setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#air-gapped-install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-Gapped Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1698,6 +1764,72 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-desktop-app-v05" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Desktop App (v0.5+)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-header-buttons-v05" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Header Buttons (v0.5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-manager-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Manager Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-minute-tour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5-Minute Tour
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#post-quantum-auth-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Post-Quantum Auth Setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#air-gapped-install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-Gapped Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1777,28 +1909,49 @@
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>OpenDNA
 </span></code></pre></div>
 <h3 id="step-2-install-python-dependencies">Step 2: Install Python dependencies<a class="headerlink" href="#step-2-install-python-dependencies" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+<p>OpenDNA ships a lightweight core plus optional extras. Pick the combination that matches your workflow:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Minimal core (CLI + API + sequence analysis, no heavy ML)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Core + ML engines (ESMFold, ESM-IF1, Boltz, DiffDock, xTB, ANI-2x)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[ml]&quot;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Core + molecular dynamics (OpenMM, AMBER14, explicit solvent)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[md]&quot;</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Core + post-quantum authentication (liboqs, ML-KEM-768, ML-DSA-65)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[pqc]&quot;</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># Everything — the &quot;kitchen sink&quot; install</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[ml,md,pqc,dev]&quot;</span>
 </span></code></pre></div>
-<p>This installs:
-- PyTorch (CPU version by default)
-- transformers, fair-esm (for ESMFold and ESM-IF1)
-- biotite (for structure I/O)
-- FastAPI + Uvicorn (for the API server)
-- Typer + Rich (for the CLI)
-- All Python dependencies from <code>pyproject.toml</code></p>
+<p>From PyPI the same extras are available:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>opendna<span class="w">                 </span><span class="c1"># lightweight</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;opendna[ml]&quot;</span><span class="w">           </span><span class="c1"># + ML folding/design engines</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;opendna[md]&quot;</span><span class="w">           </span><span class="c1"># + OpenMM molecular dynamics</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;opendna[pqc]&quot;</span><span class="w">          </span><span class="c1"># + post-quantum auth</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;opendna[ml,md,pqc]&quot;</span><span class="w">    </span><span class="c1"># + everything</span>
+</span></code></pre></div>
+<p>The core install brings in:
+- FastAPI + Uvicorn (API server)
+- Typer + Rich (CLI)
+- biotite + biopython (structure / sequence I/O)
+- numpy, scipy, matplotlib (scientific stack)</p>
+<p>The <code>[ml]</code> extra adds PyTorch, transformers, fair-esm, torch-geometric, and the heavy dependencies needed to actually run ESMFold, ESM-IF1, DiffDock, RFdiffusion, Boltz-1, ColabFold, xTB, and ANI-2x. These are opt-in because the wheels total ~4 GB.</p>
+<p>The <code>[pqc]</code> extra adds <code>liboqs-python</code>. You must also have the system <code>liboqs</code> library installed. On macOS: <code>brew install liboqs</code>. On Debian/Ubuntu: <code>sudo apt install liboqs-dev</code>. On Windows use the pre-built binaries from the <a href="https://github.com/open-quantum-safe/liboqs">Open Quantum Safe project</a>.</p>
 <p><strong>For NVIDIA GPU users:</strong> After the above, also install CUDA-enabled PyTorch:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>uninstall<span class="w"> </span>torch<span class="w"> </span>-y
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>--index-url<span class="w"> </span>https://download.pytorch.org/whl/cu124
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pip<span class="w"> </span>uninstall<span class="w"> </span>torch<span class="w"> </span>-y
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>--index-url<span class="w"> </span>https://download.pytorch.org/whl/cu124
 </span></code></pre></div>
 <em>Note: As of Python 3.14, CUDA wheels may not yet be available. CPU-only torch still works.</em></p>
 <h3 id="step-3-install-ui-dependencies">Step 3: Install UI dependencies<a class="headerlink" href="#step-3-install-ui-dependencies" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>ui
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>npm<span class="w"> </span>install
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nb">cd</span><span class="w"> </span>..
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">cd</span><span class="w"> </span>ui
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>npm<span class="w"> </span>install
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">cd</span><span class="w"> </span>..
 </span></code></pre></div>
 <p>This installs React, Vite, Molstar, and ~370 other packages. Takes ~3 minutes.</p>
 <h3 id="step-4-verify-installation">Step 4: Verify installation<a class="headerlink" href="#step-4-verify-installation" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/python/
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/python/
 </span></code></pre></div>
 <p>You should see <code>18 passed</code> (or similar). If anything fails, see <a href="../TROUBLESHOOTING/">Troubleshooting</a>.</p>
 <hr />
@@ -1808,27 +1961,27 @@
 2. <strong>Web UI</strong> (TypeScript/React) — shows the visuals</p>
 <p>You'll need <strong>two terminals open simultaneously</strong>.</p>
 <h3 id="terminal-1-start-the-api-server">Terminal 1: Start the API server<a class="headerlink" href="#terminal-1-start-the-api-server" title="Permanent link">&para;</a></h3>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c"># Windows PowerShell</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">python</span> <span class="n">-c</span> <span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c"># Windows PowerShell</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">python</span> <span class="n">-c</span> <span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
 </span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Mac / Linux</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Mac / Linux</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
 </span></code></pre></div>
 <p>You should see:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>INFO:     Started server process [12345]
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>INFO:     Application startup complete.
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>INFO:     Uvicorn running on http://0.0.0.0:8765 (Press CTRL+C to quit)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>INFO:     Started server process [12345]
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>INFO:     Application startup complete.
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>INFO:     Uvicorn running on http://0.0.0.0:8765 (Press CTRL+C to quit)
 </span></code></pre></div></p>
 <p><strong>Why port 8765 and not 8000?</strong> Port 8000 is reserved on many Windows installations. 8765 avoids the conflict.</p>
 <h3 id="terminal-2-start-the-ui">Terminal 2: Start the UI<a class="headerlink" href="#terminal-2-start-the-ui" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">cd</span><span class="w"> </span>ui
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">cd</span><span class="w"> </span>ui
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
 </span></code></pre></div>
 <p>You should see:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>  VITE v8.x.x  ready in 234 ms
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  ➜  Local:   http://localhost:5173/
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>  ➜  press h + enter to show help
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>  VITE v8.x.x  ready in 234 ms
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  ➜  Local:   http://localhost:5173/
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>  ➜  press h + enter to show help
 </span></code></pre></div></p>
 <h3 id="open-the-browser">Open the browser<a class="headerlink" href="#open-the-browser" title="Permanent link">&para;</a></h3>
 <p>Navigate to <strong>http://localhost:5173</strong> in any modern browser (Chrome, Firefox, Edge, Safari).</p>
@@ -1843,7 +1996,7 @@
 <h3 id="step-1-score-a-sequence-instant-no-model-download-needed">Step 1: Score a sequence (instant, no model download needed)<a class="headerlink" href="#step-1-score-a-sequence-instant-no-model-download-needed" title="Permanent link">&para;</a></h3>
 <ol>
 <li>In the <strong>Tools</strong> tab, paste this into the sequence box:
-   <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>GIVEQCCTSICSLYQLENYCN
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>GIVEQCCTSICSLYQLENYCN
 </span></code></pre></div></li>
 <li>Click <strong>Score Protein</strong></li>
 <li>You'll see a property card with:</li>
@@ -1905,6 +2058,153 @@
 <h3 id="permissionerror-temp-file-in-use-on-windows">"PermissionError: temp file ... in use" on Windows<a class="headerlink" href="#permissionerror-temp-file-in-use-on-windows" title="Permanent link">&para;</a></h3>
 <p>Cosmetic issue with SQLite cleanup on Windows. Tests still pass. Ignored.</p>
 <p>For more issues see <a href="../TROUBLESHOOTING/">TROUBLESHOOTING.md</a>.</p>
+<hr />
+<h2 id="the-desktop-app-v05">The Desktop App (v0.5+)<a class="headerlink" href="#the-desktop-app-v05" title="Permanent link">&para;</a></h2>
+<p>As of v0.5.0, OpenDNA ships as a one-click Tauri desktop app in addition to the browser UI. The app bundles a PyInstaller-built Python sidecar so end users do <strong>not</strong> need to install Python at all for the GUI path.</p>
+<p>Installers for Windows (<code>.msi</code>, <code>.exe</code>), macOS (<code>.dmg</code>, <code>.app</code>), and Linux (<code>.AppImage</code>, <code>.deb</code>, <code>.rpm</code>) are attached to every GitHub release under <strong>Assets</strong>. Download, install, launch. The sidecar auto-starts on first window open and the backend status banner at the top of the UI will turn green within a few seconds.</p>
+<p>If you are a developer running from source, <code>npm run tauri:dev</code> inside <code>ui/</code> launches the desktop shell against your local API server.</p>
+<hr />
+<h2 id="the-header-buttons-v05">The Header Buttons (v0.5)<a class="headerlink" href="#the-header-buttons-v05" title="Permanent link">&para;</a></h2>
+<p>The top bar of the desktop app and web UI gained nine new buttons in v0.5.0. From left to right:</p>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Opens</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Search</td>
+<td>Search overlay</td>
+<td>Full-text UniProt + PDB + AlphaFold DB search, reviewed-only filter, organism filter</td>
+</tr>
+<tr>
+<td>Components</td>
+<td>Component Manager</td>
+<td>Install / uninstall the 11 ML engines on demand</td>
+</tr>
+<tr>
+<td>Workflow</td>
+<td>Visual workflow editor</td>
+<td>React Flow canvas — drag nodes, connect edges, save/load YAML</td>
+</tr>
+<tr>
+<td>Collab</td>
+<td>Collaboration panel</td>
+<td>Yjs CRDT rooms, shared notes, residue comments</td>
+</tr>
+<tr>
+<td>Mini-games</td>
+<td>Academy mini-games</td>
+<td>AA Match, Build-a-Helix, Famous Proteins tour</td>
+</tr>
+<tr>
+<td>Ramachandran</td>
+<td>Ramachandran plot</td>
+<td>Interactive phi/psi scatter, click dots to highlight residues</td>
+</tr>
+<tr>
+<td>Explorer</td>
+<td>File explorer</td>
+<td>Browse <code>~/.opendna/projects/</code> from within the app</td>
+</tr>
+<tr>
+<td>Save</td>
+<td>Save dialog</td>
+<td>PDB, project, figure, 3D export (GLTF/OBJ/animated GIF)</td>
+</tr>
+<tr>
+<td>Account</td>
+<td>Auth overlay</td>
+<td>Log in / register / manage API keys (only shown when PQC auth is enabled)</td>
+</tr>
+</tbody>
+</table>
+<p>The legacy buttons (Command Palette, Dashboard, Academy, theme toggle) are still there — just to the right of the new ones.</p>
+<hr />
+<h2 id="component-manager-flow">Component Manager Flow<a class="headerlink" href="#component-manager-flow" title="Permanent link">&para;</a></h2>
+<p>Heavy ML models are no longer downloaded on first use. Instead they are installed explicitly from the Component Manager, which behaves like a package catalog:</p>
+<ol>
+<li>Launch the desktop app (or browser UI).</li>
+<li>Click <strong>Components</strong> in the header.</li>
+<li>Browse the 11 engines, grouped by category:</li>
+<li><strong>Folding</strong>: ESMFold, ColabFold, Boltz-1</li>
+<li><strong>Design</strong>: ESM-IF1, RFdiffusion</li>
+<li><strong>Docking</strong>: DiffDock, AutoDock Vina</li>
+<li><strong>Dynamics</strong>: OpenMM, xTB</li>
+<li><strong>QM / NNP</strong>: ANI-2x</li>
+<li><strong>Multimer</strong>: Boltz-1 (multimer mode)</li>
+<li>Each card shows: description, size on disk, citation, license, status (Not installed / Installing / Installed / Update available).</li>
+<li>Click <strong>Install</strong>. A progress bar streams from <code>POST /v1/components/install</code> and the engine is ready the moment it hits 100%.</li>
+<li>Uninstall at any time with the Uninstall button — the manager knows how to remove the model weights and clear the HuggingFace cache entry.</li>
+</ol>
+<p>Disk usage totals are shown at the top of the manager and mirror <code>~/.opendna/components/</code>.</p>
+<p>You can also drive the manager from the CLI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>opendna<span class="w"> </span>components<span class="w"> </span>list
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>opendna<span class="w"> </span>components<span class="w"> </span>install<span class="w"> </span>esmfold
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>opendna<span class="w"> </span>components<span class="w"> </span>install<span class="w"> </span>diffdock<span class="w"> </span>--force
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>opendna<span class="w"> </span>components<span class="w"> </span>uninstall<span class="w"> </span>boltz
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>opendna<span class="w"> </span>components<span class="w"> </span>disk-usage
+</span></code></pre></div>
+<hr />
+<h2 id="5-minute-tour">5-Minute Tour<a class="headerlink" href="#5-minute-tour" title="Permanent link">&para;</a></h2>
+<p>This tour touches the most important v0.5 features. Assumes the desktop app is running (or both dev servers plus <code>http://localhost:5173</code>).</p>
+<ol>
+<li><strong>Search UniProt.</strong> Click <strong>Search</strong> in the header. Type <code>kinase</code>, check <strong>Reviewed only</strong>, set Organism = <code>Homo sapiens</code>. Click any result — it loads into the sidebar.</li>
+<li><strong>Fold it.</strong> Click <strong>Predict Structure</strong> in the Tools tab. If ESMFold is not installed yet, the Component Manager opens automatically with the ESMFold card highlighted. Install it (~2 GB), then refold.</li>
+<li><strong>Open the Ramachandran plot.</strong> Click <strong>Ramachandran</strong> in the header. You'll see the phi/psi scatter for every residue. Click any dot — the corresponding residue is highlighted in the 3D viewer.</li>
+<li><strong>Open the workflow editor.</strong> Click <strong>Workflow</strong>. Click <strong>Templates → Fold → Design → Evaluate</strong>. A pre-built 5-node graph appears. Click <strong>Run</strong>. The viewer updates in real time as each node completes.</li>
+<li><strong>Save the project.</strong> Click <strong>Save</strong> → <strong>Project</strong>. Give it a name. It lands in <code>~/.opendna/projects/&lt;name&gt;/</code> along with a provenance DAG you can later diff.</li>
+</ol>
+<p>Total time: under five minutes on a modern machine with ESMFold already installed.</p>
+<hr />
+<h2 id="post-quantum-auth-setup">Post-Quantum Auth Setup<a class="headerlink" href="#post-quantum-auth-setup" title="Permanent link">&para;</a></h2>
+<p>The API server runs unauthenticated by default. To turn on OpenDNA's PQC auth layer:</p>
+<ol>
+<li>Install the optional extra:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;opendna[pqc]&quot;</span>
+</span></code></pre></div>
+   You also need the system <code>liboqs</code> library. See the Installation section above.</li>
+<li>Enable auth on the server by setting an environment variable before starting it:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENDNA_AUTH_REQUIRED</span><span class="o">=</span><span class="m">1</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENDNA_AUTH_DB</span><span class="o">=</span>~/.opendna/auth.db
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
+</span></code></pre></div>
+   On Windows PowerShell:
+   <div class="language-powershell highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nv">$env:OPENDNA_AUTH_REQUIRED</span><span class="p">=</span><span class="s2">&quot;1&quot;</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">python</span> <span class="n">-c</span> <span class="s2">&quot;from opendna.api.server import start_server; start_server(port=8765)&quot;</span>
+</span></code></pre></div></li>
+<li>Register the first user (which automatically becomes admin):
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://127.0.0.1:8765/v1/auth/register<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;username&quot;: &quot;alice&quot;, &quot;password&quot;: &quot;correct horse battery staple&quot;}&#39;</span>
+</span></code></pre></div>
+   The response contains an ML-KEM-768 encapsulated API key and the public ML-DSA-65 verification key. Store the API key securely — it is the only time it will be shown.</li>
+<li>All subsequent API calls must include <code>Authorization: Bearer &lt;api-key&gt;</code>.</li>
+<li>Every authenticated request is appended to a hash-chained audit log at <code>~/.opendna/audit.log</code>. The log is tamper-evident — each entry is signed with ML-DSA-65 and the hash chain is verified on startup.</li>
+</ol>
+<p>See the User Guide section <strong>PQC Auth Layer</strong> for advanced topics (key rotation, GDPR export, role-based access).</p>
+<hr />
+<h2 id="air-gapped-install">Air-Gapped Install<a class="headerlink" href="#air-gapped-install" title="Permanent link">&para;</a></h2>
+<p>For regulated environments (hospitals, defense labs, pharma) OpenDNA supports fully offline install via capability bundles.</p>
+<ol>
+<li>On a machine <strong>with</strong> internet access, download the air-gap bundle for your target platform:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>curl<span class="w"> </span>-o<span class="w"> </span>opendna-airgap.tar.zst<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="s2">&quot;http://localhost:8765/v1/compliance/airgap/bundle?platform=linux-x64&amp;include_models=esmfold,esm_if1&quot;</span>
+</span></code></pre></div>
+   The bundle contains Python wheels for every dependency, the Tauri installer, selected model weights, a CycloneDX SBOM, and a manifest of SHA-256 hashes.</li>
+<li>Transfer <code>opendna-airgap.tar.zst</code> to the offline machine via your approved transfer process (USB, data diode, etc.).</li>
+<li>On the offline machine:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>tar<span class="w"> </span>--zstd<span class="w"> </span>-xvf<span class="w"> </span>opendna-airgap.tar.zst
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nb">cd</span><span class="w"> </span>opendna-airgap/
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>./install-offline.sh<span class="w">   </span><span class="c1"># or install-offline.ps1 on Windows</span>
+</span></code></pre></div></li>
+<li>The installer verifies every file against the manifest, installs wheels into a local virtualenv, and drops model weights into <code>~/.opendna/components/</code>.</li>
+<li>Run <code>opendna compliance verify</code> to confirm the SBOM matches what is actually installed.</li>
+</ol>
+<p>See the User Guide section <strong>Compliance &amp; Air-gap</strong> for the full HIPAA / GDPR checklist.</p>
 <hr />
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <p>Now that you have OpenDNA running:</p>
