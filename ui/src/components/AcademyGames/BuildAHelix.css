@@ -1,0 +1,100 @@
+.bah-root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+}
+.bah-head { display: flex; flex-direction: column; gap: 4px; }
+.bah-title { font-weight: 600; font-size: 16px; }
+.bah-info { font-size: 13px; opacity: 0.85; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.bah-run { padding: 2px 8px; background: rgba(99,102,241,0.2); border-radius: 4px; }
+.bah-track {
+  display: flex;
+  gap: 8px;
+  padding: 24px 12px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  border-radius: 8px;
+  justify-content: center;
+  min-height: 90px;
+  perspective: 800px;
+}
+.bah-track.helixed {
+  background: rgba(74,222,128,0.08);
+}
+.bah-slot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-family: monospace;
+  cursor: pointer;
+  user-select: none;
+}
+.bah-slot.filled { background: rgba(99,102,241,0.35); }
+.bah-slot.hydrophobic {
+  background: #ff8c00;
+  color: #1a0f00;
+  border-color: #ffb84d;
+  box-shadow: 0 0 8px rgba(255,140,0,0.5);
+}
+.bah-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+}
+.bah-chip {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(99,102,241,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: monospace;
+  font-weight: 700;
+  cursor: grab;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.bah-chip.hydrophobic {
+  background: rgba(255,140,0,0.4);
+  border-color: #ffb84d;
+}
+.bah-chip:active { cursor: grabbing; }
+.bah-actions { display: flex; gap: 8px; }
+.bah-form-btn {
+  padding: 8px 18px;
+  background: #4ade80;
+  color: #052e16;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bah-form-btn:disabled {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.4);
+  cursor: not-allowed;
+}
+.bah-reset-btn {
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.bah-success {
+  padding: 10px;
+  background: rgba(74,222,128,0.2);
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 600;
+}

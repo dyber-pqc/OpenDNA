@@ -2,6 +2,31 @@
 
 All notable changes to OpenDNA. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v0.5.0-rc1] - 2026-04-07
+
+Mega-session release spanning 19 phases from foundation fixes to big-corp compliance.
+
+### Added
+- **Phase 0** Fixed multi-rep viewer + wired click-residue popup (Molstar)
+- **Phase 1** PyInstaller bundled sidecar + Tauri `externalBin` + per-platform CI build
+- **Phase 2** Component Manager (11 ML engines, Altium/Vivado-style UI, install/progress API)
+- **Phase 3** Real heavy models: DiffDock, RFdiffusion, Boltz-1, ColabFold, xTB, ANI-2x with graceful fallback
+- **Phase 4** PQC auth — ML-KEM-768 + ML-DSA-65 via liboqs, hash-chained tamper-evident audit log
+- **Phase 5** Per-user workspaces with AES-256-GCM encryption-at-rest (password-derived key)
+- **Phase 6** Priority job queue (interactive/normal/batch) + `WebSocket /v1/ws/jobs/{id}` streaming + GPU pool with warm-model cache
+- **Phase 7** Local-first crash reporter with secret redaction, `@retry` decorator, `SelfHealer` background thread
+- **Phase 8** Provenance DAG + time machine + `diff_steps` / `blame_residue` / `bisect_regression`
+- **Phase 9** Visual workflow editor (React Flow, 10 node types, auto-records to provenance)
+- **Phase 10** NCBI/PubMed/Twist/IDT/GenScript/Slack/Teams/Discord/webhooks
+- **Phase 11** R SDK + Jupyter magics + Galaxy/Snakemake/Nextflow plugins
+- **Phase 12** Lab notebook + Zenodo DOI minting + PNG/SVG figure export + GLTF/OBJ 3D export
+- **Phase 13** Real-time co-editing via Yjs CRDT (y-websocket-compatible relay)
+- **Phase 14** Academy Levels 4–7, 13 badges, 7 daily-challenge templates, 23-term glossary, SQLite leaderboard with streaks
+- **Phase 15** Ollama auto-install + streaming chat + multi-turn session memory
+- **Phase 16** CycloneDX 1.5 SBOM, air-gap capability check, GDPR export/erasure, HIPAA checklist
+- **Phase 17** Dockerfile, Homebrew formula, Playwright E2E suite, pytest smoke suite (11/11 passing)
+- **Phase 18** 7-step onboarding tour, sequence ruler with AA coloring, global drag-and-drop FASTA/PDB, light-theme polish
+
 ## [v0.4.10] - 2026-04-07
 
 ### Fixed (the actual root cause of all desktop app auto-start issues)

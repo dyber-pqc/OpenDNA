@@ -1,0 +1,17 @@
+.sr { font-family: ui-monospace, monospace; font-size: 13px; padding: 8px 0; }
+.sr-row { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.sr-num { color: #9ca3c4; font-size: 11px; min-width: 40px; text-align: right; }
+.sr-num.end { text-align: left; }
+.sr-chunk { display: flex; }
+.sr-res {
+  display: inline-block;
+  width: 16px; height: 18px; line-height: 18px;
+  text-align: center;
+  color: #222;
+  cursor: pointer;
+  border-radius: 2px;
+  margin-right: 1px;
+  transition: transform 0.1s;
+}
+.sr-res:hover { transform: scale(1.25); z-index: 2; position: relative; }
+.sr-res.hi { outline: 2px solid #ff6b6b; outline-offset: -1px; }

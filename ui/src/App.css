@@ -156,6 +156,19 @@ body {
   overflow: hidden;
 }
 
+/* Centered fixed modal backdrop for full-app overlays */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 20px;
+  overflow: auto;
+}
+
 /* Explain / cost overlay */
 .explain-overlay {
   position: absolute;
@@ -245,3 +258,15 @@ body {
   display: flex;
   justify-content: space-between;
 }
+
+.restore-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px; background: #2a3654; color: #e6e7f0;
+  border-bottom: 1px solid #3a4870; font-size: 13px;
+}
+.restore-actions { display: flex; gap: 8px; }
+.restore-btn {
+  background: transparent; border: 1px solid #5a6890; color: #e6e7f0;
+  padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+.restore-btn.primary { background: #7aa2ff; color: #15182a; border-color: #7aa2ff; font-weight: 600; }

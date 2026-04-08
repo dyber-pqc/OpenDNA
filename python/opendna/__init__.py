@@ -1,6 +1,6 @@
 """OpenDNA: The People's Protein Engineering Platform."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0-rc1"
 
 # Lightweight imports only - heavy ML modules are imported lazily inside their functions
 from opendna.models.protein import Protein, Sequence, Structure

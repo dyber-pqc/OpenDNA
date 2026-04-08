@@ -1,0 +1,74 @@
+.protein-search {
+  background: var(--bg-elev, #15182a);
+  color: var(--fg, #e6e7f0);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 820px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.6);
+}
+.ps-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.ps-header h2 { margin: 0; font-size: 18px; }
+.ps-close { background: transparent; border: none; color: #9ca3c4; font-size: 20px; cursor: pointer; }
+.ps-controls {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.ps-input, .ps-organism {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #e6e7f0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.ps-checkbox { font-size: 12px; color: #9ca3c4; display: flex; align-items: center; gap: 4px; }
+.ps-go {
+  background: #5b7cff; color: white; border: none;
+  padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+}
+.ps-go:disabled { opacity: 0.4; }
+.ps-error { background: #3a1c22; color: #ffb4b4; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; }
+.ps-empty { color: #7a7f9c; font-size: 13px; padding: 30px; text-align: center; }
+.ps-empty em { color: #9ca3c4; margin: 0 4px; }
+.ps-results {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ps-hit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ps-hit:hover { background: rgba(122, 162, 255, 0.08); }
+.ps-hit-main { flex: 1; min-width: 0; }
+.ps-hit-title {
+  display: flex; gap: 10px; align-items: baseline;
+  font-size: 14px;
+}
+.ps-acc { color: #7aa2ff; font-family: ui-monospace, monospace; font-size: 12px; }
+.ps-len { color: #9ca3c4; font-size: 11px; }
+.ps-hit-name { font-size: 13px; color: #c4d2ff; margin-top: 2px; }
+.ps-hit-org { font-size: 11px; color: #8a8fae; font-style: italic; }
+.ps-hit-fn { font-size: 11px; color: #9ca3c4; margin-top: 4px; line-height: 1.4; }
+.ps-load {
+  background: transparent; border: 1px solid rgba(255,255,255,0.15);
+  color: #e6e7f0; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 12px; margin-left: 12px; flex-shrink: 0;
+}
+.ps-load:hover { background: #5b7cff; border-color: #5b7cff; }

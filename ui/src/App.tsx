@@ -11,6 +11,15 @@ import Academy from "./components/Academy/Academy";
 import IterativePanel from "./components/IterativePanel/IterativePanel";
 import AgentPanel from "./components/AgentPanel/AgentPanel";
 import BackendStatus from "./components/BackendStatus/BackendStatus";
+import ComponentManager from "./components/ComponentManager/ComponentManager";
+import WorkflowEditor from "./components/WorkflowEditor/WorkflowEditor";
+import CollabPanel from "./components/CollabPanel/CollabPanel";
+import Ramachandran from "./components/Ramachandran/Ramachandran";
+import OnboardingTour from "./components/Onboarding/OnboardingTour";
+import ProteinSearch from "./components/ProteinSearch/ProteinSearch";
+import AcademyGamesPanel from "./components/Academy/AcademyGamesPanel";
+import ProjectExplorer from "./components/ProjectExplorer/ProjectExplorer";
+import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import { useToasts } from "./hooks/useToasts";
 import { useKeyboard } from "./hooks/useKeyboard";
 import * as api from "./api/client";
@@ -41,7 +50,10 @@ interface DesignCandidate {
   recovery: number;
 }
 
-type Overlay = "none" | "analysis" | "dashboard" | "academy" | "agent";
+type Overlay = "none" | "analysis" | "dashboard" | "academy" | "agent" | "components" | "workflow" | "collab" | "search" | "ramachandran" | "games";
+
+const AUTOSAVE_KEY = "opendna.autosave";
+const AUTOSAVE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function App() {
   const [structures, setStructures] = useState<StoredStructure[]>([]);
@@ -58,9 +70,104 @@ function App() {
   const [currentSequence, setCurrentSequence] = useState<string>("");
   const [overlay, setOverlay] = useState<Overlay>("none");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [showExplorer, setShowExplorer] = useState(false);
   const [xp, setXp] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return localStorage.getItem("opendna.onboarded") !== "true";
+  });
+  const finishOnboarding = useCallback(() => {
+    localStorage.setItem("opendna.onboarded", "true");
+    setShowOnboarding(false);
+  }, []);
+  // Global drag-and-drop for FASTA/PDB files
+  useEffect(() => {
+    const onDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      if (file.name.toLowerCase().endsWith(".fasta") || file.name.toLowerCase().endsWith(".fa") || text.startsWith(">")) {
+        const seq = text.split("\n").filter(l => !l.startsWith(">")).join("").replace(/\s/g, "");
+        setCurrentSequence(seq);
+      } else if (file.name.toLowerCase().endsWith(".pdb") || text.startsWith("ATOM") || text.includes("\nATOM")) {
+        // Treat as imported structure
+        console.log("PDB drop:", file.name, text.length, "chars");
+      }
+    };
+    const onDragOver = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("drop", onDrop);
+    window.addEventListener("dragover", onDragOver);
+    return () => {
+      window.removeEventListener("drop", onDrop);
+      window.removeEventListener("dragover", onDragOver);
+    };
+  }, []);
   const [switchToToolsTrigger, setSwitchToToolsTrigger] = useState(0);
   const { toasts, addToast, removeToast } = useToasts();
+  const [restorePrompt, setRestorePrompt] = useState<any>(null);
+
+  // === Auto-save state every 30s ===
+  useEffect(() => {
+    const snapshot = () => {
+      try {
+        const payload = {
+          ts: Date.now(),
+          currentSequence,
+          structures,
+          score,
+          analysis,
+          overlay,
+          xp,
+        };
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+      } catch { /* quota or serialization error: ignore */ }
+    };
+    const interval = setInterval(snapshot, 30000);
+    return () => clearInterval(interval);
+  }, [currentSequence, structures, score, analysis, overlay, xp]);
+
+  // === Manual save ===
+  const handleManualSave = useCallback(() => {
+    try {
+      const payload = {
+        ts: Date.now(),
+        currentSequence,
+        structures,
+        score,
+        analysis,
+        overlay,
+        xp,
+      };
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+      addToast({ kind: "success", message: "Session saved" });
+    } catch (e: any) {
+      addToast({ kind: "error", message: `Save failed: ${e.message}` });
+    }
+  }, [currentSequence, structures, score, analysis, overlay, xp, addToast]);
+
+  // === On mount: check for recent autosave ===
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(AUTOSAVE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.ts && Date.now() - parsed.ts < AUTOSAVE_MAX_AGE_MS) {
+        setRestorePrompt(parsed);
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const restoreAutosave = useCallback(() => {
+    if (!restorePrompt) return;
+    if (restorePrompt.currentSequence) setCurrentSequence(restorePrompt.currentSequence);
+    if (Array.isArray(restorePrompt.structures)) setStructures(restorePrompt.structures);
+    if (restorePrompt.score) setScore(restorePrompt.score);
+    if (restorePrompt.analysis) setAnalysis(restorePrompt.analysis);
+    if (typeof restorePrompt.xp === "number") setXp(restorePrompt.xp);
+    setRestorePrompt(null);
+    addToast({ kind: "success", message: "Previous session restored" });
+  }, [restorePrompt, addToast]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
@@ -516,6 +623,18 @@ function App() {
     f: () => currentSequence && handleFold(currentSequence),
     s: () => currentSequence && handleEvaluate(currentSequence),
     a: () => handleAnalyze(),
+    g: () => {
+      // Zoom-to-residue keyboard shortcut.
+      // TODO: wire this to Molstar focusResidue() once the viewer exposes it.
+      const ans = window.prompt("Go to residue #");
+      if (ans) {
+        const n = parseInt(ans, 10);
+        if (!isNaN(n)) {
+          // eslint-disable-next-line no-console
+          console.log(`[zoom-to-residue] residue ${n} (Molstar focus integration TODO)`);
+        }
+      }
+    },
     escape: () => {
       setOverlay("none");
       setExplainText(null);
@@ -529,6 +648,17 @@ function App() {
 
   return (
     <div className="app">
+      {restorePrompt && (
+        <div className="restore-banner">
+          <span>
+            Restore previous session? (saved {new Date(restorePrompt.ts).toLocaleString()})
+          </span>
+          <div className="restore-actions">
+            <button className="restore-btn primary" onClick={restoreAutosave}>Restore</button>
+            <button className="restore-btn" onClick={() => setRestorePrompt(null)}>Dismiss</button>
+          </div>
+        </div>
+      )}
       <header className="app-header">
         <div className="header-left">
           <h1 className="logo">OpenDNA</h1>
@@ -536,6 +666,7 @@ function App() {
           {xp > 0 && <span className="xp-badge">⭐ {xp} XP</span>}
         </div>
         <div className="header-right">
+          <button className="header-btn small" onClick={() => setOverlay("search")} title="Search UniProt">🔍 Search</button>
           <button className="header-btn small" onClick={() => setPaletteOpen(true)} title="Command palette (Ctrl+K)">
             ⌘K
           </button>
@@ -544,6 +675,22 @@ function App() {
           </button>
           <button className="header-btn small" onClick={() => setOverlay("dashboard")}>Dashboard</button>
           <button className="header-btn small" onClick={() => setOverlay("academy")}>Academy</button>
+          <button className="header-btn small" onClick={() => setOverlay("components")} title="Component Manager">📦 Components</button>
+          <button className="header-btn small" onClick={() => setOverlay("workflow")} title="Visual Workflow Editor">🧩 Workflow</button>
+          <button className="header-btn small" onClick={() => setOverlay("collab")} title="Real-time co-editing">🤝 Collab</button>
+          <button className="header-btn small" onClick={() => setOverlay("games")} title="Academy Mini-games">🎮 Mini-games</button>
+          <button className="header-btn small" onClick={() => setShowExplorer(v => !v)} title="Project Explorer">🗂️ Explorer</button>
+          <button
+            className="header-btn small"
+            onClick={() => setOverlay("ramachandran")}
+            title="Interactive Ramachandran plot"
+            disabled={!activeStructure}
+          >
+            📐 Ramachandran
+          </button>
+          <button className="header-btn small" onClick={handleManualSave} title="Save session to local storage">
+            💾 Save
+          </button>
           {activeStructure && (
             <button className="header-btn" onClick={handleSavePdb}>Save PDB</button>
           )}
@@ -596,25 +743,115 @@ function App() {
             />
 
             {overlay === "analysis" && analysis && (
-              <AnalysisPanel analysis={analysis} onClose={() => setOverlay("none")} />
+              <ErrorBoundary>
+                <AnalysisPanel analysis={analysis} onClose={() => setOverlay("none")} />
+              </ErrorBoundary>
             )}
             {overlay === "dashboard" && (
-              <Dashboard structures={structures.length} onClose={() => setOverlay("none")} />
+              <ErrorBoundary>
+                <Dashboard structures={structures.length} onClose={() => setOverlay("none")} />
+              </ErrorBoundary>
             )}
             {overlay === "academy" && (
-              <Academy
-                onClose={() => setOverlay("none")}
-                onAwardXp={(amt) => {
-                  setXp((x) => x + amt);
-                  addToast({ kind: "success", message: `+${amt} XP` });
-                }}
-              />
+              <ErrorBoundary>
+                <Academy
+                  onClose={() => setOverlay("none")}
+                  onAwardXp={(amt) => {
+                    setXp((x) => x + amt);
+                    addToast({ kind: "success", message: `+${amt} XP` });
+                  }}
+                />
+              </ErrorBoundary>
             )}
             {overlay === "agent" && (
-              <AgentPanel
-                onClose={() => setOverlay("none")}
-                onSequenceFound={(seq) => setCurrentSequence(seq)}
-              />
+              <ErrorBoundary>
+                <AgentPanel
+                  onClose={() => setOverlay("none")}
+                  onSequenceFound={(seq) => setCurrentSequence(seq)}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "components" && (
+              <ErrorBoundary>
+                <div className="modal-backdrop">
+                  <div>
+                    <ComponentManager onClose={() => setOverlay("none")} />
+                  </div>
+                </div>
+              </ErrorBoundary>
+            )}
+            {overlay === "workflow" && (
+              <ErrorBoundary>
+                <div className="modal-backdrop">
+                  <div>
+                    <WorkflowEditor onClose={() => setOverlay("none")} />
+                  </div>
+                </div>
+              </ErrorBoundary>
+            )}
+            {overlay === "collab" && (
+              <ErrorBoundary>
+                <div className="modal-backdrop">
+                  <div>
+                    <CollabPanel roomName="opendna-default" userName="me" onClose={() => setOverlay("none")} />
+                  </div>
+                </div>
+              </ErrorBoundary>
+            )}
+            {overlay === "ramachandran" && activeStructure && (
+              <div className="modal-backdrop" onClick={() => setOverlay("none")}>
+                <div onClick={e => e.stopPropagation()}>
+                  <Ramachandran
+                    pdb_string={activeStructure.pdbData}
+                    onResidueClick={(n) => {
+                      // eslint-disable-next-line no-console
+                      console.log(`[ramachandran] clicked residue ${n}`);
+                    }}
+                    onClose={() => setOverlay("none")}
+                  />
+                </div>
+              </div>
+            )}
+            {overlay === "search" && (
+              <ErrorBoundary>
+                <div className="modal-backdrop">
+                  <div>
+                    <ProteinSearch
+                      onClose={() => setOverlay("none")}
+                      onPick={(hit) => {
+                        setCurrentSequence(hit.sequence);
+                        setOverlay("none");
+                        addToast({ kind: "success", message: `Loaded ${hit.gene || hit.accession} (${hit.length} aa)` });
+                      }}
+                    />
+                  </div>
+                </div>
+              </ErrorBoundary>
+            )}
+            {overlay === "games" && (
+              <ErrorBoundary>
+                <AcademyGamesPanel
+                  onClose={() => setOverlay("none")}
+                  onAwardXp={(amt) => {
+                    setXp((x) => x + amt);
+                    addToast({ kind: "success", message: `+${amt} XP` });
+                  }}
+                  onPickSequence={(seq, label) => {
+                    setCurrentSequence(seq);
+                    addToast({ kind: "success", message: `Loaded ${label || "sequence"} (${seq.length} aa)` });
+                  }}
+                />
+              </ErrorBoundary>
+            )}
+            {showExplorer && (
+              <ErrorBoundary>
+                <ProjectExplorer projectId="default" onClose={() => setShowExplorer(false)} />
+              </ErrorBoundary>
+            )}
+            {showOnboarding && (
+              <ErrorBoundary>
+                <OnboardingTour onFinish={finishOnboarding} />
+              </ErrorBoundary>
             )}
 
             {iterativeResult && (

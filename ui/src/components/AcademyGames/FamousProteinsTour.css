@@ -1,0 +1,53 @@
+.fpt-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+.fpt-progress {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+}
+.fpt-card {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 16px;
+  background: rgba(99,102,241,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fpt-name { margin: 0 0 6px 0; }
+.fpt-row { font-size: 14px; line-height: 1.4; }
+.fpt-fun { opacity: 0.85; font-style: italic; }
+.fpt-actions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fpt-load {
+  padding: 7px 14px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.fpt-load:disabled { opacity: 0.6; cursor: wait; }
+.fpt-error { color: #f87171; font-size: 12px; }
+.fpt-nav {
+  display: flex;
+  justify-content: space-between;
+}
+.fpt-nav button {
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.fpt-nav button:disabled { opacity: 0.4; cursor: not-allowed; }

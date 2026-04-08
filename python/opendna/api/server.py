@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, is_dataclass
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
@@ -594,6 +594,31 @@ async def multimer_endpoint(request: MultimerRequest):
 
 def _run_multimer(job_id, sequences, chain_ids):
     try:
+        # Phase 3: try real Boltz-1 → ColabFold → then heuristic
+        from opendna.engines.real_models import (
+            boltz_multimer, colabfold_multimer, NotInstalledError,
+        )
+        for fn, name in ((boltz_multimer, "boltz"), (colabfold_multimer, "colabfold")):
+            try:
+                jobs[job_id]["progress"] = 0.1
+                r = fn(sequences)
+                jobs[job_id]["status"] = "completed"
+                jobs[job_id]["progress"] = 1.0
+                jobs[job_id]["result"] = {
+                    "pdb": r.get("pdb", ""),
+                    "chains": chain_ids or [chr(65 + i) for i in range(len(sequences))],
+                    "mean_confidence": r.get("plddt_mean", 0.0),
+                    "interface_residues": [],
+                    "method": name,
+                    "notes": f"Real {name} prediction",
+                    "ptm": r.get("ptm"),
+                    "iptm": r.get("iptm"),
+                }
+                return
+            except NotInstalledError:
+                continue
+            except Exception:
+                continue
         from opendna.engines.multimer import fold_multimer
         def on_progress(stage, frac):
             jobs[job_id]["progress"] = frac
@@ -919,9 +944,58 @@ async def compare_structures_endpoint(request: CompareRequest):
 
 @app.post("/v1/dock")
 async def dock_endpoint(request: DockRequest):
+    # Phase 3: try real DiffDock first, then fall back to heuristic docking
+    try:
+        from opendna.engines.real_models import diffdock_dock, NotInstalledError
+        try:
+            return diffdock_dock(request.pdb_string, request.ligand_smiles)
+        except NotInstalledError:
+            pass
+    except Exception:
+        pass
     from opendna.engines.docking import dock_ligand
     result = dock_ligand(request.pdb_string, request.ligand_smiles)
     return _to_dict(result)
+
+
+@app.get("/v1/backends")
+def backends_endpoint():
+    """Report which real heavy-model backends are currently importable."""
+    from opendna.engines.real_models import available_backends
+    return {"backends": available_backends()}
+
+
+@app.post("/v1/qm/single_point")
+def qm_single_point_endpoint(body: dict):
+    """Phase 3: xTB or ANI-2x single-point energy. Tries xTB first, ANI second."""
+    pdb_string = body.get("pdb_string", "")
+    prefer = body.get("engine", "xtb")
+    from opendna.engines.real_models import xtb_single_point, ani_energy, NotInstalledError
+    order = [xtb_single_point, ani_energy] if prefer == "xtb" else [ani_energy, xtb_single_point]
+    errs = []
+    for fn in order:
+        try:
+            return fn(pdb_string)
+        except NotInstalledError as e:
+            errs.append(str(e))
+    return JSONResponse(
+        {"error": "no QM backend available", "details": errs},
+        status_code=503,
+    )
+
+
+@app.post("/v1/design_denovo")
+def design_denovo_endpoint(body: dict):
+    """Phase 3: RFdiffusion de novo backbone generation."""
+    from opendna.engines.real_models import rfdiffusion_design, NotInstalledError
+    try:
+        return rfdiffusion_design(
+            length=int(body.get("length", 100)),
+            contigs=body.get("contigs"),
+            num_designs=int(body.get("num_designs", 1)),
+        )
+    except NotInstalledError as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
 
 
 @app.post("/v1/screen")
@@ -1167,6 +1241,1032 @@ def _run_md(job_id, pdb_string, duration_ps):
     except Exception as e:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["error"] = str(e)
+
+
+# =============================================================================
+# Component Manager endpoints (Phase 2)
+# =============================================================================
+
+_component_jobs: dict[str, dict] = {}
+
+
+@app.get("/v1/components")
+def list_components_endpoint():
+    """List all registered components with their current install status."""
+    from opendna.components import list_components, get_status
+    out = []
+    for c in list_components():
+        d = c.to_dict()
+        d["status"] = get_status(c.name)
+        out.append(d)
+    return {"components": out}
+
+
+@app.get("/v1/components/{name}")
+def get_component_endpoint(name: str):
+    from opendna.components import get_component, get_status
+    c = get_component(name)
+    if c is None:
+        return JSONResponse({"error": f"unknown component {name}"}, status_code=404)
+    d = c.to_dict()
+    d["status"] = get_status(name)
+    return d
+
+
+@app.post("/v1/components/{name}/install")
+def install_component_endpoint(name: str):
+    """Start an install job. Returns a job_id you can poll / stream."""
+    from opendna.components import install_component, get_component
+    import threading, uuid
+    if get_component(name) is None:
+        return JSONResponse({"error": f"unknown component {name}"}, status_code=404)
+    job_id = f"comp-{uuid.uuid4().hex[:12]}"
+    _component_jobs[job_id] = {
+        "component": name,
+        "status": "running",
+        "progress": 0.0,
+        "messages": [],
+    }
+
+    def _work():
+        def on_progress(n: str, pct: float, msg: str):
+            _component_jobs[job_id]["progress"] = pct / 100.0
+            _component_jobs[job_id]["messages"].append(msg)
+            if len(_component_jobs[job_id]["messages"]) > 500:
+                _component_jobs[job_id]["messages"] = _component_jobs[job_id]["messages"][-500:]
+        try:
+            result = install_component(name, on_progress=on_progress)
+            _component_jobs[job_id]["status"] = "completed" if result.get("status") in ("installed", "already_installed") else "failed"
+            _component_jobs[job_id]["result"] = result
+            _component_jobs[job_id]["progress"] = 1.0
+        except Exception as e:
+            _component_jobs[job_id]["status"] = "failed"
+            _component_jobs[job_id]["error"] = str(e)
+
+    threading.Thread(target=_work, daemon=True).start()
+    return {"job_id": job_id, "component": name}
+
+
+@app.post("/v1/components/{name}/uninstall")
+def uninstall_component_endpoint(name: str):
+    from opendna.components import uninstall_component, get_component
+    if get_component(name) is None:
+        return JSONResponse({"error": f"unknown component {name}"}, status_code=404)
+    return uninstall_component(name)
+
+
+@app.get("/v1/components/jobs/{job_id}")
+def component_job_status(job_id: str):
+    job = _component_jobs.get(job_id)
+    if job is None:
+        return JSONResponse({"error": "unknown job"}, status_code=404)
+    return job
+
+
+# =============================================================================
+# PQC Auth (Phase 4)
+# =============================================================================
+import os as _os
+
+_AUTH_REQUIRED = _os.environ.get("OPENDNA_AUTH_REQUIRED", "0") == "1"
+
+
+def _resolve_identity(user_id: str):
+    from opendna.auth import get_user_store
+    return get_user_store().get_identity(user_id)
+
+
+async def require_auth(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None),
+):
+    """FastAPI dependency. Returns AuthContext or None when auth is not required."""
+    from opendna.auth import validate_token, get_user_store, get_audit_log
+    if not _AUTH_REQUIRED:
+        return None  # open mode (backward compatible)
+    store = get_user_store()
+    audit = get_audit_log()
+    ip = request.client.host if request.client else None
+    # API key path
+    if x_api_key:
+        uid = store.verify_api_key(x_api_key)
+        if uid:
+            audit.append("auth.api_key", actor=uid, ip=ip)
+            from opendna.auth.tokens import AuthContext
+            return AuthContext(user_id=uid, scopes=store.get_user_scopes(uid),
+                               algorithm="api-key", token_exp=0.0, is_pqc=False)
+    # Bearer token path
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        ctx = validate_token(token, _resolve_identity)
+        if ctx:
+            audit.append("auth.token", actor=ctx.user_id, ip=ip,
+                         details={"alg": ctx.algorithm, "pqc": ctx.is_pqc})
+            return ctx
+    audit.append("auth.denied", ip=ip)
+    raise HTTPException(status_code=401, detail="authentication required")
+
+
+class _RegisterBody(BaseModel):
+    user_id: str
+    password: Optional[str] = None
+    scopes: Optional[list] = None
+
+
+@app.post("/v1/auth/register")
+def auth_register(body: _RegisterBody, request: Request):
+    from opendna.auth import get_user_store, get_audit_log, issue_token, PQC_AVAILABLE
+    store = get_user_store()
+    if store.get_identity(body.user_id) is not None:
+        raise HTTPException(status_code=409, detail="user already exists")
+    identity = store.create_user(body.user_id, body.password, body.scopes)
+    token = issue_token(identity, scopes=body.scopes or ["user"])
+    get_audit_log().append(
+        "user.register",
+        actor=body.user_id,
+        ip=request.client.host if request.client else None,
+        details={"pqc": PQC_AVAILABLE, "algorithm": identity.algorithm},
+    )
+    return {
+        "user_id": body.user_id,
+        "token": token,
+        "algorithm": identity.algorithm,
+        "pqc_available": PQC_AVAILABLE,
+    }
+
+
+class _LoginBody(BaseModel):
+    user_id: str
+    password: str
+
+
+@app.post("/v1/auth/login")
+def auth_login(body: _LoginBody, request: Request):
+    from opendna.auth import get_user_store, get_audit_log, issue_token, PQC_AVAILABLE
+    store = get_user_store()
+    ip = request.client.host if request.client else None
+    if not store.verify_password(body.user_id, body.password):
+        get_audit_log().append("user.login_failed", actor=body.user_id, ip=ip)
+        raise HTTPException(status_code=401, detail="invalid credentials")
+    identity = store.get_identity(body.user_id)
+    if identity is None:
+        raise HTTPException(status_code=404, detail="user has no identity")
+    token = issue_token(identity, scopes=store.get_user_scopes(body.user_id))
+    get_audit_log().append("user.login", actor=body.user_id, ip=ip,
+                            details={"pqc": PQC_AVAILABLE})
+    return {"user_id": body.user_id, "token": token, "pqc": PQC_AVAILABLE}
+
+
+@app.get("/v1/auth/me")
+def auth_me(ctx = Depends(require_auth)):
+    if ctx is None:
+        return {"auth_required": False, "mode": "open"}
+    return {
+        "user_id": ctx.user_id,
+        "scopes": ctx.scopes,
+        "algorithm": ctx.algorithm,
+        "is_pqc": ctx.is_pqc,
+        "token_exp": ctx.token_exp,
+    }
+
+
+@app.post("/v1/auth/api_keys")
+def auth_create_api_key(body: dict, ctx = Depends(require_auth)):
+    from opendna.auth import get_user_store, get_audit_log
+    user_id = (ctx.user_id if ctx else body.get("user_id")) or "anonymous"
+    store = get_user_store()
+    raw = store.create_api_key(user_id, name=body.get("name", ""))
+    get_audit_log().append("api_key.create", actor=user_id,
+                            details={"name": body.get("name", "")})
+    return {"api_key": raw, "user_id": user_id}
+
+
+@app.get("/v1/auth/status")
+def auth_status():
+    from opendna.auth import PQC_AVAILABLE
+    from opendna.auth.pqc import ALG_SIG, ALG_KEM
+    return {
+        "pqc_available": PQC_AVAILABLE,
+        "auth_required": _AUTH_REQUIRED,
+        "sig_algorithm": ALG_SIG if PQC_AVAILABLE else "HMAC-SHA256-fallback",
+        "kem_algorithm": ALG_KEM if PQC_AVAILABLE else "hash-fallback",
+    }
+
+
+@app.get("/v1/auth/audit")
+def auth_audit_tail(limit: int = 100, ctx = Depends(require_auth)):
+    if ctx and not ctx.has_scope("admin") and _AUTH_REQUIRED:
+        raise HTTPException(status_code=403, detail="admin scope required")
+    from opendna.auth import get_audit_log
+    log = get_audit_log()
+    return {
+        "chain": log.verify_chain(),
+        "entries": log.tail(limit),
+    }
+
+
+# =============================================================================
+# Phase 5: per-user workspaces + encryption-at-rest
+# =============================================================================
+
+class _WorkspaceOpenBody(BaseModel):
+    user_id: str
+    password: Optional[str] = None
+    name: str = "default"
+
+
+@app.post("/v1/workspaces/open")
+def workspace_open(body: _WorkspaceOpenBody):
+    from opendna.workspaces import get_workspace, ENCRYPTION_AVAILABLE
+    try:
+        ws = get_workspace(body.user_id, body.password, body.name)
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    return {
+        "user_id": ws.meta.user_id,
+        "name": ws.meta.name,
+        "encrypted": ws.meta.encrypted,
+        "encryption_available": ENCRYPTION_AVAILABLE,
+        "projects": ws.list_projects(),
+    }
+
+
+@app.get("/v1/workspaces/{user_id}")
+def workspace_list(user_id: str):
+    from opendna.workspaces import list_user_workspaces
+    return {"workspaces": list_user_workspaces(user_id)}
+
+
+class _WorkspaceSaveBody(BaseModel):
+    user_id: str
+    password: Optional[str] = None
+    name: str = "default"
+    project_name: str
+    payload: dict
+
+
+@app.post("/v1/workspaces/save_project")
+def workspace_save_project(body: _WorkspaceSaveBody):
+    from opendna.workspaces import get_workspace
+    try:
+        ws = get_workspace(body.user_id, body.password, body.name)
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    path = ws.save_project(body.project_name, body.payload)
+    from opendna.auth import get_audit_log
+    get_audit_log().append(
+        "project.save", actor=body.user_id, resource=body.project_name,
+        details={"encrypted": ws.meta.encrypted},
+    )
+    return {"path": str(path), "encrypted": ws.meta.encrypted}
+
+
+class _WorkspaceLoadBody(BaseModel):
+    user_id: str
+    password: Optional[str] = None
+    name: str = "default"
+    project_name: str
+
+
+@app.post("/v1/workspaces/load_project")
+def workspace_load_project(body: _WorkspaceLoadBody):
+    from opendna.workspaces import get_workspace
+    try:
+        ws = get_workspace(body.user_id, body.password, body.name)
+        data = ws.load_project(body.project_name)
+    except PermissionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="project not found")
+    return {"project": data}
+
+
+# =============================================================================
+# Phase 6: Priority job queue + WebSocket streaming + GPU pool
+# =============================================================================
+
+@app.on_event("startup")
+async def _startup_queue():
+    from opendna.runtime import get_queue
+    await get_queue().start()
+
+
+@app.get("/v1/queue/stats")
+def queue_stats():
+    from opendna.runtime import get_queue, get_gpu_pool
+    return {
+        "queue": get_queue().stats(),
+        "gpu": get_gpu_pool().info(),
+    }
+
+
+@app.get("/v1/queue/jobs")
+def queue_list(user_id: Optional[str] = None):
+    from opendna.runtime import get_queue
+    return {"jobs": get_queue().list(user_id=user_id)}
+
+
+@app.get("/v1/queue/jobs/{job_id}")
+def queue_get(job_id: str):
+    from opendna.runtime import get_queue
+    job = get_queue().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown job")
+    return job
+
+
+class _EnqueueBody(BaseModel):
+    kind: str              # "fold" | "design" | "md" | "dock" | "multimer"
+    params: dict
+    priority: int = 1      # 0=interactive, 1=normal, 2=batch
+    user_id: Optional[str] = None
+
+
+def _runner_for(kind: str):
+    """Return a callable fn(on_progress=..., **params) -> result for a job kind."""
+    def _fold(on_progress, sequence: str, **_):
+        from opendna.engines.folding import fold_sequence
+        pdb = fold_sequence(sequence, on_progress=lambda s, f: on_progress(s, f))
+        return {"pdb": pdb.pdb_string if hasattr(pdb, "pdb_string") else str(pdb)}
+
+    def _design(on_progress, pdb_string: str, num_candidates: int = 10, **_):
+        from opendna.engines.design import design_sequences
+        res = design_sequences(pdb_string, num_candidates=num_candidates)
+        return {"candidates": res}
+
+    def _md(on_progress, pdb_string: str, duration_ps: float = 100, **_):
+        from opendna.engines.dynamics import quick_md
+        r = quick_md(pdb_string, duration_ps=duration_ps,
+                     on_progress=lambda s, f: on_progress(s, f))
+        return {"result": str(r)}
+
+    def _dock(on_progress, pdb_string: str, ligand_smiles: str, **_):
+        from opendna.engines.real_models import diffdock_dock, NotInstalledError
+        try:
+            return diffdock_dock(pdb_string, ligand_smiles)
+        except NotInstalledError:
+            from opendna.engines.docking import dock_ligand
+            return _to_dict(dock_ligand(pdb_string, ligand_smiles))
+
+    def _multimer(on_progress, sequences: list, chain_ids: Optional[list] = None, **_):
+        from opendna.engines.multimer import fold_multimer
+        r = fold_multimer(sequences, chain_ids,
+                          on_progress=lambda s, f: on_progress(s, f))
+        return {"pdb": r.pdb_string, "method": r.method}
+
+    return {"fold": _fold, "design": _design, "md": _md,
+            "dock": _dock, "multimer": _multimer}.get(kind)
+
+
+@app.post("/v1/queue/enqueue")
+async def queue_enqueue(body: _EnqueueBody):
+    from opendna.runtime import get_queue
+    fn = _runner_for(body.kind)
+    if fn is None:
+        raise HTTPException(status_code=400, detail=f"unknown job kind: {body.kind}")
+    q = get_queue()
+    await q.start()
+    job_id = await q.submit(
+        fn, priority=body.priority, job_type=body.kind,
+        kwargs=body.params, user_id=body.user_id,
+    )
+    return {"job_id": job_id, "priority": body.priority}
+
+
+@app.websocket("/v1/ws/jobs/{job_id}")
+async def ws_job(websocket: WebSocket, job_id: str):
+    from opendna.runtime import get_queue
+    await websocket.accept()
+    q = get_queue()
+    job = q.get(job_id)
+    if job is None:
+        await websocket.send_json({"event": "error", "reason": "unknown job"})
+        await websocket.close()
+        return
+    # Send current state immediately so clients joining mid-run catch up.
+    await websocket.send_json({"event": "snapshot", "job": job})
+    sub = q.subscribe(job_id)
+    try:
+        while True:
+            if job["status"] in ("completed", "failed"):
+                await websocket.send_json({"event": "final", "job": job})
+                break
+            try:
+                evt = await asyncio.wait_for(sub.get(), timeout=30.0)
+                await websocket.send_json(evt)
+                if evt.get("event") == "finished":
+                    break
+            except asyncio.TimeoutError:
+                await websocket.send_json({"event": "heartbeat", "ts": time.time()})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        q.unsubscribe(job_id, sub)
+
+
+@app.get("/v1/gpu/info")
+def gpu_info():
+    from opendna.runtime import get_gpu_pool
+    return get_gpu_pool().info()
+
+
+@app.post("/v1/gpu/evict_warm")
+def gpu_evict_warm(older_than_s: int = 300):
+    from opendna.runtime import get_gpu_pool
+    n = get_gpu_pool().evict_older_than(older_than_s)
+    return {"evicted": n}
+
+
+# =============================================================================
+# Phase 7: crash reporting + self-healing
+# =============================================================================
+
+@app.on_event("startup")
+async def _startup_reliability():
+    from opendna.reliability import install_excepthook, get_healer
+    install_excepthook()
+    get_healer().start(interval_s=60.0)
+
+
+@app.get("/v1/health")
+def health_endpoint():
+    from opendna.reliability import get_healer
+    return get_healer().run_once()
+
+
+@app.get("/v1/crashes")
+def crashes_list(limit: int = 50):
+    from opendna.reliability import get_crash_reporter
+    return {"crashes": get_crash_reporter().list_crashes(limit=limit)}
+
+
+@app.delete("/v1/crashes")
+def crashes_clear():
+    from opendna.reliability import get_crash_reporter
+    return {"deleted": get_crash_reporter().clear()}
+
+
+# =============================================================================
+# Phase 8: provenance graph + time machine + diff/blame/bisect
+# =============================================================================
+
+class _ProvAddBody(BaseModel):
+    project_id: str
+    kind: str
+    inputs: dict
+    outputs: dict
+    score: Optional[float] = None
+    parent_ids: Optional[list] = None
+    actor: Optional[str] = None
+
+
+@app.post("/v1/provenance/record")
+def prov_record(body: _ProvAddBody):
+    from opendna.provenance import record_step
+    n = record_step(
+        project_id=body.project_id, kind=body.kind,
+        inputs=body.inputs, outputs=body.outputs,
+        score=body.score, parent_ids=body.parent_ids, actor=body.actor,
+    )
+    return n.to_dict()
+
+
+@app.get("/v1/provenance/{project_id}")
+def prov_get_project(project_id: str):
+    from opendna.provenance import get_provenance_store
+    store = get_provenance_store()
+    return {
+        "nodes": [n.to_dict() for n in store.project_nodes(project_id)],
+        "edges": [{"parent": e.parent, "child": e.child} for e in store.project_edges(project_id)],
+        "stats": store.stats(project_id),
+    }
+
+
+@app.get("/v1/provenance/node/{node_id}")
+def prov_node(node_id: str):
+    from opendna.provenance import get_provenance_store
+    n = get_provenance_store().get(node_id)
+    if n is None:
+        raise HTTPException(status_code=404, detail="node not found")
+    return n.to_dict()
+
+
+@app.get("/v1/provenance/lineage/{node_id}")
+def prov_lineage(node_id: str):
+    from opendna.provenance import get_provenance_store
+    return {"lineage": [n.to_dict() for n in get_provenance_store().lineage(node_id)]}
+
+
+@app.get("/v1/provenance/diff")
+def prov_diff(a: str, b: str):
+    from opendna.provenance import diff_steps
+    return diff_steps(a, b)
+
+
+@app.get("/v1/provenance/blame")
+def prov_blame(project_id: str, residue: int):
+    from opendna.provenance import blame_residue
+    return {"blame": blame_residue(project_id, residue)}
+
+
+@app.get("/v1/provenance/bisect")
+def prov_bisect(project_id: str, threshold: float = 0.0):
+    from opendna.provenance import bisect_regression
+    return {"result": bisect_regression(project_id, threshold=threshold)}
+
+
+# =============================================================================
+# Phase 9: Visual workflow editor backend
+# =============================================================================
+
+@app.get("/v1/workflow/node_types")
+def workflow_node_types():
+    from opendna.workflows.graph_runner import list_node_types
+    return {"node_types": list_node_types()}
+
+
+class _GraphRunBody(BaseModel):
+    workflow: dict
+    project_id: Optional[str] = None
+    actor: Optional[str] = None
+
+
+@app.post("/v1/workflow/run_graph")
+async def workflow_run_graph(body: _GraphRunBody):
+    from opendna.workflows.graph_runner import run_workflow
+    from opendna.runtime import get_queue
+    q = get_queue()
+    await q.start()
+
+    def _runner(on_progress, **_):
+        return run_workflow(
+            body.workflow,
+            project_id=body.project_id,
+            actor=body.actor,
+            on_progress=on_progress,
+        )
+
+    job_id = await q.submit(_runner, priority=1, job_type="workflow",
+                            user_id=body.actor)
+    return {"job_id": job_id}
+
+
+# =============================================================================
+# Phase 10: External APIs (NCBI, PubMed, vendors, notifications, webhooks)
+# =============================================================================
+
+@app.get("/v1/ncbi/search")
+def ncbi_search_endpoint(db: str, term: str, retmax: int = 20):
+    from opendna.external import ncbi_search
+    return ncbi_search(db, term, retmax)
+
+
+@app.get("/v1/uniprot/search")
+def uniprot_search_endpoint(query: str, size: int = 25, reviewed_only: bool = True, organism: Optional[str] = None):
+    from opendna.external import uniprot_search
+    return uniprot_search(query, size=size, reviewed_only=reviewed_only, organism=organism)
+
+
+@app.get("/v1/uniprot/{accession}")
+def uniprot_fetch_endpoint(accession: str):
+    from opendna.external import uniprot_fetch_sequence
+    return uniprot_fetch_sequence(accession)
+
+
+@app.get("/v1/alphafold/{uniprot_id}")
+def alphafold_db_fetch_endpoint(uniprot_id: str, with_meta: bool = False):
+    from opendna.external import fetch_alphafold, fetch_alphafold_meta
+    try:
+        if with_meta:
+            return fetch_alphafold_meta(uniprot_id)
+        return fetch_alphafold(uniprot_id)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"AlphaFold DB fetch failed: {e}")
+
+
+@app.post("/v1/export/trajectory_gif")
+def export_trajectory_gif_endpoint(payload: dict):
+    from opendna.notebook import trajectory_to_gif
+    from pathlib import Path
+    import tempfile, base64
+    frames = payload.get("pdb_frames") or []
+    fps = int(payload.get("fps", 10))
+    if not isinstance(frames, list) or not frames:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="pdb_frames must be a non-empty list")
+    out_path = tempfile.NamedTemporaryFile(suffix=".gif", delete=False).name
+    path = trajectory_to_gif(frames, out_path, fps=fps)
+    try:
+        data = Path(path).read_bytes()
+        b64 = base64.b64encode(data).decode()
+    except Exception:
+        b64 = ""
+    return {"path": path, "frames": len(frames), "fps": fps, "gif_b64": b64}
+
+
+@app.get("/v1/ncbi/fetch")
+def ncbi_fetch_endpoint(db: str, id: str, rettype: str = "fasta"):
+    from opendna.external import ncbi_fetch
+    return ncbi_fetch(db, id, rettype)
+
+
+@app.get("/v1/pubmed/search")
+def pubmed_search_endpoint(query: str, retmax: int = 20):
+    from opendna.external import pubmed_search
+    return pubmed_search(query, retmax)
+
+
+@app.get("/v1/pubmed/summarize")
+def pubmed_summarize_endpoint(pmid: str):
+    from opendna.external import pubmed_summarize
+    return pubmed_summarize(pmid)
+
+
+@app.get("/v1/vendors")
+def vendors_list():
+    from opendna.external import list_vendors
+    return {"vendors": list_vendors()}
+
+
+class _QuoteBody(BaseModel):
+    sequence: str
+    kind: str = "dna_gene"
+    vendor: Optional[str] = None
+
+
+@app.post("/v1/vendors/quote")
+def vendors_quote(body: _QuoteBody):
+    from opendna.external import quote_synthesis
+    return quote_synthesis(body.sequence, body.kind, body.vendor)
+
+
+class _OrderBody(BaseModel):
+    sequence: str
+    vendor: str
+    product: str
+    customer_email: str = ""
+    notes: str = ""
+
+
+@app.post("/v1/vendors/order")
+def vendors_order(body: _OrderBody):
+    from opendna.external import place_order, fire_webhooks
+    from opendna.auth import get_audit_log
+    record = place_order(body.sequence, body.vendor, body.product, body.customer_email, body.notes)
+    get_audit_log().append("vendor.order", actor=body.customer_email or None,
+                            resource=record.get("order_id"),
+                            details={"vendor": body.vendor, "status": record.get("status")})
+    fire_webhooks("vendor.order", record)
+    return record
+
+
+class _NotifyBody(BaseModel):
+    text: str
+    channel: str  # "slack" | "teams" | "discord"
+    webhook_url: Optional[str] = None
+
+
+@app.post("/v1/notify")
+def notify_endpoint(body: _NotifyBody):
+    from opendna.external import notify_slack, notify_teams, notify_discord
+    fn = {"slack": notify_slack, "teams": notify_teams, "discord": notify_discord}.get(body.channel)
+    if fn is None:
+        raise HTTPException(status_code=400, detail="unknown channel")
+    return {"sent": fn(body.text, body.webhook_url)}
+
+
+class _WebhookBody(BaseModel):
+    url: str
+    event: str = "*"
+    secret: Optional[str] = None
+
+
+@app.post("/v1/webhooks")
+def webhook_register(body: _WebhookBody):
+    from opendna.external import register_webhook
+    return {"id": register_webhook(body.url, body.event, body.secret)}
+
+
+@app.get("/v1/webhooks")
+def webhook_list():
+    from opendna.external import list_webhooks
+    return {"webhooks": list_webhooks()}
+
+
+@app.delete("/v1/webhooks/{wid}")
+def webhook_delete(wid: str):
+    from opendna.external import delete_webhook
+    return {"deleted": delete_webhook(wid)}
+
+
+# =============================================================================
+# Phase 12: Lab notebook + DOI/Zenodo + figure/GLTF/OBJ export
+# =============================================================================
+
+class _NotebookEntryBody(BaseModel):
+    project_id: str
+    title: str
+    body_md: str
+    tags: Optional[list] = None
+    prov_node_ids: Optional[list] = None
+    author: Optional[str] = None
+
+
+@app.post("/v1/notebook/entries")
+def notebook_add_entry(body: _NotebookEntryBody):
+    from opendna.notebook import get_notebook
+    nb = get_notebook(body.project_id)
+    e = nb.add_entry(body.title, body.body_md, body.tags, body.prov_node_ids, body.author)
+    return e.to_dict()
+
+
+@app.get("/v1/notebook/{project_id}/entries")
+def notebook_list_entries(project_id: str):
+    from opendna.notebook import get_notebook
+    return {"entries": get_notebook(project_id).list_entries()}
+
+
+@app.get("/v1/notebook/{project_id}/entries/{entry_id}")
+def notebook_get_entry(project_id: str, entry_id: str):
+    from opendna.notebook import get_notebook
+    e = get_notebook(project_id).get_entry(entry_id)
+    if e is None:
+        raise HTTPException(status_code=404, detail="entry not found")
+    return e
+
+
+@app.get("/v1/notebook/{project_id}/attachments")
+def notebook_list_attachments(project_id: str):
+    """List files in the project's notebook attachment directory."""
+    from opendna.notebook import get_notebook
+    nb = get_notebook(project_id)
+    items = []
+    try:
+        attach_dir = getattr(nb, "attach_dir", None)
+        if attach_dir is not None and attach_dir.exists():
+            for p in sorted(attach_dir.iterdir()):
+                if p.is_file():
+                    try:
+                        items.append({"name": p.name, "size": p.stat().st_size})
+                    except OSError:
+                        items.append({"name": p.name, "size": 0})
+    except Exception:
+        pass
+    return {"attachments": items}
+
+
+class _ZenodoBody(BaseModel):
+    title: str
+    description: str
+    creators: list
+    files: Optional[list] = None
+    keywords: Optional[list] = None
+    upload_type: str = "software"
+
+
+@app.post("/v1/zenodo/mint")
+def zenodo_mint(body: _ZenodoBody):
+    from opendna.notebook import mint_doi_zenodo
+    return mint_doi_zenodo(
+        body.title, body.description, body.creators,
+        body.files, body.keywords, body.upload_type,
+    )
+
+
+@app.get("/v1/zenodo/deposits")
+def zenodo_deposits():
+    from opendna.notebook import list_local_deposits
+    return {"deposits": list_local_deposits()}
+
+
+class _FigureBody(BaseModel):
+    data: dict
+    title: str = ""
+    xlabel: str = ""
+    ylabel: str = ""
+    format: str = "svg"
+
+
+@app.post("/v1/export/figure")
+def export_figure(body: _FigureBody):
+    from opendna.notebook import export_figure_png, export_figure_svg
+    if body.format == "png":
+        png = export_figure_png(body.data, body.title, body.xlabel, body.ylabel)
+        import base64
+        return {"format": "png", "base64": base64.b64encode(png).decode()}
+    svg = export_figure_svg(body.data, body.title)
+    return {"format": "svg", "svg": svg}
+
+
+class _Pdb3DBody(BaseModel):
+    pdb_string: str
+    format: str = "gltf"
+
+
+@app.post("/v1/export/3d")
+def export_3d(body: _Pdb3DBody):
+    from opendna.notebook import pdb_to_gltf, pdb_to_obj
+    if body.format == "obj":
+        return {"format": "obj", "text": pdb_to_obj(body.pdb_string)}
+    return {"format": "gltf", "gltf": pdb_to_gltf(body.pdb_string)}
+
+
+# =============================================================================
+# Phase 13: Yjs CRDT real-time co-editing
+# =============================================================================
+from opendna.collab import register_crdt_routes as _register_crdt
+_register_crdt(app)
+
+
+# =============================================================================
+# Phase 14: Academy levels 4-7, badges, daily challenges, glossary
+# =============================================================================
+
+@app.get("/v1/academy/levels")
+def academy_levels():
+    from opendna.academy import list_levels
+    return {"levels": list_levels()}
+
+
+@app.get("/v1/academy/levels/{level_id}")
+def academy_level(level_id: int):
+    from opendna.academy import get_level
+    lvl = get_level(level_id)
+    if lvl is None:
+        raise HTTPException(status_code=404, detail="level not found")
+    return lvl
+
+
+@app.get("/v1/academy/badges")
+def academy_badges():
+    from opendna.academy.content import BADGES
+    return {"badges": BADGES}
+
+
+@app.get("/v1/academy/glossary")
+def academy_glossary():
+    from opendna.academy.content import GLOSSARY
+    return {"glossary": GLOSSARY}
+
+
+@app.get("/v1/academy/daily")
+def academy_daily(date: Optional[str] = None):
+    from opendna.academy import daily_challenge
+    return daily_challenge(date)
+
+
+class _DailyAnswerBody(BaseModel):
+    user_id: str
+    sequence: str
+    date: Optional[str] = None
+
+
+@app.post("/v1/academy/daily/answer")
+def academy_daily_answer(body: _DailyAnswerBody):
+    from opendna.academy import check_answer
+    return check_answer(body.user_id, body.sequence, body.date)
+
+
+@app.get("/v1/academy/leaderboard")
+def academy_leaderboard(limit: int = 20):
+    from opendna.academy import leaderboard_top
+    return {"leaderboard": leaderboard_top(limit)}
+
+
+# =============================================================================
+# Phase 15: LLM polish (Ollama manager + streaming + multi-turn memory)
+# =============================================================================
+
+@app.get("/v1/llm/ollama/status")
+def ollama_status():
+    from opendna.llm.ollama_manager import is_installed, is_running, list_local_models, DEFAULT_MODEL
+    return {
+        "installed": is_installed(),
+        "running": is_running(),
+        "default_model": DEFAULT_MODEL,
+        "models": list_local_models(),
+    }
+
+
+@app.post("/v1/llm/ollama/install")
+def ollama_install():
+    from opendna.llm.ollama_manager import auto_install
+    return auto_install()
+
+
+class _PullBody(BaseModel):
+    model: str = "llama3.2:3b"
+
+
+@app.post("/v1/llm/ollama/pull")
+def ollama_pull(body: _PullBody):
+    from opendna.llm.ollama_manager import pull_model
+    return pull_model(body.model)
+
+
+class _ChatBody(BaseModel):
+    session_id: str
+    message: str
+    system: Optional[str] = None
+    model: Optional[str] = None
+    temperature: float = 0.7
+
+
+@app.post("/v1/llm/chat/stream")
+async def llm_chat_stream(body: _ChatBody):
+    from opendna.llm.ollama_manager import stream_chat, session_history, session_append, DEFAULT_MODEL
+    from fastapi.responses import StreamingResponse
+
+    session_append(body.session_id, "user", body.message)
+    history = session_history(body.session_id)
+
+    def _iter():
+        acc = []
+        for chunk in stream_chat(
+            history, model=body.model or DEFAULT_MODEL,
+            system=body.system, temperature=body.temperature,
+        ):
+            acc.append(chunk)
+            yield chunk
+        session_append(body.session_id, "assistant", "".join(acc))
+
+    return StreamingResponse(_iter(), media_type="text/plain")
+
+
+@app.get("/v1/llm/chat/history/{session_id}")
+def llm_chat_history(session_id: str):
+    from opendna.llm.ollama_manager import session_history
+    return {"history": session_history(session_id)}
+
+
+@app.delete("/v1/llm/chat/history/{session_id}")
+def llm_chat_clear(session_id: str):
+    from opendna.llm.ollama_manager import session_clear
+    session_clear(session_id)
+    return {"cleared": session_id}
+
+
+# =============================================================================
+# Phase 16: Compliance (SBOM, air-gap, HIPAA/GDPR)
+# =============================================================================
+
+@app.get("/v1/compliance/sbom")
+def compliance_sbom():
+    from opendna.compliance import generate_sbom
+    return generate_sbom()
+
+
+@app.get("/v1/compliance/airgap")
+def compliance_airgap():
+    from opendna.compliance import check_airgap_capability
+    return check_airgap_capability()
+
+
+@app.post("/v1/compliance/airgap/bundle")
+def compliance_airgap_bundle(body: dict):
+    from opendna.compliance import bundle_offline_artifacts
+    return bundle_offline_artifacts(body.get("out_dir", "./opendna-airgap"))
+
+
+@app.get("/v1/compliance/privacy")
+def compliance_privacy():
+    from opendna.compliance import privacy_report
+    return privacy_report()
+
+
+@app.get("/v1/compliance/hipaa")
+def compliance_hipaa():
+    from opendna.compliance import hipaa_checklist
+    return {"checklist": hipaa_checklist()}
+
+
+@app.get("/v1/compliance/gdpr")
+def compliance_gdpr():
+    from opendna.compliance import gdpr_checklist
+    return {"checklist": gdpr_checklist()}
+
+
+class _GdprUser(BaseModel):
+    user_id: str
+    out_path: Optional[str] = None
+
+
+@app.post("/v1/compliance/export_user_data")
+def compliance_export_user(body: _GdprUser):
+    from opendna.compliance import export_user_data
+    out = body.out_path or f"./{body.user_id}-export.zip"
+    return export_user_data(body.user_id, out)
+
+
+@app.post("/v1/compliance/delete_user_data")
+def compliance_delete_user(body: _GdprUser):
+    from opendna.compliance import delete_user_data
+    from opendna.auth import get_audit_log
+    result = delete_user_data(body.user_id)
+    get_audit_log().append("gdpr.erasure", actor=body.user_id, details=result)
+    return result
 
 
 def start_server(host: str = "127.0.0.1", port: int = 8765):

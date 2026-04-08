@@ -1,0 +1,14 @@
+Package: opendna
+Type: Package
+Title: R Client for the OpenDNA Protein Engineering Platform
+Version: 0.5.0
+Date: 2026-04-07
+Author: Dyber, Inc.
+Maintainer: Dyber, Inc. <opendna@dyber.org>
+Description: Thin R wrapper around the OpenDNA FastAPI server. Provides fold(),
+    design(), evaluate(), analyze(), dock(), and workflow helpers that return
+    tidy data.frames where possible.
+License: Apache License 2.0
+Depends: R (>= 4.0.0)
+Imports: httr, jsonlite
+RoxygenNote: 7.3.1

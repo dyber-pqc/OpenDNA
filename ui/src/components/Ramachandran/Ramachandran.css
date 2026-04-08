@@ -1,0 +1,46 @@
+.rama-panel {
+  background: #15182a;
+  color: #e6e7f0;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.6);
+  max-width: 640px;
+}
+.rama-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.rama-header h2 { margin: 0; font-size: 18px; }
+.rama-header button {
+  background: transparent; border: none; color: #9ca3c4;
+  font-size: 18px; cursor: pointer;
+}
+.rama-meta { font-size: 12px; color: #9ca3c4; margin-bottom: 12px; }
+.rama-body { display: flex; gap: 16px; align-items: flex-start; }
+.rama-svg { background: #0e1224; border-radius: 6px; }
+.rama-dot { cursor: pointer; transition: r 0.1s; }
+.rama-dot:hover { r: 5; fill: #ff7a7a; }
+.rama-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #c4d2ff;
+  min-width: 150px;
+}
+.rama-legend .sw {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.rama-hover {
+  margin-top: 12px;
+  padding: 8px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}

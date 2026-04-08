@@ -1,0 +1,22 @@
+<tool id="opendna_fold" name="OpenDNA Fold" version="0.5.0">
+  <description>Predict protein 3D structure with OpenDNA ESMFold</description>
+  <requirements>
+    <requirement type="package" version="0.5.0">opendna</requirement>
+  </requirements>
+  <command detect_errors="exit_code"><![CDATA[
+    python -m opendna.cli.main fold --sequence '$sequence' --output '$output'
+  ]]></command>
+  <inputs>
+    <param name="sequence" type="text" label="Protein sequence" help="One-letter amino acid code"/>
+  </inputs>
+  <outputs>
+    <data name="output" format="pdb" label="${tool.name} on ${on_string}"/>
+  </outputs>
+  <help>
+    Predicts the 3D structure of a protein sequence using OpenDNA's ESMFold engine.
+    See https://github.com/dyber-pqc/OpenDNA
+  </help>
+  <citations>
+    <citation type="bibtex">@article{opendna2026, title={OpenDNA}, author={Kleckner, Z.}, year={2026}}</citation>
+  </citations>
+</tool>

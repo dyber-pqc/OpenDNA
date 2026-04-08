@@ -1,0 +1,121 @@
+.pex-root {
+  position: fixed;
+  left: 0;
+  top: 56px;
+  width: 280px;
+  bottom: 0;
+  background: #14161c;
+  color: #e7e9ee;
+  border-right: 1px solid rgba(255,255,255,0.12);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  overflow: hidden;
+}
+.pex-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+}
+.pex-title { font-weight: 600; }
+.pex-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.pex-project {
+  padding: 6px 12px;
+  font-size: 11px;
+  opacity: 0.7;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.pex-project code {
+  background: rgba(255,255,255,0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.pex-msg, .pex-empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+.pex-error {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #f87171;
+}
+.pex-section {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.pex-section-head {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+.pex-section-head:hover { background: rgba(255,255,255,0.04); }
+.pex-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-bottom: 6px;
+}
+.pex-item {
+  padding: 4px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pex-item:hover { background: rgba(99,102,241,0.18); }
+.pex-sub { padding-left: 28px; opacity: 0.85; font-family: monospace; font-size: 11px; }
+.pex-prov-group { margin-bottom: 4px; }
+.pex-prov-kind {
+  padding: 2px 18px;
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: 0.6;
+  letter-spacing: 0.5px;
+}
+.pex-preview {
+  position: absolute;
+  left: 280px;
+  top: 0;
+  bottom: 0;
+  width: 380px;
+  background: #1a1d24;
+  border-right: 1px solid rgba(255,255,255,0.12);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 16px rgba(0,0,0,0.4);
+}
+.pex-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.pex-preview-head button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 20px;
+  cursor: pointer;
+}
+.pex-preview-body {
+  padding: 12px;
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  overflow-y: auto;
+  line-height: 1.4;
+}

@@ -182,6 +182,19 @@ export const fetchUniprot = (accession: string) =>
     structure_source: "alphafold" | null;
   }>("/v1/fetch_uniprot", { accession });
 
+export const fetchAlphafold = (uniprot_id: string, with_meta = false) =>
+  fetch(
+    `${API_BASE}/v1/alphafold/${encodeURIComponent(uniprot_id)}?with_meta=${with_meta}`,
+  ).then((r) => {
+    if (!r.ok) throw new Error(`AlphaFold DB fetch failed: ${r.status}`);
+    return r.json() as Promise<{
+      uniprot_id: string;
+      pdb: string;
+      source: "alphafold-db";
+      meta?: any;
+    }>;
+  });
+
 export const fetchPdb = (pdb_id: string) =>
   post<{ pdb_id: string; pdb_string: string }>("/v1/fetch_pdb", { pdb_id });
 
@@ -343,3 +356,242 @@ export const listJobs = () => get<{ jobs: any[] }>("/v1/jobs");
 export const getHardware = () => get<any>("/v1/hardware");
 
 export const mutate_ = mutate;
+
+// ========== Component Manager (Phase 2) ==========
+export interface ComponentInfo {
+  name: string;
+  display_name: string;
+  category: string;
+  description: string;
+  size_mb: number;
+  version: string;
+  install_kind: string;
+  install_target: string;
+  homepage?: string | null;
+  license?: string | null;
+  status: "installed" | "not_installed" | "unknown";
+}
+
+export interface ComponentJob {
+  component: string;
+  status: "running" | "completed" | "failed";
+  progress: number;
+  messages: string[];
+  error?: string;
+  result?: any;
+}
+
+export const listComponents = () =>
+  get<{ components: ComponentInfo[] }>("/v1/components");
+
+export const installComponent = (name: string) =>
+  post<{ job_id: string; component: string }>(`/v1/components/${name}/install`, {});
+
+export const uninstallComponent = (name: string) =>
+  post<{ status: string; component: string }>(`/v1/components/${name}/uninstall`, {});
+
+export const getComponentJob = (jobId: string) =>
+  get<ComponentJob>(`/v1/components/jobs/${jobId}`);
+
+// ========== Phase 3: real heavy-model backends ==========
+export const getBackends = () =>
+  get<{ backends: Record<string, boolean> }>("/v1/backends");
+
+export const qmSinglePoint = (pdb_string: string, engine: "xtb" | "ani" = "xtb") =>
+  post<{ engine: string; energy_hartree: number; energy_kj_mol: number; n_atoms: number }>(
+    "/v1/qm/single_point",
+    { pdb_string, engine },
+  );
+
+export const designDenovo = (length: number, num_designs = 1, contigs?: string) =>
+  post<{ engine: string; designs: { index: number; pdb: string }[] }>(
+    "/v1/design_denovo",
+    { length, num_designs, contigs },
+  );
+
+// ========== Phase 4: PQC Auth ==========
+let _authToken: string | null = localStorage.getItem("opendna.token");
+export function setAuthToken(t: string | null) {
+  _authToken = t;
+  if (t) localStorage.setItem("opendna.token", t);
+  else localStorage.removeItem("opendna.token");
+}
+export function getAuthToken(): string | null { return _authToken; }
+
+export const authStatus = () =>
+  get<{ pqc_available: boolean; auth_required: boolean; sig_algorithm: string; kem_algorithm: string }>("/v1/auth/status");
+
+export const authRegister = (user_id: string, password?: string, scopes?: string[]) =>
+  post<{ user_id: string; token: string; algorithm: string; pqc_available: boolean }>(
+    "/v1/auth/register",
+    { user_id, password, scopes },
+  );
+
+export const authLogin = (user_id: string, password: string) =>
+  post<{ user_id: string; token: string; pqc: boolean }>("/v1/auth/login", { user_id, password });
+
+export const authMe = () =>
+  get<{ user_id?: string; scopes?: string[]; algorithm?: string; is_pqc?: boolean; auth_required?: boolean }>("/v1/auth/me");
+
+export const authAuditTail = (limit = 100) =>
+  get<{ chain: { ok: boolean; count?: number }; entries: any[] }>(`/v1/auth/audit?limit=${limit}`);
+
+export const createApiKey = (name: string) =>
+  post<{ api_key: string; user_id: string }>("/v1/auth/api_keys", { name });
+
+// ========== Phase 5: workspaces ==========
+export const openWorkspace = (user_id: string, password?: string, name = "default") =>
+  post<{ user_id: string; name: string; encrypted: boolean; encryption_available: boolean; projects: any[] }>(
+    "/v1/workspaces/open", { user_id, password, name },
+  );
+
+export const saveWorkspaceProject = (user_id: string, project_name: string, payload: any, password?: string, name = "default") =>
+  post<{ path: string; encrypted: boolean }>("/v1/workspaces/save_project",
+    { user_id, password, name, project_name, payload });
+
+export const loadWorkspaceProject = (user_id: string, project_name: string, password?: string, name = "default") =>
+  post<{ project: any }>("/v1/workspaces/load_project",
+    { user_id, password, name, project_name });
+
+// ========== Phase 6: queue + WS streaming ==========
+export const queueStats = () =>
+  get<{ queue: any; gpu: any }>("/v1/queue/stats");
+
+export const enqueueJob = (kind: string, params: any, priority = 1, user_id?: string) =>
+  post<{ job_id: string; priority: number }>("/v1/queue/enqueue",
+    { kind, params, priority, user_id });
+
+export const getQueueJob = (job_id: string) =>
+  get<any>(`/v1/queue/jobs/${job_id}`);
+
+export function streamJob(job_id: string, onEvent: (e: any) => void): WebSocket {
+  const wsBase = API_BASE.replace(/^http/, "ws");
+  const ws = new WebSocket(`${wsBase}/v1/ws/jobs/${job_id}`);
+  ws.onmessage = (m) => {
+    try { onEvent(JSON.parse(m.data)); } catch { /* swallow */ }
+  };
+  return ws;
+}
+
+export const gpuInfo = () => get<any>("/v1/gpu/info");
+
+// ========== Phase 7: reliability ==========
+export const healthCheck = () => get<Record<string, { ok: boolean; fix_count: number }>>("/v1/health");
+export const listCrashes = (limit = 50) =>
+  get<{ crashes: any[] }>(`/v1/crashes?limit=${limit}`);
+
+// ========== Phase 8: provenance ==========
+export interface ProvNode {
+  id: string; ts: number; project_id: string; kind: string;
+  inputs: any; outputs: any; score: number | null;
+  parent_ids: string[]; actor: string | null; content_hash: string;
+}
+export const recordProvStep = (body: {
+  project_id: string; kind: string; inputs: any; outputs: any;
+  score?: number; parent_ids?: string[]; actor?: string;
+}) => post<ProvNode>("/v1/provenance/record", body);
+
+export const getProjectProvenance = (project_id: string) =>
+  get<{ nodes: ProvNode[]; edges: { parent: string; child: string }[]; stats: any }>(
+    `/v1/provenance/${project_id}`,
+  );
+
+export const getProvLineage = (node_id: string) =>
+  get<{ lineage: ProvNode[] }>(`/v1/provenance/lineage/${node_id}`);
+
+export const provDiff = (a: string, b: string) =>
+  get<any>(`/v1/provenance/diff?a=${a}&b=${b}`);
+
+export const provBlame = (project_id: string, residue: number) =>
+  get<{ blame: any[] }>(`/v1/provenance/blame?project_id=${project_id}&residue=${residue}`);
+
+export const provBisect = (project_id: string, threshold = 0.0) =>
+  get<{ result: any }>(`/v1/provenance/bisect?project_id=${project_id}&threshold=${threshold}`);
+
+// ========== Phase 9: workflow editor ==========
+export const listWorkflowNodeTypes = () =>
+  get<{ node_types: any[] }>("/v1/workflow/node_types");
+
+export const runWorkflowGraph = (workflow: any, project_id?: string, actor?: string) =>
+  post<{ job_id: string }>("/v1/workflow/run_graph", { workflow, project_id, actor });
+
+// ========== Phase 10: external APIs ==========
+export interface UniprotHit {
+  accession: string;
+  id: string;
+  name: string;
+  gene: string;
+  organism: string;
+  length: number;
+  sequence: string;
+  annotation_score?: number;
+  function?: string;
+}
+export const uniprotSearch = (query: string, size = 25, reviewed_only = true, organism?: string) => {
+  const params = new URLSearchParams({ query, size: String(size), reviewed_only: String(reviewed_only) });
+  if (organism) params.set("organism", organism);
+  return get<{ query: string; total: number; hits: UniprotHit[] }>(`/v1/uniprot/search?${params}`);
+};
+export const uniprotFetch = (accession: string) =>
+  get<{ accession: string; sequence: string; length: number; header: string }>(`/v1/uniprot/${accession}`);
+
+export const ncbiSearch = (db: string, term: string, retmax = 20) =>
+  get<any>(`/v1/ncbi/search?db=${db}&term=${encodeURIComponent(term)}&retmax=${retmax}`);
+
+export const ncbiFetch = (db: string, id: string, rettype = "fasta") =>
+  get<any>(`/v1/ncbi/fetch?db=${db}&id=${id}&rettype=${rettype}`);
+
+export const pubmedSearch = (query: string, retmax = 20) =>
+  get<any>(`/v1/pubmed/search?query=${encodeURIComponent(query)}&retmax=${retmax}`);
+
+export const pubmedSummarize = (pmid: string) =>
+  get<any>(`/v1/pubmed/summarize?pmid=${pmid}`);
+
+export const listVendors = () => get<{ vendors: any[] }>("/v1/vendors");
+
+export const quoteSynthesis = (sequence: string, kind = "dna_gene", vendor?: string) =>
+  post<any>("/v1/vendors/quote", { sequence, kind, vendor });
+
+export const placeOrder = (sequence: string, vendor: string, product: string, customer_email = "", notes = "") =>
+  post<any>("/v1/vendors/order", { sequence, vendor, product, customer_email, notes });
+
+export const sendNotification = (channel: "slack" | "teams" | "discord", text: string, webhook_url?: string) =>
+  post<{ sent: boolean }>("/v1/notify", { channel, text, webhook_url });
+
+export const registerWebhook = (url: string, event = "*", secret?: string) =>
+  post<{ id: string }>("/v1/webhooks", { url, event, secret });
+
+export const listUserWebhooks = () => get<{ webhooks: any[] }>("/v1/webhooks");
+
+export const deleteUserWebhook = (id: string) =>
+  fetch(`${API_BASE}/v1/webhooks/${id}`, { method: "DELETE" }).then(r => r.json());
+
+// ========== Phase 12: notebook + zenodo + export ==========
+export const addNotebookEntry = (body: { project_id: string; title: string; body_md: string; tags?: string[]; prov_node_ids?: string[]; author?: string }) =>
+  post<any>("/v1/notebook/entries", body);
+export const listNotebookEntries = (project_id: string) =>
+  get<{ entries: any[] }>(`/v1/notebook/${project_id}/entries`);
+export const mintDoiZenodo = (body: { title: string; description: string; creators: string[]; files?: string[]; keywords?: string[]; upload_type?: string }) =>
+  post<any>("/v1/zenodo/mint", body);
+export const exportFigure = (data: any, format: "svg" | "png" = "svg", title = "") =>
+  post<any>("/v1/export/figure", { data, title, format });
+export const exportPdb3D = (pdb_string: string, format: "gltf" | "obj" = "gltf") =>
+  post<any>("/v1/export/3d", { pdb_string, format });
+
+// ========== Phase 14: Academy ==========
+export const academyLevels = () => get<{ levels: any[] }>("/v1/academy/levels");
+export const academyLevel = (id: number) => get<any>(`/v1/academy/levels/${id}`);
+export const academyBadges = () => get<{ badges: any[] }>("/v1/academy/badges");
+export const academyGlossary = () => get<{ glossary: Record<string, string> }>("/v1/academy/glossary");
+export const academyDaily = () => get<any>("/v1/academy/daily");
+export const academyAnswer = (user_id: string, sequence: string) =>
+  post<any>("/v1/academy/daily/answer", { user_id, sequence });
+export const academyLeaderboard = (limit = 20) =>
+  get<{ leaderboard: any[] }>(`/v1/academy/leaderboard?limit=${limit}`);
+
+
+
+
+
+
+

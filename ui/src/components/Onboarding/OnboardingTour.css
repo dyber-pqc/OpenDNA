@@ -1,0 +1,39 @@
+.ot-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.ot-card {
+  background: var(--bg-elev, #15182a);
+  color: var(--fg, #e6e7f0);
+  padding: 32px 40px;
+  border-radius: 16px;
+  max-width: 480px;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 20px 80px rgba(0,0,0,0.6);
+}
+.ot-emoji { font-size: 48px; }
+.ot-card h2 { margin: 12px 0 8px; font-size: 22px; }
+.ot-card p { color: #9ca3c4; line-height: 1.6; margin: 0 0 20px; }
+.ot-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 20px; }
+.ot-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  cursor: pointer;
+}
+.ot-dot.active { background: #7aa2ff; }
+.ot-actions { display: flex; gap: 8px; justify-content: center; }
+.ot-actions button {
+  padding: 8px 18px; border-radius: 8px;
+  background: transparent; border: 1px solid rgba(255,255,255,0.15);
+  color: #e6e7f0; cursor: pointer;
+}
+.ot-actions button.primary { background: #5b7cff; border-color: #5b7cff; }
+.ot-actions button:disabled { opacity: 0.4; cursor: default; }
+.ot-skip {
+  position: absolute; top: 8px; right: 12px;
+  background: transparent; border: none; color: #7a7f9c;
+  font-size: 12px; cursor: pointer;
+}

@@ -1,0 +1,89 @@
+.aam-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+.aam-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.aam-title { font-weight: 600; }
+.aam-score { font-size: 14px; }
+.aam-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.aam-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+.aam-col-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+.aam-slot {
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.aam-slot.filled {
+  border-style: solid;
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+}
+.aam-letter {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+.aam-matched-name {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.aam-name {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(99, 102, 241, 0.18);
+  cursor: grab;
+  user-select: none;
+  font-size: 14px;
+}
+.aam-name:active { cursor: grabbing; }
+.aam-name.used {
+  opacity: 0.3;
+  cursor: default;
+  background: transparent;
+}
+.aam-done {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(74, 222, 128, 0.15);
+  text-align: center;
+}
+.aam-done button {
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: #4ade80;
+  border: none;
+  border-radius: 6px;
+  color: #052e16;
+  font-weight: 600;
+  cursor: pointer;
+}

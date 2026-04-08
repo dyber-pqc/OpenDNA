@@ -1,0 +1,52 @@
+.agp-root {
+  width: min(880px, 95vw);
+  max-height: 88vh;
+  background: #1a1d24;
+  color: #e7e9ee;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.agp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.agp-header h2 { margin: 0; font-size: 18px; }
+.agp-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 24px;
+  cursor: pointer;
+}
+.agp-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.02);
+}
+.agp-tabs button {
+  flex: 1;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.agp-tabs button.active {
+  background: #6366f1;
+  border-color: #818cf8;
+  color: #fff;
+}
+.agp-body {
+  overflow-y: auto;
+  flex: 1;
+}

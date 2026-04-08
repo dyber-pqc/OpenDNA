@@ -1,0 +1,26 @@
+# Example Snakemake pipeline that uses the OpenDNA Python SDK
+# Run: snakemake -s Snakefile --cores 4 all
+#
+# Assumes `opendna serve --port 8765` is running in the background.
+
+from opendna.sdk import Client
+
+OPENDNA = Client("http://localhost:8765")
+
+SEQUENCES = {
+    "ubiquitin": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
+    "insulin":   "MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN",
+}
+
+rule all:
+    input: expand("out/{name}.score.json", name=SEQUENCES.keys())
+
+rule evaluate:
+    output: "out/{name}.score.json"
+    run:
+        import json, os
+        os.makedirs("out", exist_ok=True)
+        seq = SEQUENCES[wildcards.name]
+        result = OPENDNA.evaluate(seq)
+        with open(output[0], "w") as f:
+            json.dump(result, f, indent=2)

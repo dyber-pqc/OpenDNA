@@ -40,7 +40,7 @@ function ProteinViewer({
   const [stats, setStats] = useState<{ atoms: number; residues: number } | null>(null);
   const [colorMode, setColorMode] = useState<"chain" | "confidence">("confidence");
   const [repMode, setRepMode] = useState<"cartoon" | "ball-and-stick" | "spacefill" | "surface">("cartoon");
-  const [hoverInfo, _setHoverInfo] = useState<{
+  const [hoverInfo, setHoverInfo] = useState<{
     residue: string;
     residueNum: number;
     chain: string;
@@ -124,67 +124,153 @@ function ProteinViewer({
         });
         const traj = await plugin.builders.structure.parseTrajectory(data, "pdb");
 
-        // Map our repMode to the appropriate Molstar preset
-        const presetMap: Record<string, string> = {
-          "cartoon": "default",
-          "ball-and-stick": "atomic-detail",
-          "spacefill": "atomic-detail",
-          "surface": "default",
-        };
-        const presetName = presetMap[repMode] || "default";
+        // Apply the right base preset for the chosen representation mode.
+        // Molstar's structure-hierarchy presets accept a `representationPresetParams`
+        // option that picks among the registered structure-representation presets.
+        const colorTheme = colorMode === "confidence" ? "plddt-confidence" : "chain-id";
 
+        // First create a structure model with the default preset
         try {
-          await plugin.builders.structure.hierarchy.applyPreset(traj, presetName as any);
+          await plugin.builders.structure.hierarchy.applyPreset(traj, "default", {
+            representationPresetParams: {
+              theme: { globalName: colorTheme, focus: { name: colorTheme } },
+            },
+          } as any);
         } catch {
           await plugin.builders.structure.hierarchy.applyPreset(traj, "default");
         }
 
-        // Add additional representations on top for surface/spacefill modes
-        if (repMode === "surface" || repMode === "spacefill") {
-          try {
-            const struct = plugin.managers.structure.hierarchy.current.structures[0];
-            if (struct?.components && struct.components.length > 0) {
-              const reprType = repMode === "surface" ? "molecular-surface" : "spacefill";
-              const builder = plugin.builders.structure.representation;
-              for (const comp of struct.components) {
-                await (builder as any).addRepresentation(comp.cell, {
-                  type: reprType,
-                  color: colorMode === "confidence" ? "plddt-confidence" : "chain-id",
-                });
-              }
-            }
-          } catch (e) {
-            console.warn("Could not add representation:", e);
-          }
-        }
-
-        // Apply color theme: AlphaFold-style pLDDT or chain-id
-        const themeName = colorMode === "confidence" ? "plddt-confidence" : "chain-id";
+        // Now rebuild the representations to match repMode.
+        // We do this by clearing existing representations on the polymer component
+        // and adding fresh ones with the correct type.
         try {
           const struct = plugin.managers.structure.hierarchy.current.structures[0];
-          if (struct?.components) {
+          if (struct?.components && struct.components.length > 0) {
+            const update = plugin.build();
+            // Remove all existing representations on each component
             for (const comp of struct.components) {
-              await plugin.managers.structure.component.updateRepresentationsTheme(
-                [comp],
-                { color: themeName as any }
+              for (const rep of comp.representations) {
+                update.delete(rep.cell.transform.ref);
+              }
+            }
+            await update.commit();
+
+            // Add fresh representation with the chosen type
+            const repTypeMap: Record<string, string> = {
+              "cartoon": "cartoon",
+              "ball-and-stick": "ball-and-stick",
+              "spacefill": "spacefill",
+              "surface": "molecular-surface",
+            };
+            const repType = repTypeMap[repMode] || "cartoon";
+
+            for (const comp of struct.components) {
+              await plugin.builders.structure.representation.addRepresentation(
+                comp.cell,
+                {
+                  type: repType as any,
+                  color: colorTheme as any,
+                }
               );
+            }
+            // After adding, force the color theme on every representation —
+            // this is what actually drives the colors in Molstar 4.x.
+            try {
+              const refreshed = plugin.managers.structure.hierarchy.current.structures[0];
+              if (refreshed?.components) {
+                await plugin.managers.structure.component.updateRepresentationsTheme(
+                  refreshed.components as any,
+                  { color: colorTheme as any },
+                );
+              }
+            } catch (e) {
+              console.debug("post-add theme update skipped:", e);
             }
           }
         } catch (e) {
-          // Fallback to uncertainty (b-factor based) if plddt theme fails
+          console.warn("Representation rebuild failed, falling back:", e);
+          // Fallback: try to update the theme on existing reps
           try {
             const struct = plugin.managers.structure.hierarchy.current.structures[0];
             if (struct?.components) {
               for (const comp of struct.components) {
                 await plugin.managers.structure.component.updateRepresentationsTheme(
                   [comp],
-                  { color: "uncertainty" as any }
+                  { color: colorTheme as any }
                 );
               }
             }
           } catch (e2) {
-            console.warn("Color theme failed:", e, e2);
+            console.warn("Fallback theme update also failed:", e2);
           }
+        }
+
+        // Wire up click-to-show-residue: subscribe to Molstar's interaction stream.
+        // When the user clicks an atom, find its residue and show a popup.
+        try {
+          if (plugin.behaviors?.interaction?.click) {
+            const sub = plugin.behaviors.interaction.click.subscribe(
+              (e: any) => {
+                try {
+                  const loc = e?.current?.loci;
+                  if (!loc || loc.kind === "empty-loci") {
+                    setHoverInfo(null);
+                    return;
+                  }
+                  // Try to extract residue info from the loci
+                  let residueName = "";
+                  let residueNum = 0;
+                  let chainId = "";
+
+                  // Use a Loci.getFirstLocation API if available
+                  if (loc.elements && loc.elements.length > 0) {
+                    const elem = loc.elements[0];
+                    const unit = elem.unit;
+                    const idx = elem.indices?.[0] ?? 0;
+                    if (unit?.model?.atomicHierarchy) {
+                      const ah = unit.model.atomicHierarchy;
+                      const elemIdx = unit.elements?.[idx] ?? idx;
+                      const residueIdx = ah.residueAtomSegments?.index?.[elemIdx];
+                      if (residueIdx !== undefined) {
+                        residueName =
+                          ah.atoms?.label_comp_id?.value(elemIdx) ||
+                          ah.residues?.label_comp_id?.value(residueIdx) || "";
+                        residueNum =
+                          ah.residues?.auth_seq_id?.value(residueIdx) ?? 0;
+                        chainId =
+                          ah.chains?.label_asym_id?.value(
+                            ah.chainAtomSegments?.index?.[elemIdx] ?? 0
+                          ) || "A";
+                      }
+                    }
+                  }
+
+                  if (residueName) {
+                    // Position the popup near the cursor
+                    const containerRect =
+                      containerRef.current?.getBoundingClientRect();
+                    const x = containerRect ? containerRect.width / 2 : 100;
+                    const y = containerRect ? containerRect.height / 2 : 100;
+                    setHoverInfo({
+                      residue: residueName,
+                      residueNum,
+                      chain: chainId,
+                      x,
+                      y,
+                    });
+                  } else {
+                    setHoverInfo(null);
+                  }
+                } catch (err) {
+                  console.debug("Click parsing failed:", err);
+                }
+              }
+            );
+            // Store the subscription for cleanup
+            (plugin as any)._clickSub = sub;
+          }
+        } catch (e) {
+          console.debug("Click handler setup failed (non-critical):", e);
         }
 
         // Stats
@@ -203,11 +289,34 @@ function ProteinViewer({
     return () => {
       cancelled = true;
       if (pluginRef.current) {
+        try {
+          (pluginRef.current as any)._clickSub?.unsubscribe?.();
+        } catch {}
         pluginRef.current.dispose();
         pluginRef.current = null;
       }
     };
-  }, [pdbData, colorMode, repMode]);
+  }, [pdbData, repMode]);
+
+  // Dedicated effect: when only colorMode changes, re-theme in place without
+  // tearing down the plugin. This is what actually drives live color switches.
+  useEffect(() => {
+    const plugin = pluginRef.current;
+    if (!plugin || !pdbData) return;
+    (async () => {
+      try {
+        const colorTheme = colorMode === "confidence" ? "plddt-confidence" : "chain-id";
+        const struct = plugin.managers?.structure?.hierarchy?.current?.structures?.[0];
+        if (!struct?.components) return;
+        await plugin.managers.structure.component.updateRepresentationsTheme(
+          struct.components as any,
+          { color: colorTheme as any },
+        );
+      } catch (e) {
+        console.debug("color re-theme failed:", e);
+      }
+    })();
+  }, [colorMode, pdbData]);
 
   // Compare structure viewer
   useEffect(() => {
@@ -426,6 +535,11 @@ function ProteinViewer({
             <div className="rp-row">
               <strong>{hoverInfo.residue}{hoverInfo.residueNum}</strong>
               <span className="rp-chain">Chain {hoverInfo.chain}</span>
+              <button
+                className="rp-close"
+                onClick={() => setHoverInfo(null)}
+                title="Close"
+              >×</button>
             </div>
           </div>
         )}

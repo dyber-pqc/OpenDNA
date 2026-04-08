@@ -27,6 +27,58 @@ fn configure_child_command(cmd: &mut Command) {
     }
 }
 
+/// Try to find the bundled PyInstaller sidecar binary.
+/// Tauri's externalBin mechanism copies it next to the main executable.
+fn find_bundled_sidecar() -> Option<PathBuf> {
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))?;
+
+    let suffix = if cfg!(target_os = "windows") { ".exe" } else { "" };
+
+    let candidates = vec![
+        format!("opendna-server{}", suffix),
+        format!("opendna-server-x86_64-pc-windows-msvc{}", suffix),
+        format!("opendna-server-x86_64-apple-darwin{}", suffix),
+        format!("opendna-server-aarch64-apple-darwin{}", suffix),
+        format!("opendna-server-x86_64-unknown-linux-gnu{}", suffix),
+        format!("opendna-server-aarch64-unknown-linux-gnu{}", suffix),
+    ];
+
+    // Look in the exe dir first (production install)
+    for name in &candidates {
+        let candidate = exe_dir.join(name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    // Look in resources/binaries (some bundle layouts)
+    let resource_path = exe_dir.join("resources").join("binaries");
+    for name in &candidates {
+        let candidate = resource_path.join(name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    // Look in the dev location (../binaries from src-tauri/target/release/)
+    let dev_path = exe_dir
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.join("binaries"));
+    if let Some(dev_path) = dev_path {
+        for name in &candidates {
+            let candidate = dev_path.join(name);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    None
+}
+
 struct PythonSidecar(Mutex<Option<Child>>);
 
 #[tauri::command]
@@ -198,15 +250,34 @@ fn start_api_server(state: tauri::State<PythonSidecar>) -> Result<String, String
         return Ok("API server already running".to_string());
     }
 
-    let interpreters = find_python_interpreters();
-    if interpreters.is_empty() {
-        return Err("No Python interpreter found. Please install Python 3.10+ from https://python.org".to_string());
+    // Strategy 1: Try the bundled PyInstaller sidecar binary (zero-setup install)
+    if let Some(sidecar_path) = find_bundled_sidecar() {
+        log::info!("Found bundled sidecar at {:?}", sidecar_path);
+        let mut cmd = Command::new(&sidecar_path);
+        cmd.args(["--host", "127.0.0.1", "--port", "8765"]);
+        configure_child_command(&mut cmd);
+        match cmd.spawn() {
+            Ok(child) => {
+                *child_lock = Some(child);
+                return Ok(format!("Started bundled sidecar: {:?}", sidecar_path));
+            }
+            Err(e) => {
+                log::warn!("Bundled sidecar spawn failed: {}, falling back to system Python", e);
+            }
+        }
+    } else {
+        log::info!("No bundled sidecar found, falling back to system Python");
     }
 
-    // Try invocation styles in order of robustness:
-    // 1. python -m opendna.api.server --port 8765 (most direct, works in any version)
-    // 2. python -m opendna.cli.main serve --no-open --port 8765 (uses CLI, v0.2+)
-    // 3. python -c "from opendna.api.server import start_server; start_server(host='127.0.0.1', port=8765)"
+    // Strategy 2: Find a system Python with opendna installed (dev mode / older installs)
+    let interpreters = find_python_interpreters();
+    if interpreters.is_empty() {
+        return Err(
+            "No bundled sidecar found and no Python interpreter detected. Please reinstall the OpenDNA desktop app or install Python 3.10+ from https://python.org and run 'pip install opendna'."
+                .to_string(),
+        );
+    }
+
     let invocation_styles: Vec<Vec<&str>> = vec![
         vec!["-m", "opendna.api.server", "--host", "127.0.0.1", "--port", "8765"],
         vec!["-m", "opendna.cli.main", "serve", "--no-open", "--host", "127.0.0.1", "--port", "8765"],
@@ -216,7 +287,6 @@ fn start_api_server(state: tauri::State<PythonSidecar>) -> Result<String, String
     let mut last_error = String::new();
 
     for python in &interpreters {
-        // First verify opendna is importable in this interpreter
         match verify_opendna(python) {
             Ok(_version) => {}
             Err(e) => {
@@ -238,7 +308,7 @@ fn start_api_server(state: tauri::State<PythonSidecar>) -> Result<String, String
     }
 
     Err(format!(
-        "Could not launch the OpenDNA Python API server.\n\nLast error: {}\n\nFix:\n  1. Install Python 3.10+ from https://python.org\n  2. Run: pip install opendna\n  3. Restart the OpenDNA desktop app",
+        "Could not launch the OpenDNA API server.\n\nNo bundled sidecar found, and Python fallback also failed.\nLast error: {}\n\nFix:\n  1. Reinstall the OpenDNA desktop app (the installer should include a bundled sidecar)\n  2. Or: install Python 3.10+ from https://python.org\n  3. Or: run 'pip install opendna' manually",
         last_error
     ))
 }

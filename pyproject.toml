@@ -1,6 +1,6 @@
 [project]
 name = "opendna"
-version = "0.4.0"
+version = "0.5.0-rc1"
 description = "The People's Protein Engineering Platform"
 readme = "README.md"
 license = "Apache-2.0"
@@ -63,6 +63,11 @@ docking = []
 # Multimer (Boltz - install separately via pip install boltz)
 multimer = []
 
+# Post-quantum cryptography auth (ML-KEM-768, ML-DSA-65, SPHINCS+)
+pqc = [
+    "liboqs-python>=0.10",
+]
+
 # Development tooling
 dev = [
     "pytest>=7.0",
@@ -73,7 +78,7 @@ dev = [
 
 # Everything (heavy install)
 all = [
-    "opendna[ml,md,dev]",
+    "opendna[ml,md,dev,pqc]",
 ]
 
 [project.scripts]
