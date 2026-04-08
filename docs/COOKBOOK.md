@@ -399,3 +399,275 @@ iter_resp = httpx.post(f"{API}/v1/iterative_design", json={
 job_id = iter_resp.json()["job_id"]
 # ... poll ...
 ```
+
+
+---
+
+# v0.5 Recipes
+
+Copy-paste snippets for every major v0.5.0 feature. All examples assume `API=http://127.0.0.1:8765` and, where auth is required, a bearer token `$KEY`.
+
+## 1. Submit a priority-queued fold job
+
+```bash
+curl -X POST $API/v1/queue/enqueue \n  -H "Content-Type: application/json" \n  -d '{
+    "type": "fold",
+    "priority": "interactive",
+    "payload": {
+      "sequence": "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG",
+      "engine": "esmfold"
+    }
+  }'
+```
+
+Response includes `job_id` and the assigned queue position. Priority tiers are `interactive`, `normal`, `batch`.
+
+```python
+import httpx
+
+API = "http://127.0.0.1:8765"
+resp = httpx.post(f"{API}/v1/queue/enqueue", json={
+    "type": "fold",
+    "priority": "interactive",
+    "payload": {"sequence": "MKTV...", "engine": "esmfold"},
+})
+job_id = resp.json()["job_id"]
+print(f"queued as {job_id}")
+```
+
+## 2. Stream job progress via WebSocket (Python)
+
+```python
+import asyncio
+import json
+import websockets
+
+async def stream(job_id: str):
+    uri = f"ws://127.0.0.1:8765/v1/ws/jobs/{job_id}"
+    async with websockets.connect(uri) as ws:
+        async for raw in ws:
+            msg = json.loads(raw)
+            print(msg["phase"], msg.get("progress"), msg.get("partial_result"))
+            if msg["phase"] in ("completed", "failed"):
+                return msg
+
+asyncio.run(stream("job_abc123"))
+```
+
+## 3. Stream job progress via WebSocket (JavaScript)
+
+```javascript
+const ws = new WebSocket(`ws://127.0.0.1:8765/v1/ws/jobs/${jobId}`);
+ws.onmessage = (ev) => {
+  const msg = JSON.parse(ev.data);
+  console.log(msg.phase, msg.progress);
+  if (msg.phase === "completed") {
+    console.log("result:", msg.result);
+    ws.close();
+  }
+};
+ws.onerror = (err) => console.error("ws error", err);
+```
+
+## 4. Record a provenance step, then diff two nodes
+
+```python
+from opendna.provenance import record_step, diff_steps
+
+step_a = record_step(
+    operation="fold",
+    inputs={"sequence": "MKTV..."},
+    outputs={"pdb_hash": "sha256:aaa..."},
+    engine="esmfold",
+    engine_version="1.0.3",
+)
+
+step_b = record_step(
+    operation="fold",
+    inputs={"sequence": "MKTR..."},  # one mutation
+    outputs={"pdb_hash": "sha256:bbb..."},
+    engine="esmfold",
+    engine_version="1.0.3",
+    parent_ids=[step_a],
+)
+
+d = diff_steps(step_a, step_b)
+print(f"RMSD: {d.rmsd:.2f} Å")
+print(f"pLDDT change: {d.plddt_delta:+.2f}")
+print(f"Mutations: {d.mutation_list}")
+```
+
+## 5. Bisect a regression
+
+```python
+from opendna.provenance import bisect_regression
+
+def passes(step):
+    return step.outputs.get("mean_plddt", 0) >= 80
+
+culprit = bisect_regression(
+    project_id="proj_1",
+    good_step="step_initial",
+    bad_step="step_latest",
+    test=passes,
+)
+print(f"Regression introduced at: {culprit.step_id}")
+print(f"Operation: {culprit.operation}")
+print(f"Inputs: {culprit.inputs}")
+```
+
+## 6. Generate a CycloneDX SBOM
+
+```bash
+curl -o opendna-sbom.json \
+  $API/v1/compliance/sbom?format=cyclonedx-1.5
+```
+
+```python
+import httpx, json
+sbom = httpx.get(f"{API}/v1/compliance/sbom", params={"format": "cyclonedx-1.5"}).json()
+print(f"Components: {len(sbom['components'])}")
+for c in sbom["components"][:5]:
+    print(c["name"], c["version"], c.get("licenses"))
+```
+
+## 7. Run GDPR export for a user
+
+```bash
+# Export
+curl -X POST $API/v1/compliance/gdpr/export \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "alice"}' \
+  -o alice_gdpr_export.zip
+
+# Erase (irreversible)
+curl -X POST $API/v1/compliance/gdpr/erase \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "alice", "confirm": "ERASE"}'
+```
+
+The export zip contains every project, note, comment, and audit entry attributable to the user. Erasure leaves behind only one-way hashes in the audit log so the chain remains verifiable.
+
+## 8. Fetch an AlphaFold DB structure
+
+```bash
+curl "$API/v1/alphafold/P04637" -o p53_af.pdb
+```
+
+```python
+import httpx
+r = httpx.get(f"{API}/v1/alphafold/P04637")
+with open("p53_af.pdb", "w") as f:
+    f.write(r.text)
+```
+
+The endpoint proxies to `https://alphafold.ebi.ac.uk/` and caches locally.
+
+## 9. Fetch a PubMed summary
+
+```bash
+curl "$API/v1/external/pubmed?query=BRAF+V600E&max_results=5"
+```
+
+```python
+r = httpx.get(f"{API}/v1/external/pubmed", params={
+    "query": "BRAF V600E",
+    "max_results": 5,
+})
+for paper in r.json()["results"]:
+    print(paper["pmid"], paper["title"])
+```
+
+## 10. Quote synthesis cost from Twist / IDT / GenScript
+
+```bash
+curl -X POST $API/v1/external/quote \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sequence": "MKTVRQERLK",
+    "vendors": ["twist", "idt", "genscript"],
+    "quantity_ug": 100
+  }'
+```
+
+Response:
+
+```json
+{
+  "twist":     {"usd": 312.50, "lead_days": 10},
+  "idt":       {"usd": 287.00, "lead_days": 7},
+  "genscript": {"usd": 349.00, "lead_days": 14}
+}
+```
+
+## 11. Register a webhook + fire it
+
+```bash
+# Register
+curl -X POST $API/v1/webhooks \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://hooks.slack.com/services/T00/B00/XXX",
+    "events": ["job.completed", "job.failed"]
+  }'
+```
+
+When a job completes OpenDNA fires:
+
+```json
+POST https://hooks.slack.com/services/T00/B00/XXX
+{
+  "event": "job.completed",
+  "job_id": "job_abc123",
+  "type": "fold",
+  "result": { "mean_plddt": 84.2 }
+}
+```
+
+Slack, Teams, and Discord webhook URL formats are all auto-detected and formatted appropriately.
+
+## 12. Use the R SDK (`opendna_fold`)
+
+```r
+install.packages("opendna")    # from CRAN, or remotes::install_github(...)
+library(opendna)
+
+# Point at a local server
+opendna_set_endpoint("http://127.0.0.1:8765")
+
+# Fold
+result <- opendna_fold("MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSR")
+cat("mean pLDDT:", result$mean_plddt, "\n")
+writeLines(result$pdb, "out.pdb")
+
+# Design alternatives
+designs <- opendna_design(result$pdb, n = 10)
+print(designs$candidates)
+
+# Analyze
+analysis <- opendna_analyze("MKTVRQERLK")
+print(analysis$properties$molecular_weight)
+```
+
+## 13. Use the Jupyter `%%opendna_fold` cell magic
+
+```python
+%load_ext opendna.jupyter
+```
+
+```python
+%%opendna_fold --engine esmfold --output out.pdb
+MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG
+```
+
+The magic line/cell submits the sequence to the local server and renders an inline Molstar viewer with the result. Additional magics:
+
+- `%opendna_score` — one-line sequence scoring
+- `%%opendna_analyze` — run the full analysis suite on a cell
+- `%opendna_import <accession>` — fetch from UniProt
+- `%opendna_design <pdb_path>` — run ESM-IF1 on a structure
+
+All results populate Python variables in the notebook namespace (e.g. `_opendna_last_result`) so you can chain them into further analysis.

@@ -471,3 +471,180 @@ Be respectful. Be inclusive. Help newcomers. No politics, no harassment, no prop
 ## License
 
 By contributing, you agree to license your contributions under the same Apache 2.0 + Commons Clause as the rest of the project.
+
+---
+
+# v0.5.0 developer recipes
+
+Short how-tos for the most common extension points introduced in v0.5.0-rc1.
+
+## Adding a new Component Manager entry
+
+1. Open `python/opendna/components/registry.py`.
+2. Append a new `Component(...)` to `_REGISTRY`. Pick an `install_kind`:
+
+   | kind | When to use | `install_target` shape |
+   |---|---|---|
+   | `pip` | The component is a plain PyPI package | `"mypkg>=1.0"` |
+   | `hf` | Weights live on HuggingFace Hub | `"org/repo"` |
+   | `script` | Needs a custom build (e.g. RFdiffusion) | logical name, docs via `homepage` |
+   | `ollama` | LLM distributed via Ollama | `"model:tag"` |
+
+3. Set `import_check` to a Python statement that raises on missing install
+   (e.g. `"import mypkg"`). This is the fallback probe when the marker file
+   is absent.
+4. Fill `size_mb`, `version`, `license`, `homepage` — the UI displays all of these.
+5. Test:
+
+   ```bash
+   python -c "from opendna.components import list_components, get_status; \
+              [print(c.name, get_status(c.name)) for c in list_components()]"
+   curl -X POST http://127.0.0.1:8765/v1/components/<name>/install
+   curl http://127.0.0.1:8765/v1/components/jobs/<returned_job_id>
+   ```
+
+6. If the install needs custom logic beyond `_run(...)`, extend
+   `install_component()` in `manager.py` with a new branch.
+
+## Adding a new workflow node type
+
+1. Open `python/opendna/workflows/graph_runner.py`.
+2. Write a node implementation:
+
+   ```python
+   def _my_node(params: dict) -> dict:
+       from opendna.engines.something import do_it
+       result = do_it(params["input_key"], int(params.get("n", 5)))
+       return {"output_key": result}
+   ```
+
+3. Register it at module import time:
+
+   ```python
+   register_node("my_node", _my_node)
+   ```
+
+4. Add an entry to `list_node_types()` so the UI workflow editor sees it:
+
+   ```python
+   {"kind": "my_node", "category": "score", "label": "My node",
+    "inputs": ["input_key"], "outputs": ["output_key"]},
+   ```
+
+5. Verify with `GET /v1/workflow/node_types` and by running a minimal graph
+   through `POST /v1/workflow/run_graph`.
+
+## Writing a new reliability health check
+
+1. Import the healer and register your check at startup:
+
+   ```python
+   from opendna.reliability import get_healer
+
+   def _check_external_api() -> bool:
+       import requests
+       try:
+           return requests.get("https://rest.uniprot.org/", timeout=3).ok
+       except Exception:
+           return False
+
+   def _fix_external_api() -> None:
+       # maybe clear DNS cache, switch mirror, etc.
+       pass
+
+   get_healer().register("external_api", _check_external_api, _fix_external_api)
+   ```
+
+2. The check runs every 60s (default interval) on a background thread. It also
+   runs on-demand via `GET /v1/health`. The `fix` callback is only invoked when
+   `check()` returns `False`.
+
+3. Keep both callbacks side-effect-bounded — they run unsupervised and must
+   never raise.
+
+## Adding a new API endpoint
+
+Boilerplate for a new `POST` endpoint with a Pydantic body and an audit log entry:
+
+```python
+from fastapi import Depends
+from pydantic import BaseModel
+from opendna.auth import get_audit_log
+
+class _MyRequest(BaseModel):
+    target: str
+    n: int = 10
+
+class _MyResponse(BaseModel):
+    result: list
+    elapsed_s: float
+
+@app.post("/v1/my_feature", response_model=_MyResponse)
+def my_feature(body: _MyRequest, ctx = Depends(require_auth)):
+    import time
+    t0 = time.time()
+    from opendna.engines.mine import run_mine
+    result = run_mine(body.target, body.n)
+    get_audit_log().append(
+        "my_feature.run",
+        actor=ctx.user_id if ctx else None,
+        resource=body.target,
+        details={"n": body.n, "count": len(result)},
+    )
+    return _MyResponse(result=result, elapsed_s=time.time() - t0)
+```
+
+Notes:
+
+- Use `Depends(require_auth)` whenever the endpoint mutates state or exposes
+  PII. In open mode `ctx` will be `None` and the dependency is a no-op.
+- For long-running work, submit a queue job instead of doing the work inline:
+  `job_id = await get_queue().submit(fn, priority=1, job_type="my_feature")`.
+
+## Running the PyInstaller sidecar build locally
+
+```bash
+cd H:/opendna
+python scripts/build_sidecar.py
+# Output:
+#   ui/src-tauri/binaries/opendna-server-<target-triple>(.exe)
+```
+
+The script invokes PyInstaller with `python/opendna_server/__main__.py` as the
+entry point and writes the binary into the location Tauri's `externalBin`
+declaration expects. To smoke-test it stand-alone:
+
+```bash
+ui/src-tauri/binaries/opendna-server --host 127.0.0.1 --port 8765
+curl http://127.0.0.1:8765/v1/auth/status
+```
+
+Once the binary is in place, `npm run tauri dev` (or `tauri build`) will pick
+it up automatically and you can delete any system-Python install of opendna
+to verify the fallback chain.
+
+## Running Playwright E2E tests
+
+```bash
+cd ui
+npx playwright install    # first time only — downloads Chromium/Firefox/WebKit
+npx playwright test
+```
+
+The tests launch the Vite dev server, spawn the Python API, and drive the UI
+end-to-end. If the first run fails on missing browsers, re-run
+`npx playwright install --with-deps` on Linux to pull system dependencies.
+
+## Running the v0.5.0 pytest suite
+
+A single suite exercises every new phase in one process:
+
+```bash
+cd H:/opendna
+python -m pytest tests/test_v050_phases.py -v
+```
+
+Add `-k <phase>` to target a subset (e.g. `-k "phase6 or phase8"`). The suite
+uses temporary directories for all of its SQLite databases (`OPENDNA_AUTH_DIR`,
+`OPENDNA_WORKSPACES_DIR`, `OPENDNA_JOBS_DB`, `OPENDNA_CRDT_DIR`) so it never
+pollutes your real `~/.opendna`.

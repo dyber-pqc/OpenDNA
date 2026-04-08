@@ -358,6 +358,358 @@ With single-letter shortcuts (only when not focused on an input):
 
 ---
 
+## Tutorial 11: Install and use DiffDock via the Component Manager
+
+**Goal:** Install the DiffDock docking engine from inside the desktop app and dock a small-molecule ligand against a folded protein.
+
+### Prerequisites
+- Desktop app or browser UI running
+- ~1.5 GB free disk space
+- A folded structure (we'll use ubiquitin from the Import tab)
+
+### Steps
+
+1. **Open the Component Manager**
+   - Click **Components** in the header
+   - You'll see 11 engine cards. Filter to the **Docking** category.
+
+2. **Install DiffDock**
+   - Click **Install** on the DiffDock card
+   - A progress bar streams from `POST /v1/components/install`
+   - Wait ~2 minutes for the weights to download (~1.1 GB)
+   - Status changes to **Installed** when done
+
+3. **Load your receptor**
+   - Close the Component Manager
+   - Import tab → click **ubiquitin**
+   - Click **Predict Structure** (ESMFold must be installed — if not, install it first)
+
+4. **Supply a ligand**
+   - In the sidebar, open the **Docking** section
+   - Paste a SMILES string for your ligand:
+     ```
+     CC(=O)OC1=CC=CC=C1C(=O)O
+     ```
+   - (That's aspirin — a nice small test ligand.)
+
+5. **Run the dock via CLI equivalent**
+   ```bash
+   curl -X POST http://127.0.0.1:8765/v1/dock \
+     -H "Content-Type: application/json" \
+     -d '{
+       "receptor_pdb": "...",
+       "ligand_smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+       "engine": "diffdock",
+       "num_poses": 10
+     }'
+   ```
+
+6. **View the results**
+   - The viewer displays the top-scoring pose by default
+   - Use the pose slider at the bottom to flip through ranked poses
+   - Each pose carries an affinity estimate
+
+### What you learned
+- How the Component Manager gates heavy ML engines
+- How DiffDock differs from AutoDock Vina (diffusion vs. lattice search)
+- How to inspect pose rankings from the UI and the API
+
+### Next
+- Try AutoDock Vina via `"engine": "vina"` and compare
+- Feed the best pose into an MD run to see if it stays bound
+
+---
+
+## Tutorial 12: Build a fold → design → evaluate workflow in the Visual Editor
+
+**Goal:** Use the visual workflow editor to build a reproducible pipeline without writing any Python.
+
+### Steps
+
+1. **Open the editor**
+   - Click **Workflow** in the header
+   - The canvas opens empty
+
+2. **Load a template**
+   - Click **Templates → Fold → Design → Evaluate**
+   - A pre-built 5-node graph appears:
+     ```
+     [Sequence] → [Fold] → [Design] → [Fold] → [Score]
+     ```
+
+3. **Configure the Sequence node**
+   - Double-click the Sequence node
+   - Paste ubiquitin:
+     ```
+     MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+     ```
+
+4. **Configure the Design node**
+   - Double-click the Design node
+   - Set engine: `esm_if1`
+   - Candidates: `10`
+
+5. **Run**
+   - Click **Run** in the toolbar
+   - Nodes light up green as they complete. Progress is streamed via WebSocket.
+   - Total runtime: ~4 minutes on GPU, ~25 minutes on CPU
+
+6. **Save the workflow**
+   - Click **Save → YAML**
+   - Name it `ubiquitin-redesign.yaml`
+   - It lands in `~/.opendna/workflows/`
+
+7. **Inspect the provenance**
+   - Click **History** in the bottom bar
+   - You'll see one DAG node per workflow step with inputs, outputs, and hashes
+   - Drag the timeline handle back to the Design step to inspect the 10 candidates
+
+8. **Re-run from YAML via CLI**
+   ```bash
+   opendna workflow run ~/.opendna/workflows/ubiquitin-redesign.yaml
+   ```
+
+### What you learned
+- How to use templates as a starting point
+- How node types and edges enforce type safety
+- How provenance is automatically recorded
+- How to save / replay workflows without opening the UI
+
+---
+
+## Tutorial 13: Real-time collaboration with a teammate via Yjs
+
+**Goal:** Co-edit a project with a colleague in real time.
+
+### Steps
+
+1. **Start a room**
+   - Open your project in OpenDNA
+   - Click **Collab** in the header
+   - Click **New room**
+   - Copy the room URL (it looks like `opendna://collab/8a4f...`)
+
+2. **Share it**
+   - Send the URL to your teammate via Slack / Teams / email
+   - They click it, the app opens, and they join the same project
+
+3. **Use the Notes tab**
+   - Both of you can type in the shared Markdown document
+   - You'll see each other's cursors live
+   - Try `**bold**`, `# headings`, ` ```python ` code blocks
+
+4. **Pin residue comments**
+   - Click residue K48 in the viewer
+   - Click **Comment**
+   - Type "Suspected catalytic nucleophile — let's mutate to R"
+   - Your teammate sees the comment instantly and can reply
+
+5. **Simulate offline tolerance**
+   - Disable your Wi-Fi
+   - Keep editing the notes
+   - Re-enable Wi-Fi — the Yjs CRDT auto-merges without conflicts
+
+6. **Verify sync via the API**
+   ```bash
+   curl http://127.0.0.1:8765/v1/collab/rooms/<room-id>
+   ```
+   Shows current participants and last-update timestamp.
+
+### What you learned
+- How Yjs CRDTs give conflict-free real-time editing
+- How comments are pinned to residues and persist forever
+- How the system tolerates network interruptions
+
+---
+
+## Tutorial 14: Search UniProt for cancer proteins and fold the top hit
+
+**Goal:** Use the unified search to find a relevant protein and fold it.
+
+### Steps
+
+1. **Open the search overlay**
+   - Click **Search** in the header (or press `Ctrl+Shift+F`)
+
+2. **Search with filters**
+   - Query: `cancer kinase`
+   - Check **Reviewed only**
+   - Organism: `Homo sapiens`
+   - Length: `100`–`500`
+   - Click **Search**
+
+3. **Inspect results**
+   - You'll see ~20 Swiss-Prot reviewed hits
+   - Each row: accession, name, length, review badge
+   - Click the first result — say, **BRAF_HUMAN**
+
+4. **Fold it**
+   - Back in the Tools tab the sequence is loaded
+   - Click **Predict Structure**
+   - ESMFold runs (installed from Tutorial 11 or Component Manager)
+
+5. **Analyze**
+   - Click **Full Analysis Suite**
+   - Look at disorder (BRAF has a disordered N-terminus), binding pockets (the ATP pocket should rank #1)
+
+6. **Equivalent cURL**
+   ```bash
+   curl "http://127.0.0.1:8765/v1/search/uniprot?q=cancer+kinase&reviewed=true&organism=Homo+sapiens"
+   ```
+
+### What you learned
+- How to compose filters in the unified search
+- How results integrate seamlessly with the Tools tab
+- How to reach the same functionality from the API
+
+---
+
+## Tutorial 15: Enable PQC auth and create API keys
+
+**Goal:** Turn on post-quantum authentication and mint a scoped API key.
+
+### Prerequisites
+```bash
+pip install "opendna[pqc]"
+# macOS
+brew install liboqs
+# Debian/Ubuntu
+sudo apt install liboqs-dev
+```
+
+### Steps
+
+1. **Start the server with auth required**
+   ```bash
+   export OPENDNA_AUTH_REQUIRED=1
+   export OPENDNA_AUTH_DB=~/.opendna/auth.db
+   python -c "from opendna.api.server import start_server; start_server(port=8765)"
+   ```
+
+2. **Register the first user (admin)**
+   ```bash
+   curl -X POST http://127.0.0.1:8765/v1/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"username": "alice", "password": "correct horse battery staple"}'
+   ```
+
+   Response:
+   ```json
+   {
+     "user_id": "u_001",
+     "role": "admin",
+     "api_key": "odna_pqc_9f3a...",
+     "ml_dsa_public_key": "...base64..."
+   }
+   ```
+
+   **Save the API key now — it is only shown once.**
+
+3. **Test it**
+   ```bash
+   export KEY="odna_pqc_9f3a..."
+   curl http://127.0.0.1:8765/v1/auth/me -H "Authorization: Bearer $KEY"
+   ```
+
+4. **Create a scoped API key for a CI pipeline**
+   ```bash
+   curl -X POST http://127.0.0.1:8765/v1/auth/api-keys \
+     -H "Authorization: Bearer $KEY" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "github-ci",
+       "scopes": ["fold", "analyze"],
+       "expires_in_days": 90
+     }'
+   ```
+
+5. **Register a second user**
+   ```bash
+   curl -X POST http://127.0.0.1:8765/v1/auth/register \
+     -H "Authorization: Bearer $KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"username": "bob", "password": "..."}'
+   ```
+   Bob is created as a regular user (not admin) because he is registered by alice.
+
+6. **Verify the audit log**
+   ```bash
+   opendna audit verify
+   opendna audit tail --n 20
+   ```
+
+### What you learned
+- How to enable PQC auth
+- How the first-user-is-admin pattern works
+- How to mint scoped API keys for automation
+- How the hash-chained audit log is verified end-to-end
+
+---
+
+## Tutorial 16: Mint a Zenodo DOI for your project
+
+**Goal:** Publish a reproducible package of your project to Zenodo and get a citable DOI.
+
+### Prerequisites
+- A Zenodo account (free at [zenodo.org](https://zenodo.org))
+- A personal access token from [zenodo.org/account/settings/applications/](https://zenodo.org/account/settings/applications/)
+- An OpenDNA project with at least one folded structure
+
+### Steps
+
+1. **Set your token**
+   ```bash
+   export ZENODO_TOKEN="your_token_here"
+   ```
+
+2. **Open the Lab Notebook**
+   - In the desktop app, click **Save → Notebook**
+   - Fill in at least:
+     - Title (e.g. "Computational redesign of ubiquitin K48")
+     - Authors (e.g. "Alice Smith; Bob Jones")
+     - Description / abstract
+     - Keywords (comma-separated)
+
+3. **Click Publish → Zenodo**
+   - OpenDNA bundles:
+     - Provenance DAG (YAML)
+     - Every structure (PDB)
+     - Every figure (PNG + SVG)
+     - Notebook (Markdown + PDF)
+     - Workflow YAML (if present)
+     - CycloneDX SBOM
+     - Manifest with SHA-256 hashes
+   - Uploaded as a single `.zip`
+
+4. **Confirm**
+   - The response dialog shows the DOI:
+     ```
+     10.5281/zenodo.12345678
+     ```
+   - Click **Copy DOI** or **Open on Zenodo**
+
+5. **CLI alternative**
+   ```bash
+   opendna publish zenodo \
+     --project ~/.opendna/projects/ubiquitin_study \
+     --title "Computational redesign of ubiquitin K48" \
+     --author "Alice Smith" \
+     --keyword "protein,design,ESMFold"
+   ```
+
+6. **Re-fetch your published package later**
+   ```bash
+   opendna fetch zenodo 10.5281/zenodo.12345678
+   ```
+   This pulls the `.zip`, verifies hashes, and reconstructs the project locally — a complete reproducibility round-trip.
+
+### What you learned
+- How the lab notebook bundles a project into a single artifact
+- How to mint a DOI programmatically
+- How to round-trip a published project for reproducibility
+
+---
+
 ## Tutorial Cheat Sheet
 
 | Goal | Click path |

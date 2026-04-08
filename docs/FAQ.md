@@ -2,6 +2,71 @@
 
 Common questions and answers.
 
+## v0.5.0 questions
+
+### Do I have to install ESMFold / DiffDock / RFdiffusion / Boltz myself?
+
+No. Open the **Component Manager** (Altium/Vivado-style catalog in the desktop app, or `GET /v1/components`). You get 11 ML engines with one-click install, live progress streaming, and uninstall. Models download on demand and are cached under `~/.opendna/models/`.
+
+### Can I use OpenDNA completely offline?
+
+Yes. Run `opendna compliance airgap-check` to audit which engines are already cached and which need network. An **air-gap bundle** builds a portable mirror of every model, wheel, and npm package so you can sneakernet the whole stack onto a disconnected machine.
+
+### Is OpenDNA quantum-safe?
+
+Yes. Auth tokens use **ML-KEM-768** (Kyber) for key exchange and **ML-DSA-65** (Dilithium) for signatures, via liboqs. The audit log is hash-chained and every entry is ML-DSA-signed. Install with `pip install "opendna[pqc]"` and set `OPENDNA_PQC=1`.
+
+### Where are my workspaces stored?
+
+`~/.opendna/workspaces/<user>/`. Each workspace is encrypted at rest with **AES-256-GCM** using a scrypt-derived key from your password. Nothing leaves the machine unless you explicitly export.
+
+### How do I recover a crashed job?
+
+You don't have to — the priority job queue is **persisted to SQLite** and reloads on restart. Interactive / normal / batch tiers all survive a hard kill. Check `/v1/jobs` after restart; the self-healer also retries transient failures automatically via the `@retry` decorator.
+
+### How do multiple users share a project in real time?
+
+OpenDNA ships a **Yjs CRDT relay** (y-websocket compatible). Join a room at `ws://host:8765/v1/crdt/{room}` and every sequence edit, residue comment, and workflow-editor node change syncs live. List active rooms with `GET /v1/crdt`.
+
+### Can I export all my data for a GDPR request?
+
+Yes. `POST /v1/compliance/export_user_data` returns a signed ZIP of every workspace, audit log row, and provenance entry for a given user. `POST /v1/compliance/erase_user` performs a verified erasure and returns the audit-log proof.
+
+### Does the desktop app need Python installed?
+
+No. The desktop installer bundles a **PyInstaller sidecar** so the Tauri shell launches the Python API on localhost:8765 automatically — no `pip`, no PATH setup, no interpreters. Verified working on Windows, macOS universal, and Linux.
+
+### How do I run a visual workflow?
+
+Open the **Workflow Editor** (React Flow canvas), drag nodes from the palette (fold, design, dock, md, analyze, fetch, export, branch, merge, notify), wire them up, and click **Run**. Every step is recorded into the provenance DAG automatically, and you can save the canvas as a template.
+
+### What is the provenance DAG?
+
+Every fold, design, analysis, mutation, and parameter is recorded as a node in a directed acyclic graph. You can `diff_steps(a, b)` to compare two runs, `blame_residue(n)` to see every change that touched residue *n*, and `bisect_regression(metric)` to auto-find the step that tanked a score. This is the "time machine" behind the Academy and lab-notebook views.
+
+### Can I mint a DOI for my dataset?
+
+Yes. `POST /v1/zenodo/mint` uploads your project bundle to Zenodo and returns a citable DOI. Set `ZENODO_ACCESS_TOKEN` first (the default is a draft deposit).
+
+### How do I enable HTTPS / authentication?
+
+Set `OPENDNA_AUTH_REQUIRED=1` before starting the server. The API will then require a PQC-signed token on every endpoint and will refuse unauthenticated requests. Combine with a reverse proxy (Caddy, nginx) for TLS termination, or use the `--ssl-certfile` / `--ssl-keyfile` flags on uvicorn.
+
+### Does it run on Apple Silicon?
+
+Yes. PyTorch's **MPS backend** is detected automatically by the hardware abstraction layer and used for ESMFold, ESM-IF1, DiffDock, and RFdiffusion. The desktop app ships a universal macOS build.
+
+### How big is the installer?
+
+The Tauri bundle + PyInstaller sidecar is **~150 MB**. Models are downloaded on first use (ESMFold ~8 GB, ESM-IF1 ~600 MB, DiffDock ~2 GB, RFdiffusion ~4 GB, Boltz ~3 GB) and cached forever. The Component Manager shows disk usage live.
+
+### Which LLM does the agent use?
+
+Ollama with **`llama3.2:3b`** by default. OpenDNA auto-installs Ollama on first use (Phase 15) and streams chat with multi-turn session memory. Swap the model with `OPENDNA_LLM_MODEL=llama3.2:7b` or any Ollama-compatible tag.
+
+---
+
+
 ## General
 
 ### What is OpenDNA?

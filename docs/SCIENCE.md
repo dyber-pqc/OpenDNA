@@ -380,3 +380,139 @@ The killer feature. Combines folding + design in a loop.
 - **Lipinski:** Lipinski, C.A. et al. (1997). *Adv. Drug Deliv. Rev.* 23, 3-25.
 - **Instability Index:** Guruprasad, K. et al. (1990). *Protein Eng.* 4, 155-161.
 - **N-end rule:** Bachmair, A. et al. (1986). *Science* 234, 179-186.
+
+---
+
+## v0.5.0 engine additions
+
+v0.5.0-rc1 adds five heavy-model backends plus a new multi-fidelity scoring
+column used by provenance bisection. Each backend is installed on demand via
+the Component Manager (Phase 2) — the core server runs without any of them and
+reports `503 no backend available` if you call the endpoint without the
+corresponding component installed.
+
+### DiffDock (protein-ligand docking)
+
+**Component:** `diffdock` (see `/v1/components/diffdock`).
+**Endpoint:** `/v1/dock` (DiffDock is tried first; the heuristic Phase 1.5
+docker is used as fallback).
+
+DiffDock formulates docking as a reverse diffusion process on the product
+manifold of ligand translations, rotations, and torsion angles. A score model
+learns the data distribution on that manifold; at inference time you sample
+noise, then iteratively denoise under the score field to arrive at physically
+plausible poses. Because it is a generative model, DiffDock naturally produces
+a distribution of poses with confidence estimates — useful for downstream
+virtual screening.
+
+Reported accuracy on PDBBind: 38% of top-1 poses within 2 Å RMSD to crystal,
+vs. ~20% for classical search-based methods (AutoDock Vina, Glide).
+
+**Citation:** Corso, G. et al. (2023). "DiffDock: Diffusion Steps, Twists, and
+Turns for Molecular Docking." *ICLR*.
+
+### RFdiffusion (de novo backbone diffusion)
+
+**Component:** `rfdiffusion`.
+**Endpoint:** `/v1/design_denovo`.
+
+RFdiffusion is RoseTTAFold fine-tuned as a denoising diffusion model. Given
+a noise prior over backbone coordinates (and optional hotspot / motif
+constraints), it iteratively denoises to a plausible protein backbone. Constrained design is expressed as a *contig* string like `A1-50/0 10-20`,
+meaning "preserve residues 1-50 from chain A, then sample 10-20 fresh
+residues." This lets users anchor known binding loops, scaffold motifs, and
+lock interface geometry while letting the model invent the rest.
+
+Baker-lab benchmarks report de-novo binder design success rates of 10-25% in
+the lab — a step change over energy-based approaches (Rosetta binder design at
+~1% success).
+
+**Citation:** Watson, J.L. et al. (2023). "De novo design of protein structure
+and function with RFdiffusion." *Nature* 620, 1089-1100.
+
+### Boltz-1 (open AlphaFold-Multimer-grade complex predictor)
+
+**Component:** `boltz`.
+**Endpoint:** used by `/v1/multimer` and the `multimer` workflow node.
+
+Boltz-1 is the first fully open-source, open-weights model to match
+AlphaFold-Multimer on standard multimer benchmarks. It re-implements the AF2
+Evoformer + Structure Module with additional cross-chain attention and
+publishes pTM (predicted TM-score, per complex) and ipTM (interface pTM,
+per chain pair) confidence metrics. Users can inspect the ipTM matrix to
+identify weak interfaces before committing to wet-lab validation.
+
+**Citation:** Wohlwend, J. et al. (2024). "Boltz-1: Democratizing Biomolecular
+Interaction Modeling." *bioRxiv* 2024.11.19.624167.
+
+### xTB (GFN2-xTB semi-empirical QM)
+
+**Component:** `xtb`.
+**Endpoint:** `/v1/qm/single_point` (default engine).
+
+GFN2-xTB is Grimme's second-generation geometry-frequency-noncovalent
+tight-binding parameterisation. It computes single-point energies, gradients,
+Hessians, dipole moments, and Mulliken charges using a minimal polarised
+valence basis and parameterised two- and three-body electrostatics. Accuracy
+relative to DFT (ωB97X-V/def2-TZVP) is within ~2 kcal/mol for reaction
+energies on small molecules while running 100-1000× faster. This makes it the
+workhorse for ligand strain energy, protonation-state sanity checks, and
+quick conformer re-ranking.
+
+**Citation:** Bannwarth, C., Ehlert, S., Grimme, S. (2019). "GFN2-xTB—An
+Accurate and Broadly Parametrized Self-Consistent Tight-Binding Quantum
+Chemical Method with Multipole Electrostatics and Density-Dependent
+Dispersion Contributions." *J. Chem. Theory Comput.* 15, 1652-1671.
+
+### TorchANI ANI-2x (ML potential)
+
+**Component:** `ani2x`.
+**Endpoint:** `/v1/qm/single_point` (with `engine: "ani"` or as xTB fallback).
+
+ANI-2x is a committee of neural network potentials trained on ~8.9 M
+DFT-level (ωB97X/6-31G*) conformers covering H, C, N, O, F, Cl, and S —
+roughly 95% of drug-like chemistry. The network takes atomic environment
+vectors (AEVs) as input and outputs per-atom energies; total energy is their
+sum, which guarantees size extensivity. Accuracy is typically 1-2 kcal/mol vs.
+the training DFT method while running at force-field speed. TorchANI lets us
+compute relative ligand energies and strain scores during pose generation
+without touching a QM solver.
+
+**Citation:** Devereux, C. et al. (2020). "Extending the Applicability of the
+ANI Deep Learning Molecular Potential to Sulfur and Halogens." *J. Chem.
+Theory Comput.* 16, 4192-4202.
+
+### Multi-fidelity scoring and provenance bisection
+
+v0.5.0 adds a dedicated `score` column to the provenance graph
+(`python/opendna/provenance/graph.py`) and a matching argument on
+`record_step()`. Whenever an engine produces a comparable scalar — whether
+from `engines.scoring.evaluate()` (language-model likelihood), DiffDock's pose
+confidence, Boltz-1 ipTM, xTB energy, ANI energy, or an MD free-energy
+estimate — that score is stored alongside the node.
+
+The "bisect regression" algorithm (`/v1/provenance/bisect`) walks the DAG in
+topological order and returns the first node whose score drops below a
+user-supplied threshold. Combined with the **blame** endpoint (which locates
+the design step that touched a given residue) this gives experimentalists a
+`git bisect`-style workflow for protein engineering: if run #42 of a design
+sweep suddenly tanks the docking affinity, bisect can pinpoint the mutation
+responsible in O(log n) rather than re-running every intermediate.
+
+Because the score column is intentionally untyped, projects that mix
+fidelities (e.g. ESM-2 perplexity → xTB strain → Boltz-1 ipTM) should either
+normalise the score within a project or supply different thresholds per
+branch of the DAG.
+
+### References
+
+- **DiffDock:** Corso, G. et al. (2023). "DiffDock: Diffusion Steps, Twists,
+  and Turns for Molecular Docking." *ICLR*.
+- **RFdiffusion:** Watson, J.L. et al. (2023). "De novo design of protein
+  structure and function with RFdiffusion." *Nature* 620, 1089-1100.
+- **Boltz-1:** Wohlwend, J. et al. (2024). "Boltz-1: Democratizing
+  Biomolecular Interaction Modeling." *bioRxiv* 2024.11.19.624167.
+- **GFN2-xTB:** Bannwarth, C. et al. (2019). *J. Chem. Theory Comput.* 15,
+  1652-1671.
+- **ANI-2x:** Devereux, C. et al. (2020). *J. Chem. Theory Comput.* 16,
+  4192-4202.

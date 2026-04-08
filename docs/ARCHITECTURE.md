@@ -399,3 +399,227 @@ For the data model layer (PDB parsing, version control, SQLite), Rust gives:
 - Handles PDB parsing, secondary structure, color schemes natively
 - Battle-tested by RCSB, EBI, Mol* community
 - Saves us from reimplementing molecular graphics
+
+---
+
+# v0.5.0 architecture additions
+
+v0.5.0-rc1 introduces sixteen subsystems on top of the original three-process
+core (UI + Python API + Rust helpers). Every subsystem is optional and each
+one degrades gracefully when its heavy dependencies are missing, so the
+"laptop install" path never breaks.
+
+## Bundled sidecar (Phase 1)
+
+Previous releases required the user to `pip install opendna` into a system
+Python before the Tauri shell could find a backend. v0.5.0 ships a
+PyInstaller-built `opendna-server` binary through Tauri's `externalBin`
+mechanism. When the user launches the desktop app, `lib.rs` tries three
+strategies in order:
+
+```text
+                       start_api_server()
+                               |
+           +-------------------+-------------------+
+           |                   |                   |
+           v                   v                   v
+   find_bundled_sidecar()  verify_opendna()    error: "reinstall"
+   (externalBin-copied     on discovered       or install Python
+    opendna-server)        Python interps      manually
+           |
+     spawn with
+     stdin/out/err -> /dev/null
+     CREATE_NO_WINDOW (Windows)
+```
+
+The sidecar lookup checks the exe dir, `resources/binaries/`, and
+`../binaries/` (for cargo-run dev mode). The triple `stdio::null()` avoids
+the deadlock we used to hit when pipe buffers filled during long model loads,
+and `CREATE_NO_WINDOW` stops Windows from flashing a `cmd.exe` console.
+
+`python/opendna_server/__main__.py` is the PyInstaller entry point; it
+unpacks, installs a `sys.path` shim, and calls `start_server()` from
+`opendna.api.server`.
+
+## Component Manager (Phase 2)
+
+Heavy models (ESMFold, RFdiffusion, DiffDock, Boltz-1, xTB, ANI-2x, Ollama
+models) are not installed by default. Instead there is a *registry* of
+`Component` dataclasses and a *manager* that installs them on request:
+
+```text
+opendna.components.registry          opendna.components.manager
+  [Component(name, install_kind,         install_component(name) ->
+             install_target, ...)]         _run(subprocess)
+                                              | pip  : pip install <target>
+                                              | hf   : huggingface-cli download
+                                              | script: pip + docs fallback
+                                              | ollama: ollama pull <tag>
+                                           marker: ~/.opendna/components/<name>.installed
+```
+
+Status is resolved in this order: marker file present → `installed`,
+else try the component's `import_check` snippet, else `not_installed`. A
+successful install always writes the marker, so subsequent boots avoid the
+import probe entirely.
+
+Each install runs as a subprocess with output streamed line-by-line back to
+an in-memory progress dict keyed by `job_id`, which the
+`GET /v1/components/jobs/{id}` endpoint polls. This keeps the FastAPI event
+loop free during multi-minute downloads.
+
+## PQC auth layer (Phase 4)
+
+Why post-quantum now? A long-lived audit log and encrypted workspace payload
+must remain secure for years. NIST standardised ML-DSA (Dilithium, signatures)
+and ML-KEM (Kyber, key exchange) in FIPS 204/203 in 2024. We use both:
+
+- **ML-DSA-65** signs bearer tokens (user identity)
+- **ML-KEM-768** is reserved for forward-secret session keys in a future collab
+  transport (currently unused)
+- **SPHINCS+** is staged as a hash-based backup in case a Dilithium weakness emerges
+
+liboqs is loaded opportunistically. If `import oqs` fails, the module flips
+`PQC_AVAILABLE = False` and every token is signed with HMAC-SHA256 over the
+user's derived secret. Tokens carry an `algorithm` field so downstream services
+can reject non-PQC sessions in hardened mode.
+
+The audit log (`python/opendna/auth/audit.py`) is an append-only SQLite table
+with hash-chained records: each record's hash is
+`sha256(prev_hash || ts || actor || action || resource || ip || details)`.
+Tampering with any historical row breaks every subsequent hash, which
+`verify_chain()` walks on demand. This gives us tamper-evident logging without
+a blockchain.
+
+```text
++----+-----+-------+-------+---------+----------+-----------+----------------+
+| id | ts  | actor | action| resource| ip       | details   | record_hash    |
++----+-----+-------+-------+---------+----------+-----------+----------------+
+|  1 | ... | alice | login | -       | 127.0.0.1| {...}     | hash(prev=GEN..)|
+|  2 | ... | alice | save  | proj-1  | 127.0.0.1| {enc:T}   | hash(prev=r1..) |
+|  3 | ... | bob   | login | -       | 10.0.0.4 | {pqc:T}   | hash(prev=r2..) |
++----+-----+-------+-------+---------+----------+-----------+----------------+
+```
+
+## Workspaces and encryption-at-rest (Phase 5)
+
+Each user gets a per-workspace directory under `~/.opendna/workspaces/`. Inside
+is a `meta.json` holding the workspace descriptor plus `projects/*.json.enc`
+payloads. When a password is provided:
+
+1. Generate or load a 16-byte `key_salt` from meta
+2. `data_key = scrypt(password, salt=key_salt, n=2^14, r=8, p=1, dklen=32)`
+3. Encrypt each project with `AES-256-GCM(data_key, nonce=random12, payload)`
+4. Persist a short "wrap-check" ciphertext (a fixed plaintext encrypted with the
+   same key). Wrong passwords fail AEAD auth on this small blob *before* we
+   decrypt user data, producing a clean 401.
+
+When the `cryptography` package is missing, we store blobs with a `PLAIN` prefix
+so dev installs keep working; the `encryption_available` flag surfaces this in
+API responses.
+
+## Priority queue + pub/sub (Phase 6)
+
+`opendna.runtime.job_queue.JobQueue` is a binary heap keyed on
+`(priority, seq)`. Workers wait on an `asyncio.Condition`; `submit()` pushes
+an entry and calls `cond.notify_all()`, which wakes a single worker to pull
+from the heap.
+
+```text
+            submit(fn, priority)
+                 |
+                 v
+     +----------------------+
+     |  min-heap (priority, |  <-- workers pop smallest priority
+     |  seq, job_id, fn)    |
+     +----------------------+
+                 |
+       on_progress callback
+                 |
+                 v
+     +-----------------------+
+     | _subscribers[job_id]  |-----> WS /v1/ws/jobs/{id}
+     |  (Set[asyncio.Queue]) |
+     +-----------------------+
+                 |
+                 v
+       SQLite persistence
+       (~/.opendna/jobs.db)
+```
+
+Every job is mirrored into SQLite so `list()`/`get()` survive restarts.
+Running jobs on shutdown are rolled back to `queued` so the next boot sees a
+consistent state. The WebSocket handler registers a subscriber queue, replays a
+current-state snapshot, then streams live events until `finished`/`failed`, with
+30-second heartbeats in between.
+
+## Reliability (Phase 7)
+
+Three cooperating pieces:
+
+- `crash.py` installs a `sys.excepthook` that writes a redacted trace to
+  `~/.opendna/crashes/` (paths, emails, IPs scrubbed by regex).
+- `retry.py` exposes a `@retry(attempts, backoff)` decorator with jitter.
+- `health.py`'s `SelfHealer` runs registered checks on a thread loop. Default
+  checks cover GPU OOM (evict warm models + `torch.cuda.empty_cache()`), DB
+  locked (reopen WAL), model load (re-fetch via Component Manager), and disk
+  space (truncate crash dumps + cache). Each check has an optional `fix`
+  callback, so `run_once()` reports `fixed: true` when the healer recovered a
+  failing component.
+
+## Provenance DAG (Phase 8)
+
+Every compute step is recorded as a node with `inputs`, `outputs`, optional
+`score`, and parent IDs:
+
+```text
++---------+     +---------+     +---------+
+| fold A  | --> | design  | --> | evaluate|  score=0.82
++---------+     +---------+     +---------+
+                     \
+                      \--> +---------+
+                           | mutate  | score=0.55  <-- regression
+                           +---------+
+```
+
+SQLite tables: `prov_nodes(id, project_id, kind, ts, score, actor,
+inputs_json, outputs_json)` and `prov_edges(parent, child)`. The store supports:
+
+- **lineage** — recursive `WITH RECURSIVE` back-walk to genesis nodes
+- **diff** — shallow set-difference of `inputs`/`outputs` keys + score delta
+- **blame** — given a residue index, trawl steps whose outputs touched that residue
+- **bisect** — BFS until we find the first node below a score threshold; the
+  Phase 3 multi-fidelity `score` column is what makes this work (see SCIENCE.md)
+
+## CRDT collab (Phase 13)
+
+`opendna/collab/ywebsocket.py` speaks the y-websocket wire protocol v1:
+binary messages with a one-byte type prefix (`0=sync`, `1=awareness`), followed
+by a Yjs update payload. We operate as a *relay + persistent log* rather than a
+CRDT-aware server: each room keeps an in-memory set of WebSocket peers and an
+append-only `~/.opendna/crdt/<room>.ylog` file. New clients get a replay of the
+log on connect, then join the broadcast set.
+
+```text
+ client A -->\            /--> client B
+              --> Room -->
+ client C -->/   |    \--> ylog (append-only)
+                 v
+           replay on new connect
+```
+
+## Compliance stack (Phase 16)
+
+- **SBOM** — `compliance/sbom.py` walks `importlib.metadata` and emits a
+  CycloneDX 1.5 JSON (name, version, license, PURL). Usable as-is by Grype and
+  Trivy.
+- **Air-gap** — `compliance/airgap.py` checks which components have been
+  installed, whether the bundled sidecar is present, and which outbound
+  endpoints would be used. `bundle_offline_artifacts()` copies the HF cache,
+  the marker files, and the Ollama models directory into a single output tree.
+- **GDPR** — `compliance/privacy.py` implements `export_user_data()`
+  (portability) and `delete_user_data()` (erasure). Both walk the workspace
+  directory, the audit table, the notebook database, and the chat sessions
+  table, either zipping or deleting every record keyed on the user ID. Erasure
+  appends a `gdpr.erasure` record to the audit log so the deletion itself is
+  audited.

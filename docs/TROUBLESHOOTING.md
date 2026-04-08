@@ -2,6 +2,105 @@
 
 When things break, look here first.
 
+## v0.5.0 troubleshooting
+
+### Bundled sidecar fails to launch (desktop app shows "Backend offline")
+
+**Cause:** The PyInstaller sidecar either wasn't extracted, was quarantined by AV, or crashed on startup.
+
+**Fix:** Check `ui/src-tauri/binaries/` inside the app resources for the platform-specific `opendna-sidecar` executable. Tail the log at `~/.opendna/logs/sidecar.log` (Windows: `%APPDATA%\opendna\logs\sidecar.log`). On Windows, whitelist the binary in Defender; on macOS, run `xattr -dr com.apple.quarantine /Applications/OpenDNA.app`.
+
+### Port 8765 already in use
+
+**Cause:** Another process (or a previous OpenDNA instance) owns the port.
+
+**Fix:** Override with `OPENDNA_PORT=8799` before starting, or pass `--port 8799` to `python -m opendna.api.server`. The UI reads `VITE_OPENDNA_PORT` at build time and the desktop shell reads `OPENDNA_PORT` at runtime.
+
+### Ollama not found when opening the chat panel
+
+**Cause:** Ollama isn't installed or isn't on PATH.
+
+**Fix:** Open the **Component Manager** and install the `ollama` component — it auto-installs the Ollama binary and pulls `llama3.2:3b`. Manual fallback: `brew install ollama` / download from <https://ollama.com> and run `ollama pull llama3.2:3b`.
+
+### "liboqs not installed" when enabling PQC auth
+
+**Cause:** The `opendna[pqc]` extra isn't installed.
+
+**Fix:**
+```bash
+pip install "opendna[pqc]"
+```
+On Linux you may also need `sudo apt-get install liboqs-dev`. On macOS: `brew install liboqs`.
+
+### "Wrong password for workspace"
+
+**Cause:** The scrypt key check failed — either the password is wrong or the workspace file was touched on disk.
+
+**Fix:** Triple-check the password (there is no recovery — by design). If you're certain the password is correct, check that `~/.opendna/workspaces/<user>/meta.json` hasn't been edited; restore from backup if necessary.
+
+### Jobs stuck in "queued" after restart
+
+**Cause:** Persistent jobs reload from SQLite on boot, but the callable they reference is no longer importable (e.g., a module was renamed).
+
+**Fix:** Run `opendna queue doctor` to list orphaned jobs, then `opendna queue cancel <id>` or `DELETE /v1/jobs/{id}` to clear them. If the worker is stuck, restart the server — the self-healer will re-dispatch runnable jobs and mark unresolvable ones as `failed` with a reason.
+
+### DiffDock ImportError when docking a ligand
+
+**Cause:** The heavy DiffDock weights aren't present.
+
+**Fix:** Open the **Component Manager** and install the `diffdock` component, or fall back to the built-in heuristic docker by passing `engine="heuristic"` to `/v1/dock`.
+
+### Molstar viewer shows all-green (or all-blue) structure
+
+**Cause:** Single-chain + uniform pLDDT means the color theme has no range to map.
+
+**Fix:** Switch representation from **Chain** to **pLDDT** in the multi-rep toolbar, or load a reference such as ubiquitin (`1UBQ`) to confirm the viewer itself is working. pLDDT coloring was fixed in v0.2.1+ to use the AlphaFold blue-cyan-yellow-orange theme.
+
+### Overlays (command palette, analysis, academy) clipped at the bottom of the screen
+
+**Cause:** Z-index / flex-layout regression from pre-v0.5.0.
+
+**Fix:** Fixed in v0.5.0 — overlays now render through a `modal-backdrop` portal at the document root. If you still see clipping, hard-refresh the UI (`Ctrl+Shift+R`) to clear cached CSS.
+
+### WebSocket job stream disconnects after a minute
+
+**Cause:** Upstream proxy or NAT closing idle connections.
+
+**Fix:** The server sends a heartbeat every 30 seconds. Clients should reconnect on close — the built-in React hook `useJobStream` does this automatically. If you're behind a corporate proxy, whitelist `ws://` on port 8765 or disable the proxy for localhost.
+
+### CRDT room not syncing between two browsers
+
+**Cause:** Either the room wasn't created, or a firewall is blocking the WebSocket upgrade.
+
+**Fix:** Confirm the room exists: `GET /v1/crdt` should list it. Check that both clients connect to the same host:port and that no local firewall is blocking inbound 8765. In Chrome DevTools → Network → WS, you should see the `y-websocket` protocol upgrade succeed.
+
+### React Flow drag-and-drop not working in the workflow editor
+
+**Cause:** Browser compatibility or ad-blocker interfering with pointer events.
+
+**Fix:** Disable ad-blockers for localhost, or use the desktop app (which embeds a known-good WebView). Firefox requires version 115+; Safari requires 16+.
+
+### Audit log says "hash chain broken at row N"
+
+**Cause:** A row was modified or deleted out-of-band, breaking the SHA-256 chain.
+
+**Fix:** Run `opendna audit verify` (or `AuditLog.verify_chain()`) to locate the exact tampered row. The log is append-only by design — restore from backup before the break point, or start a new chain with `opendna audit rotate`.
+
+### Zenodo mint returns "draft" instead of a live DOI
+
+**Cause:** No `ZENODO_ACCESS_TOKEN` environment variable, so the API defaults to the sandbox / draft mode.
+
+**Fix:** Create a personal access token at <https://zenodo.org/account/settings/applications/tokens/new/> with `deposit:write` + `deposit:actions` scopes, export `ZENODO_ACCESS_TOKEN=...`, then re-call `/v1/zenodo/mint?publish=true`.
+
+### UniProt search returns empty results
+
+**Cause:** UniProt's new REST API is strict about query syntax, and the default filter is `reviewed_only=true`.
+
+**Fix:** Try `reviewed_only=false` in your query, or use the full UniProt syntax (`organism_id:9606 AND keyword:KW-0472`). For famous proteins, pass the nickname (`ubiquitin`, `gfp`) to `/v1/famous_proteins` instead of hitting UniProt directly.
+
+---
+
+
 ## API Server Won't Start
 
 ### "ERROR: bind on address ('0.0.0.0', 8000): permission denied"
