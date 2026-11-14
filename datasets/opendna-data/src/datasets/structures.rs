@@ -240,7 +240,8 @@ fn to_table(
     t
 }
 
-pub const SOURCES: &[Source] = &[sources::CATH_DOMAIN_LIST, sources::CATH_DOMAIN_SEQS, sources::PDB_ENTRIES_IDX];
+pub const SOURCES: &[Source] =
+    &[sources::CATH_DOMAIN_LIST, sources::CATH_DOMAIN_SEQS, sources::PDB_ENTRIES_IDX];
 
 pub fn build(ctx: &mut BuildContext) -> Result<()> {
     let list_path = ctx.cache.fetch(&sources::CATH_DOMAIN_LIST)?;
@@ -350,6 +351,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
             "Splitting by topology means test folds are unseen in training. That is a harder setting than a random split \
              and the realised split fractions can deviate from 80/10/10 when a component is large.",
             "Domain sequences come from ATOM records, so unobserved residues are absent.",
+            "Domains whose CATH sequence contains `X` (unknown or modified residues) are dropped; this removes about 13% \n             of S100 domains and may under-represent structures with many modified residues.",
         ],
         lock: ctx.cache.lock(),
     };

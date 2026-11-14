@@ -1,0 +1,2 @@
+# Fixtures are parsed byte-for-byte by the tests; keep them as committed.
+opendna-data/tests/fixtures/** -text

@@ -21,7 +21,7 @@ written to Parquet.
 
 - Rust 1.85 or newer.
 - [MMseqs2](https://github.com/soedinglab/MMseqs2) on `PATH`, or pointed to with
-  `OPENDNA_MMSEQS=<path>` or `--mmseqs <path>`. Every dataset is clustered, and
+  `MMSEQS=<path>` or `--mmseqs <path>`. Every dataset is clustered, and
   the pipeline stops with an error if MMseqs2 is missing rather than falling back
   to a weaker method.
 - About 1.2 GB of disk for the download cache (most of it the Tsuboyama archive).
@@ -47,6 +47,10 @@ out/stability/
   data/validation.parquet
   data/test.parquet
 ```
+
+`cards/<dataset>/` holds a committed copy of the `README.md` and `manifest.json` from the
+last local build, so the cards and the checksums of the Parquet files can be reviewed in
+git. The Parquet files themselves are not committed.
 
 `cache/`, `out/` and `target/` are git-ignored. Nothing in this pipeline uploads
 anything; publishing to Hugging Face is a separate, manual step.

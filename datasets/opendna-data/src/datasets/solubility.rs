@@ -240,7 +240,7 @@ pub fn to_table(rows: &[&Record], cluster_of: &BTreeMap<String, String>) -> Tabl
     );
     t.push(
         "solubility",
-        "eSOL solubility in percent: supernatant / total protein after cell-free (PURE) synthesis without chaperones. Not clipped; a few values exceed 100",
+        "eSOL solubility in percent: supernatant / total protein after cell-free (PURE) synthesis without chaperones. Not clipped; about 7% of upstream values exceed 100 (maximum 147)",
         ColumnData::Float64(rows.iter().map(|r| r.solubility_pct).collect()),
     );
     t.push(
@@ -351,7 +351,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
              differ (tags, start codon choice).",
             "NESG and PSI:Biology data were requested but are excluded because no public, licensed release exists; the \
              dataset is therefore small.",
-            "Values above 100% are measurement noise in the ratio and are left unclipped.",
+            "About 7% of eSOL values exceed 100% (up to 147%), reflecting measurement noise in the supernatant/total ratio. \n             They are left unclipped; many published solubility models clip to 100%, so do that explicitly if comparing.",
             "The share-alike license applies to any redistributed derivative of this dataset.",
         ],
         lock: ctx.cache.lock(),

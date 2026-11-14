@@ -450,7 +450,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
             "ddG is inferred from protease resistance through a kinetic model, not measured calorimetrically. The assay's \
              dynamic range is roughly -1 to 5 kcal/mol for dG; mutations that push dG outside it are excluded, which \
              truncates the distribution of strongly destabilising mutations.",
-            "Domains are 40-72 residues and many are de novo designs. Performance on large, multi-domain or membrane proteins \
+            "Wild-type domains are 32-74 residues long and many are de novo designs. Performance on large, multi-domain or membrane proteins \
              cannot be inferred from this data.",
             "Only single substitutions are included.",
             "FireProtDB was requested as a second source but is excluded for licensing reasons (see above), so all values \

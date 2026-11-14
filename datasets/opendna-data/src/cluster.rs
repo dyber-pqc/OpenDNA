@@ -46,7 +46,7 @@ impl ClusterParams {
 
 /// Locates the MMseqs2 executable.
 ///
-/// Order: explicit path, `OPENDNA_MMSEQS` environment variable, then `PATH`.
+/// Order: explicit path, `MMSEQS` environment variable, then `PATH`.
 pub fn find_mmseqs(explicit: Option<&Path>) -> Result<PathBuf> {
     if let Some(p) = explicit {
         if p.is_file() {
@@ -54,12 +54,12 @@ pub fn find_mmseqs(explicit: Option<&Path>) -> Result<PathBuf> {
         }
         bail!("--mmseqs {} does not exist", p.display());
     }
-    if let Some(p) = std::env::var_os("OPENDNA_MMSEQS") {
+    if let Some(p) = std::env::var_os("MMSEQS") {
         let p = PathBuf::from(p);
         if p.is_file() {
             return Ok(p);
         }
-        bail!("OPENDNA_MMSEQS={} does not exist", p.display());
+        bail!("MMSEQS={} does not exist", p.display());
     }
     let names: &[&str] = if cfg!(windows) { &["mmseqs.exe", "mmseqs.bat", "mmseqs"] } else { &["mmseqs"] };
     if let Some(path) = std::env::var_os("PATH") {
@@ -76,7 +76,7 @@ pub fn find_mmseqs(explicit: Option<&Path>) -> Result<PathBuf> {
         "MMseqs2 was not found. This dataset needs real sequence clustering to build \
          leakage-free splits, and the pipeline does not substitute a weaker method.\n\
          Install MMseqs2 (https://github.com/soedinglab/MMseqs2, e.g. `conda install -c bioconda mmseqs2` \
-         or a release binary) and put it on PATH, set OPENDNA_MMSEQS, or pass --mmseqs <path>."
+         or a release binary) and put it on PATH, set MMSEQS, or pass --mmseqs <path>."
     )
 }
 

@@ -50,7 +50,7 @@ enum Cmd {
     /// Build one dataset or `all`.
     Build {
         dataset: String,
-        /// Path to the MMseqs2 executable (otherwise OPENDNA_MMSEQS or PATH).
+        /// Path to the MMseqs2 executable (otherwise MMSEQS or PATH).
         #[arg(long)]
         mmseqs: Option<PathBuf>,
         /// Seed for split assignment.
