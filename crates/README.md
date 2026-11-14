@@ -12,9 +12,10 @@ the rewrite reaches feature parity, then they are removed.
 | `opendna-store` | SQLite protein store, sequence version history | usable |
 | `opendna-hal` | Hardware detection for model sizing | usable; CUDA and Apple only |
 
+The desktop app built on these crates lives in [`app/`](../app/README.md).
+
 Planned: `opendna-ml` (candle models), `opendna-engines`, `opendna-jobs`,
-`opendna-provenance`, `opendna-workflow`, `opendna-auth`, `opendna-server`,
-and the Tauri + Leptos app.
+`opendna-provenance`, `opendna-workflow`, `opendna-auth` and `opendna-server`.
 
 ## Conventions
 

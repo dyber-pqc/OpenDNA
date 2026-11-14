@@ -79,6 +79,38 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --locked
 
+  desktop-app:
+    name: Desktop app (Tauri + Leptos)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - name: System packages for Tauri
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app
+      - uses: jetli/trunk-action@v0.5.1
+        with:
+          version: v0.22.1
+      - run: cargo fmt --all --check
+      - run: cargo run -p xtask -- fetch-molstar
+      - name: Build UI
+        run: trunk build --release
+        working-directory: app/ui
+      - run: cargo clippy -p opendna-desktop -p opendna-app-protocol -p xtask --all-targets --locked -- -D warnings
+      - run: cargo clippy -p opendna-ui --target wasm32-unknown-unknown --all-targets --locked -- -D warnings
+      - run: cargo test -p opendna-desktop -p opendna-app-protocol -p opendna-ui --locked
+
   # Legacy jobs below cover the Python backend and React UI until the Rust
   # rewrite reaches parity; they are removed at cutover.
   ui-build:

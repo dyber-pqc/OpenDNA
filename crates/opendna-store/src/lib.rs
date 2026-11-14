@@ -10,5 +10,5 @@
 mod database;
 mod history;
 
-pub use database::{Database, StoreError, StoredProtein};
+pub use database::{Database, StoreError, StoredProtein, StructureFile, StructureFormat};
 pub use history::{History, HistoryError, Mutation, Version, VersionId};

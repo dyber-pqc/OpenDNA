@@ -39,7 +39,7 @@ impl StructureBuilder {
             }
         }
 
-        if !self.chains.last().is_some_and(|c| c.id == rec.chain) {
+        if self.chains.last().is_none_or(|c| c.id != rec.chain) {
             self.chains.push(Chain { id: rec.chain.clone(), residues: Vec::new() });
         }
         let chain = self.chains.last_mut().expect("chain pushed above");
