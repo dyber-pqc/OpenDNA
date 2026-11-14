@@ -22,7 +22,7 @@ use opendna_ml::esm2::ModelSize;
 use opendna_ml::heads::{DisorderHead, HeadMetadata, SolubilityHead, StabilityHead};
 use rand::prelude::*;
 use rand::rngs::StdRng;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -48,7 +48,7 @@ impl Default for TrainConfig {
 }
 
 /// Metrics for one split.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SplitMetrics {
     /// Rows evaluated.
     pub n: usize,
@@ -59,7 +59,7 @@ pub struct SplitMetrics {
 }
 
 /// Everything a training run produces, written next to the weights.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {
     /// Task name.
     pub task: String,

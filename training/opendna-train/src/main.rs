@@ -121,6 +121,20 @@ enum Command {
         #[arg(long, default_value_t = 20_260_101)]
         seed: u64,
     },
+    /// Re-render a model card from a run's saved `<task>.metrics.json`.
+    ///
+    /// Training writes the card already; this exists so that editing the
+    /// hand-written prose — the summary, the limitations — does not mean
+    /// retraining, and so that a card is never edited in place. The numbers
+    /// always come from the report the run produced.
+    Card {
+        /// Task whose card to re-render.
+        #[arg(long, value_enum)]
+        task: Task,
+        /// Directory holding `<task>.metrics.json`, where the card is written.
+        #[arg(long, default_value = "../models")]
+        out: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -142,6 +156,14 @@ fn main() -> Result<()> {
             .with_context(|| format!("training the {} head", task.name()))?;
             card::write(task, &report, &out)?;
             println!("\n{}", serde_json::to_string_pretty(&report)?);
+        }
+        Command::Card { task, out } => {
+            let path = out.join(format!("{}.metrics.json", task.name()));
+            let text = std::fs::read_to_string(&path)
+                .with_context(|| format!("reading {}; train the head first", path.display()))?;
+            let report: train::Report =
+                serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+            card::write(task, &report, &out)?;
         }
     }
     Ok(())

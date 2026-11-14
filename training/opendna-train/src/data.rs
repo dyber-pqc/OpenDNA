@@ -1,7 +1,10 @@
 //! Reading the Parquet datasets produced by the `datasets/` workspace.
 
 use anyhow::{anyhow, bail, Context, Result};
-use arrow::array::{Array, Float64Array, Int32Array, Int64Array, ListArray, StringArray};
+use arrow::array::{
+    Array, BooleanArray, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array, ListArray, StringArray,
+    UInt8Array,
+};
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use std::fs::File;
@@ -174,6 +177,41 @@ pub struct DisorderRow {
     pub disorder: Vec<bool>,
 }
 
+/// Read one protein's per-residue labels as booleans.
+///
+/// The dataset builder writes `list<int8>`, but the width of an integer
+/// column is an encoding choice a writer is free to change, and a boolean
+/// column would represent the same thing just as faithfully. Accepting any of
+/// those spellings keeps the reader from breaking on a detail that carries no
+/// meaning. Anything else is a genuine mismatch and is reported with the type
+/// that was actually found, rather than a bare "not an integer list".
+fn labels(values: &dyn Array, row: usize) -> Result<Vec<bool>> {
+    macro_rules! nonzero {
+        ($ty:ty) => {
+            values
+                .as_any()
+                .downcast_ref::<$ty>()
+                .map(|a| (0..a.len()).map(|j| a.value(j) != 0).collect::<Vec<bool>>())
+        };
+    }
+
+    if let Some(a) = values.as_any().downcast_ref::<BooleanArray>() {
+        return Ok((0..a.len()).map(|j| a.value(j)).collect());
+    }
+    nonzero!(Int8Array)
+        .or_else(|| nonzero!(Int16Array))
+        .or_else(|| nonzero!(Int32Array))
+        .or_else(|| nonzero!(Int64Array))
+        .or_else(|| nonzero!(UInt8Array))
+        .ok_or_else(|| {
+            anyhow!(
+                "row {row}: disorder labels are {:?}, which is neither an integer nor a boolean \
+                 list",
+                values.data_type()
+            )
+        })
+}
+
 /// Read the disorder dataset.
 ///
 /// # Errors
@@ -183,7 +221,7 @@ pub fn disorder(root: &Path, split: Split) -> Result<Vec<DisorderRow>> {
     let mut out = Vec::new();
     for batch in read_batches(root, "disorder", split)? {
         let sequences = strings(&batch, "sequence")?;
-        let labels = batch
+        let lists = batch
             .column_by_name("disorder")
             .ok_or_else(|| anyhow!("missing column disorder"))?
             .as_any()
@@ -191,18 +229,8 @@ pub fn disorder(root: &Path, split: Split) -> Result<Vec<DisorderRow>> {
             .ok_or_else(|| anyhow!("column disorder is not a list column"))?
             .clone();
         for (i, sequence) in sequences.into_iter().enumerate() {
-            let values = labels.value(i);
-            let values = values
-                .as_any()
-                .downcast_ref::<Int64Array>()
-                .map(|a| (0..a.len()).map(|j| a.value(j) != 0).collect::<Vec<_>>())
-                .or_else(|| {
-                    values
-                        .as_any()
-                        .downcast_ref::<Int32Array>()
-                        .map(|a| (0..a.len()).map(|j| a.value(j) != 0).collect())
-                })
-                .ok_or_else(|| anyhow!("row {i}: disorder list is not an integer list"))?;
+            let row = lists.value(i);
+            let values = labels(row.as_ref(), i)?;
             if values.len() != sequence.len() {
                 bail!("row {i}: {} labels for {} residues", values.len(), sequence.len());
             }
@@ -210,4 +238,35 @@ pub fn disorder(root: &Path, split: Split) -> Result<Vec<DisorderRow>> {
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn labels_are_read_at_any_integer_width() {
+        let expected = vec![false, true, true, false];
+        let raw = [0_i64, 1, 1, 0];
+        assert_eq!(labels(&Int8Array::from(vec![0_i8, 1, 1, 0]), 0).unwrap(), expected);
+        assert_eq!(labels(&Int16Array::from(vec![0_i16, 1, 1, 0]), 0).unwrap(), expected);
+        assert_eq!(labels(&Int32Array::from(vec![0_i32, 1, 1, 0]), 0).unwrap(), expected);
+        assert_eq!(labels(&Int64Array::from(raw.to_vec()), 0).unwrap(), expected);
+        assert_eq!(labels(&UInt8Array::from(vec![0_u8, 1, 1, 0]), 0).unwrap(), expected);
+        assert_eq!(labels(&BooleanArray::from(expected.clone()), 0).unwrap(), expected);
+    }
+
+    #[test]
+    fn a_non_integer_label_column_is_rejected_and_names_the_type() {
+        let err = labels(&Float64Array::from(vec![0.0, 1.0]), 7).unwrap_err().to_string();
+        assert!(err.contains("row 7"), "{err}");
+        assert!(err.contains("Float64"), "{err}");
+    }
+
+    #[test]
+    fn any_nonzero_label_counts_as_disordered() {
+        // DisProt writes 0/1, but a 2 would be a label, not a no.
+        assert_eq!(labels(&Int8Array::from(vec![0_i8, 2, -1]), 0).unwrap(), vec![false, true, true]);
+    }
 }

@@ -97,6 +97,13 @@ fn prose(task: Task) -> Prose {
                 "CAID test-set proteins are held out of training here, but numbers below are on \
                  this dataset's own test split and are not comparable to published CAID results \
                  without running the CAID protocol.",
+                "The metrics are pooled over residues, but residues within one protein are \
+                 strongly correlated — neighbouring positions almost always share a label. The \
+                 effective sample size is therefore closer to the few hundred proteins in each \
+                 split than to the hundred thousand or more residues the counts show, so small \
+                 differences between splits should not be read as real. On this run the test \
+                 split scored higher than validation on every metric, which is what that noise \
+                 looks like rather than evidence the model generalises unusually well.",
             ],
             citation: "Aspromonte, M. C. et al. DisProt in 2024: improving function annotation of \
                        intrinsically disordered proteins. Nucleic Acids Research 52, D434-D441 (2024).",
@@ -131,10 +138,14 @@ fn metrics_table(report: &Report) -> String {
     keys.sort();
 
     let mut out = String::from("| Metric | Validation | Test | Baseline (test) |\n|---|---|---|---|\n");
+    let mut baseline_gap = false;
     for key in keys {
         let cell = |m: &crate::train::SplitMetrics| {
             m.values.get(key).map_or_else(|| "—".to_string(), |v| format!("{v:.3}"))
         };
+        if !report.baseline.values.contains_key(key) {
+            baseline_gap = true;
+        }
         let _ = writeln!(
             out,
             "| {} | {} | {} | {} |",
@@ -142,6 +153,17 @@ fn metrics_table(report: &Report) -> String {
             cell(&report.validation),
             cell(&report.test),
             cell(&report.baseline)
+        );
+    }
+    if baseline_gap {
+        // A constant baseline — the training mean, or the majority class —
+        // has no rank or linear correlation to report, because correlation
+        // with a constant is undefined rather than zero. Say so, so the dash
+        // does not read as a metric nobody bothered to measure.
+        out.push_str(
+            "\nA — in the baseline column means the metric is undefined for that baseline, \
+             not unmeasured: a baseline that predicts the same value for every input has no \
+             correlation with the truth.\n",
         );
     }
     out
@@ -173,8 +195,17 @@ pub fn render(task: Task, report: &Report) -> String {
          | Seed | {seed}{seed_note} |\n\
          | Dataset | [`{dataset}`]({dataset_url}) |\n\
          | Data licence | {license} |\n\n\
-         Reproduce with:\n\n```bash\ncargo run --release -p opendna-train -- embed --task {task}\n\
-         cargo run --release -p opendna-train -- train --task {task}\n```\n\n\
+         Reproduce by building the dataset first — see \
+         [`datasets/README.md`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) — and \
+         then, from `training/`:\n\n\
+         ```bash\ncargo run --release -p opendna-train -- embed --task {task}\n\
+         cargo run --release -p opendna-train -- train --task {task} \\\n\
+         \u{20}   --batch-size {batch} --learning-rate {lr} --seed {seed}\n```\n\n\
+         The hyperparameters are spelled out above even where they match the current defaults, \
+         so the command reproduces *this* run rather than whatever the defaults happen to be \
+         later.\n\n\
+         Both commands take `--datasets <dir>` if the dataset is not at the default \
+         `../datasets/out`. Embedding is cached, so the second run of either command is cheap.\n\n\
          ## Limitations\n\n",
         dataset = p.dataset,
         base = report.embedding_model,
@@ -258,9 +289,31 @@ mod tests {
         let card = render(Task::Stability, &report());
         assert!(card.contains("| Spearman ρ | 0.610 | 0.600 | 0.280 |"), "{card}");
         assert!(card.contains("epoch 7 of 17"));
+        // The run used a non-default batch size once, and the card's command
+        // omitted it — so following the card produced a different model than
+        // the one it described. The command now carries every value.
+        assert!(card.contains("--batch-size 256"), "{card}");
+        assert!(card.contains("--seed 1"), "{card}");
         assert!(card.contains("facebook/esm2_t30_150M_UR50D"));
         assert!(card.starts_with("---\nlicense: apache-2.0"), "needs YAML front matter");
         assert!(card.contains("## Limitations"));
+    }
+
+    #[test]
+    fn a_missing_baseline_metric_is_explained_rather_than_left_as_a_dash() {
+        let mut r = report();
+        r.test.values.insert("rmse".into(), 23.4);
+        // The constant baseline has rmse but no spearman.
+        r.baseline.values.remove("spearman");
+        r.baseline.values.insert("rmse".into(), 32.3);
+        let card = render(Task::Solubility, &r);
+        assert!(card.contains("| Spearman ρ | 0.610 | 0.600 | — |"), "{card}");
+        assert!(card.contains("undefined for that baseline"), "{card}");
+    }
+
+    #[test]
+    fn a_baseline_with_every_metric_gets_no_footnote() {
+        assert!(!render(Task::Stability, &report()).contains("undefined for that baseline"));
     }
 
     #[test]
