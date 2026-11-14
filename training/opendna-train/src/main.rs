@@ -13,6 +13,7 @@
 #![allow(clippy::print_stdout)]
 
 mod cache;
+mod card;
 mod data;
 mod embed;
 mod metrics;
@@ -139,6 +140,7 @@ fn main() -> Result<()> {
                 Task::Disorder => train::disorder(&cli.datasets, &cli.cache, &out, model, &config),
             }
             .with_context(|| format!("training the {} head", task.name()))?;
+            card::write(task, &report, &out)?;
             println!("\n{}", serde_json::to_string_pretty(&report)?);
         }
     }
