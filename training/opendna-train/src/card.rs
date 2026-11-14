@@ -100,6 +100,23 @@ fn prose(task: Task) -> Prose {
     }
 }
 
+/// Display name for a metric key, so the card reads as prose rather than as
+/// field names.
+fn label(key: &str) -> &str {
+    match key {
+        "spearman" => "Spearman ρ",
+        "pearson" => "Pearson r",
+        "rmse" => "RMSE",
+        "mae" => "MAE",
+        "auroc" => "AUROC",
+        "auprc" => "AUPRC",
+        "mcc" => "MCC",
+        "f1" => "F1",
+        "balanced_accuracy" => "Balanced accuracy",
+        other => other,
+    }
+}
+
 fn metrics_table(report: &Report) -> String {
     let mut keys: Vec<&String> = report.test.values.keys().collect();
     for k in report.validation.values.keys() {
@@ -116,7 +133,8 @@ fn metrics_table(report: &Report) -> String {
         };
         let _ = writeln!(
             out,
-            "| {key} | {} | {} | {} |",
+            "| {} | {} | {} | {} |",
+            label(key),
             cell(&report.validation),
             cell(&report.test),
             cell(&report.baseline)
@@ -234,7 +252,7 @@ mod tests {
     #[test]
     fn card_reports_the_measured_numbers_and_the_baseline() {
         let card = render(Task::Stability, &report());
-        assert!(card.contains("| spearman | 0.610 | 0.600 | 0.280 |"), "{card}");
+        assert!(card.contains("| Spearman ρ | 0.610 | 0.600 | 0.280 |"), "{card}");
         assert!(card.contains("epoch 7 of 17"));
         assert!(card.contains("facebook/esm2_t30_150M_UR50D"));
         assert!(card.starts_with("---\nlicense: apache-2.0"), "needs YAML front matter");

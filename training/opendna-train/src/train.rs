@@ -103,7 +103,7 @@ fn apply_seed(device: &candle_core::Device, seed: u64) -> bool {
         return true;
     }
     eprintln!(
-        "note: {} cannot be seeded, so weight initialisation is not reproducible;          data order still is",
+        "note: {} cannot be seeded, so weight initialisation is not reproducible; data order still is",
         opendna_ml::device_description(device)
     );
     false
