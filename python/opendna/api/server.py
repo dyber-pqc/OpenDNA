@@ -8,12 +8,20 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, is_dataclass
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
+
+# Deterministic seed at module load.
+try:
+    import os as _os_seed
+    from opendna.reliability.determinism import set_global_seed as _set_global_seed
+    _set_global_seed(int(_os_seed.environ.get("OPENDNA_RANDOM_SEED", "42")))
+except Exception:
+    pass
 
 app = FastAPI(
     title="OpenDNA API",
@@ -28,6 +36,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Telemetry middleware - only active if consent env var is set at startup.
+import os as _os_tel
+if _os_tel.environ.get("OPENDNA_TELEMETRY_CONSENT", "0") == "1":
+    from starlette.middleware.base import BaseHTTPMiddleware as _BHM
+
+    class _TelemetryMiddleware(_BHM):
+        async def dispatch(self, request, call_next):
+            import time as _t
+            t0 = _t.time()
+            response = await call_next(request)
+            try:
+                from opendna.telemetry import record_event
+                record_event("http_request", {
+                    "path": request.url.path,
+                    "method": request.method,
+                    "status_code": response.status_code,
+                    "duration_ms": int((_t.time() - t0) * 1000),
+                })
+            except Exception:
+                pass
+            return response
+
+    app.add_middleware(_TelemetryMiddleware)
 
 
 # Friendly error handling: catch all exceptions and return user-readable JSON.
@@ -133,6 +165,11 @@ class FoldRequest(BaseModel):
     sequence: str
     method: str = "auto"
     device: Optional[str] = None
+
+
+class FoldCascadeRequest(BaseModel):
+    sequence: str
+    target_confidence: float = 70.0
 
 
 class DesignRequest(BaseModel):
@@ -279,6 +316,22 @@ async def submit_fold(request: FoldRequest):
         executor, _run_fold, job_id, request.sequence, request.method, request.device, cache_key
     )
     return JobResponse(job_id=job_id, status="running")
+
+
+@app.post("/v1/fold/cascade")
+async def submit_fold_cascade(request: FoldCascadeRequest):
+    """Run the multi-fidelity folding cascade synchronously.
+
+    Tries Chou-Fasman -> ESMFold -> ColabFold -> Boltz and stops once
+    target_confidence is reached (or all tiers are exhausted).
+    """
+    from opendna.engines.cascade import fold_cascade
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        executor,
+        lambda: fold_cascade(request.sequence, target_confidence=request.target_confidence),
+    )
+    return result
 
 
 @app.post("/v1/design", response_model=JobResponse)
@@ -694,6 +747,53 @@ def _run_benchmark(job_id):
     except Exception as e:
         jobs[job_id]["status"] = "failed"
         jobs[job_id]["error"] = str(e)
+
+
+# --- CASP15 benchmark endpoints -----------------------------------------
+
+@app.post("/v1/benchmarks/casp")
+async def benchmarks_casp_endpoint():
+    """Kick off a CASP15 benchmark run via the priority queue."""
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "status": "running", "progress": 0.0, "result": None, "error": None,
+        "type": "casp_benchmark", "started_at": time.time(),
+    }
+
+    def _work(on_progress=None, **_kwargs):
+        from opendna.benchmarks.casp import run_casp_benchmark
+        return run_casp_benchmark(on_progress=on_progress)
+
+    try:
+        from opendna.runtime import get_queue
+        q = get_queue()
+        await q.start()
+        qjid = await q.submit(_work, priority=1)
+        jobs[job_id]["queue_job_id"] = qjid
+    except Exception:
+        # Fallback: run inline in executor
+        def _inline():
+            try:
+                from opendna.benchmarks.casp import run_casp_benchmark
+                res = run_casp_benchmark()
+                jobs[job_id]["status"] = "completed"
+                jobs[job_id]["progress"] = 1.0
+                jobs[job_id]["result"] = res
+            except Exception as e:
+                jobs[job_id]["status"] = "failed"
+                jobs[job_id]["error"] = str(e)
+        asyncio.get_event_loop().run_in_executor(executor, _inline)
+    return JobResponse(job_id=job_id, status="running")
+
+
+@app.get("/v1/benchmarks/latest")
+async def benchmarks_latest_endpoint():
+    """Return the most recent cached CASP benchmark result."""
+    from opendna.benchmarks.casp import load_cached_results
+    cached = load_cached_results()
+    if cached is None:
+        return {"available": False, "result": None}
+    return {"available": True, "result": cached}
 
 
 # =====================================================
@@ -1679,6 +1779,173 @@ def gpu_evict_warm(older_than_s: int = 300):
 
 
 # =============================================================================
+# Protein of the Day
+# =============================================================================
+
+PROTEINS_OF_THE_DAY = [
+    {"name": "Hemoglobin", "uniprot_id": "P69905",
+     "sequence": "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVADALTNAVAHVDDMPNALSALSDLHAHKLRVDPVNFKLLSHCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR",
+     "description": "Iron-containing oxygen-transport metalloprotein in red blood cells.",
+     "fun_fact": "A single red blood cell contains about 270 million hemoglobin molecules.",
+     "category": "transport", "year_discovered": 1840},
+    {"name": "Insulin", "uniprot_id": "P01308",
+     "sequence": "MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN",
+     "description": "Peptide hormone regulating blood glucose by promoting cellular uptake.",
+     "fun_fact": "First protein ever sequenced - by Frederick Sanger in 1955.",
+     "category": "hormone", "year_discovered": 1921},
+    {"name": "Green Fluorescent Protein", "uniprot_id": "P42212",
+     "sequence": "MASKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITLGMDELYK",
+     "description": "Jellyfish protein that fluoresces green under blue light.",
+     "fun_fact": "Won the 2008 Nobel Prize in Chemistry; transformed cell biology.",
+     "category": "reporter", "year_discovered": 1962},
+    {"name": "Firefly Luciferase", "uniprot_id": "P08659",
+     "sequence": "MEDAKNIKKGPAPFYPLEDGTAGEQLHKAMKRYALVPGTIAFTDAHIEVDITYAEYFEMSVRLAEAMKRYGLNTNHRIVVCSENSLQFFMPVLGALFIGVAVAPANDIYNERELLNSMGISQPTVVFVSKKGLQKILNVQKKLPIIQKIIIMDSKTDYQGFQSMYTFVTSHLPPGFNEYDFVPESFDRDKTIALIMNSSGSTGLPKGVALPHRTACVRFSHARDPIFGNQIIPDTAILSVVPFHHGFGMFTTLGYLICGFRVVLMYRFEEELFLRSLQDYKIQSALLVPTLFSFFAKSTLIDKYDLSNLHEIASGGAPLSKEVGEAVAKRFHLPGIRQGYGLTETTSAILITPEGDDKPGAVGKVVPFFEAKVVDLDTGKTLGVNQRGELCVRGPMIMSGYVNNPEATNALIDKDGWLHSGDIAYWDEDEHFFIVDRLKSLIKYKGYQVAPAELESILLQHPNIFDAGVAGLPDDDAGELPAAVVVLEHGKTMTEKEIVDYVASQVTTAKKLRGGVVFVDEVPKGLTGKLDARKIREILIKAKKGGKIAV",
+     "description": "Enzyme producing light in fireflies by oxidizing luciferin with ATP.",
+     "fun_fact": "Used as a reporter gene; light output is directly proportional to ATP.",
+     "category": "enzyme", "year_discovered": 1885},
+    {"name": "Ubiquitin", "uniprot_id": "P0CG48",
+     "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
+     "description": "Small regulatory protein tagging others for degradation.",
+     "fun_fact": "One of the most conserved proteins known across all eukaryotes.",
+     "category": "regulatory", "year_discovered": 1975},
+    {"name": "Lysozyme", "uniprot_id": "P61626",
+     "sequence": "MKALIVLGLVLLSVTVQGKVFERCELARTLKRLGMDGYRGISLANWMCLAKWESGYNTRATNYNAGDRSTDYGIFQINSRYWCNDGKTPGAVNACHLSCSALLQDNIADAVACAKRVVRDPQGIRAWVAWRNRCQNRDVRQYVQGCGV",
+     "description": "Antimicrobial enzyme in tears and saliva that breaks bacterial cell walls.",
+     "fun_fact": "Discovered by Alexander Fleming in 1922, five years before penicillin.",
+     "category": "enzyme", "year_discovered": 1922},
+    {"name": "Myoglobin", "uniprot_id": "P02144",
+     "sequence": "MGLSDGEWQLVLNVWGKVEADIPGHGQEVLIRLFKGHPETLEKFDKFKHLKSEDEMKASEDLKKHGATVLTALGGILKKKGHHEAEIQPLAQSHATKHKIPVKYLEFISECIIQVLQSKHPGDFGADAQGAMNKALELFRKDMASNYKELGFQG",
+     "description": "Oxygen-storing protein in muscle tissue.",
+     "fun_fact": "First protein to have its 3D structure solved by X-ray crystallography (Kendrew, 1958).",
+     "category": "transport", "year_discovered": 1897},
+    {"name": "p53 Tumor Suppressor", "uniprot_id": "P04637",
+     "sequence": "MEEPQSDPSVEPPLSQETFSDLWKLLPENNVLSPLPSQAMDDLMLSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPAAPAPAPSWPLSSSVPSQKTYQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQIRGRERFEMFRELNEALELKDAQAGKEPGGSRAHSSHLKSKKGQSTSRHKKLMFKTEGPDSD",
+     "description": "Guardian of the genome - tumor suppressor that triggers apoptosis.",
+     "fun_fact": "Mutated in more than half of all human cancers.",
+     "category": "tumor_suppressor", "year_discovered": 1979},
+    {"name": "KRAS", "uniprot_id": "P01116",
+     "sequence": "MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTAGQEEYSAMRDQYMRTGEGFLCVFAINNTKSFEDIHHYREQIKRVKDSEDVPMVLVGNKCDLPSRTVDTKQAQDLARSYGIPFIETSAKTRQGVDDAFYTLVREIRQYRLKKISKEEKTPGCVKIKKCIIM",
+     "description": "Small GTPase switch driving cell proliferation; mutated in many cancers.",
+     "fun_fact": "Considered undruggable for 40 years until the first KRAS G12C inhibitor in 2021.",
+     "category": "oncogene", "year_discovered": 1982},
+    {"name": "Alpha-Amylase", "uniprot_id": "P04745",
+     "sequence": "MKFFLLLFTIGFCWAQYSPNTQQGRTSIVHLFEWRWVDIALECERYLAPKGFGGVQVSPPNENVAIHNPFRPWWERYQPVSYKLCTRSGNENEFRDMVTRCNNVGVRIYVDAVINHMCGNAVSAGTSSTCGSYFNPGSRDFPAVPYSGWDFNDGKCKTGSGDIENYNDATQVRDCRLTGLLDLALEKDYVRSKVAEYMNHLIDIGVAGFRIDASKHMWPGDIKAILDKLHNLNSNWFPEGSKPFIYQEVIDLGGEPIKSSDYFGNGRVTEFKYGAKLGTVIRKWNGEKMSYLKNWGEGWGFMPSDRALVFVDNHDNQRGHGAGGASILTFWDARLYKMAVGFMLAHPYGFTRVMSSYRWPRYFENGKDVNDWVGPPNDNGVTKEVTINPDTTCGNDWVCEHRWRQIRNMVIFRNVVDGQPFTNWYDNGSNQVAFGRGNRGFIVFNNDDWTFSLTLQTGLPAGTYCDVISGDKINGNCTGIKIYVSDDGKAHFSISNSAEDPFIAIHAESKL",
+     "description": "Enzyme hydrolyzing starch into sugars; secreted by pancreas and saliva.",
+     "fun_fact": "First enzyme ever isolated (1833) by Anselme Payen, who called it diastase.",
+     "category": "enzyme", "year_discovered": 1833},
+    {"name": "Pepsin", "uniprot_id": "P00790",
+     "sequence": "MKWLLLLSLVVLSECLVKVPLVRKKSLRQNLIKNGKLKDFLKTHKHNPASKYFPEAAALIGDEPLENYLDTEYFGTIGIGTPAQDFTVIFDTGSSNLWVPSVYCSSLACSDHNQFNPDDSSTFEATSQELSITYGTGSMTGILGYDTVQVGGISDTNQIFGLSETEPGSFLYYAPFDGILGLAYPSISASGATPVFDNLWDQGLVSQDLFSVYLSSNDDSGSVVLLGGIDSSYYTGSLNWVPVSVEGYWQITLDSITMDGETIACSGGCQAIVDTGTSLLTVPQQYMSALLQATGAQEDEYGQFLVNCNSIQNLPSLTFIINGVQYPLSPSAYILQDDDSCTSGFEGMDVPTSSGELWILGDVFIRQYYTVFDRANNKVGLAPVA",
+     "description": "Stomach protease that breaks proteins into peptides.",
+     "fun_fact": "One of few enzymes that work best at pH 2 - acidic stomach conditions.",
+     "category": "enzyme", "year_discovered": 1836},
+    {"name": "Trypsin", "uniprot_id": "P07477",
+     "sequence": "MNPLLILTFVAAALAAPFDDDDKIVGGYNCEENSVPYQVSLNSGYHFCGGSLINEQWVVSAGHCYKSRIQVRLGEHNIEVLEGNEQFINAAKIIRHPQYDRKTLNNDIMLIKLSSRAVINARVSTISLPTAPPATGTKCLISGWGNTASSGADYPDELQCLDAPVLSQAKCEASYPGKITSNMFCVGFLEGGKDSCQGDSGGPVVCNGQLQGVVSWGDGCAQKNKPGVYTKVYNYVKWIKNTIAANS",
+     "description": "Serine protease in the small intestine; cleaves after lysine and arginine.",
+     "fun_fact": "Workhorse of biochemistry labs - used to prep proteins for mass spec.",
+     "category": "enzyme", "year_discovered": 1876},
+    {"name": "BRCA1", "uniprot_id": "P38398",
+     "sequence": "MDLSALRVEEVQNVINAMQKILECPICLELIKEPVSTKCDHIFCKFCMLKLLNQKKGPSQCPLCKNDITKRSLQESTRFSQLVEELLKIICAFQLDTGLEYANSYNFAKKENNSPEHLKDEVSIIQSMGYRNRAKRLLQSEPENPSLQETSLSVQLSNLGTVRTLRTKQRIQPQKTSVYIELGSDSSEDTVNKATYCSVGDQELLQITPQGTRDEISLDSAKKAACEFSETDVTNTEHHQPSNNDLNTTEKRAAERHPEKYQGSSVSNLHVEPCGTNTHAS",
+     "description": "DNA repair protein; mutations dramatically increase cancer risk.",
+     "fun_fact": "Isolated in 1994; Angelina Jolie raised awareness of BRCA testing in 2013.",
+     "category": "dna_repair", "year_discovered": 1994},
+    {"name": "BRCA2", "uniprot_id": "P51587",
+     "sequence": "MPIGSKERPTFFEIFKTRCNKADLGPISLNWFEELSSEAPPYNSEPAEESEHKNNNYEPNLFKTPQRKPSYNQLASTPIIFKEQGLTLPLYQSPVKELDKFKLDLGRNVPNSRHKSLRTVKTKMDQADDVSCPLLNSCLSESPVVLQCTHVTPQRDKSVVCGSLFHTPKFVKGRQTPKHISESLGAEVDPDMSWSSSLATPPTLSSTVLIVRNEEASETVFPHDTTANVKSYFSNHDESLKKNDRFIASVTDSENTNQREAASHGFGKTSGNSFKVNSCK",
+     "description": "DNA double-strand break repair protein; mutations strongly predispose to cancer.",
+     "fun_fact": "Contains 8 BRC repeats binding the RAD51 recombinase.",
+     "category": "dna_repair", "year_discovered": 1995},
+    {"name": "Cas9", "uniprot_id": "Q99ZW2",
+     "sequence": "MDKKYSIGLDIGTNSVGWAVITDEYKVPSKKFKVLGNTDRHSIKKNLIGALLFDSGETAEATRLKRTARRRYTRRKNRICYLQEIFSNEMAKVDDSFFHRLEESFLVEEDKKHERHPIFGNIVDEVAYHEKYPTIYHLRKKLVDSTDKADLRLIYLALAHMIKFRGHFLIEGDLNPDNSDVDKLFIQLVQTYNQLFEENPINASGVDAKAILSARLSKSRRLENLIAQLPGEKKNGLFGNLIALSLGLTPNFKSNFDLAEDAKLQLSKDTYDDDLDNLLAQIGDQYADLFLAAKNLSDAILLSDILRVNTEITKAPLSASMIKRYDEHHQDLTLLKALVRQQLPEKYKEIFFDQSKNGYAGYIDGGASQEEFYKFIKPILEKMDGTEELLVKLNREDLLRKQRTFDNGSIPHQIHLGELHAILRRQEDFYPFLKDNREKIEKILTFRIPYYVGPLARGNSRFAWMTRKSEETITPWNFEEVVDKGASAQSFIERMTNFDKNLPNEKVLPKHSLLYEYFTVYNELTKVKYVTEGMRKPAFLSGEQKKAIVDLLFKTNRKVTVKQLKEDYFKKIECFDSVEISGVEDRFNASLGTYHDLLKIIKDKDFLDNEENEDILEDIVLTLTLFEDREMIEERLKTYAHLFDDKVMKQLKRRRYTGWGRLSRKLINGIRDKQSGKTILDFLKSDGFANRNFMQLIHDDSLTFKEDIQKAQVSGQGDSLHEHIANLAGSPAIKKGILQTVKVVDELVKVMGRHKPENIVIEMARENQTTQKGQKNSRERMKRIEEGIKELGSQILKEHPVENTQLQNEKLYLYYLQNGRDMYVDQELDINRLSDYDVDHIVPQSFLKDDSIDNKVLTRSDKNRGKSDNVPSEEVVKKMKNYWRQLLNAKLITQRKFDNLTKAERGGLSELDKAGFIKRQLVETRQITKHVAQILDSRMNTKYDENDKLIREVKVITLKSKLVSDFRKDFQFYKVREINNYHHAHDAYLNAVVGTALIKKYPKLESEFVYGDYKVYDVRKMIAKSEQEIGKATAKYFFYSNIMNFFKTEITLANGEIRKRPLIETNGETGEIVWDKGRDFATVRKVLSMPQVNIVKKTEVQTGGFSKESILPKRNSDKLIARKKDWDPKKYGGFDSPTVAYSVLVVAKVEKGKSKKLKSVKELLGITIMERSSFEKNPIDFLEAKGYKEVKKDLIIKLPKYSLFELENGRKRMLASAGELQKGNELALPSKYVNFLYLASHYEKLKGSPEDNEQKQLFVEQHKHYLDEIIEQISEFSKRVILADANLDKVLSAYNKHRDKPIREQAENIIHLFTLTNLGAPAAFKYFDTTIDRKRYTSTKEVLDATLIHQSITGLYETRIDLSQLGGD",
+     "description": "Bacterial nuclease that became the foundation of CRISPR gene editing.",
+     "fun_fact": "Won the 2020 Nobel Prize in Chemistry for Doudna and Charpentier.",
+     "category": "nuclease", "year_discovered": 1987},
+    {"name": "CRISPR-dCas9", "uniprot_id": "Q99ZW2",
+     "sequence": "MDKKYSIGLAIGTNSVGWAVITDEYKVPSKKFKVLGNTDRHSIKKNLIGALLFDSGETAEATRLKRTARRRYTRRKNRICYLQEIFSNEMAKVDDSFFHRLEESFLVEEDKKHERHPIFGNIVDEVAYHEKYPTIYHLRKKLVDSTDKADLRLIYLALAHMIKFRGHFLIEGDLNPDNSDVDKLFIQLVQTYNQLFEENPINASG",
+     "description": "Catalytically dead Cas9 that binds DNA without cutting; enables gene regulation.",
+     "fun_fact": "Used for CRISPRi and CRISPRa to silence or activate genes without editing DNA.",
+     "category": "nuclease", "year_discovered": 2013},
+    {"name": "SARS-CoV-2 Spike", "uniprot_id": "P0DTC2",
+     "sequence": "MFVFLVLLPLVSSQCVNLTTRTQLPPAYTNSFTRGVYYPDKVFRSSVLHSTQDLFLPFFSNVTWFHAIHVSGTNGTKRFDNPVLPFNDGVYFASTEKSNIIRGWIFGTTLDSKTQSLLIVNNATNVVIKVCEFQFCNDPFLGVYYHKNNKSWMESEFRVYSSANNCTFEYVSQPFLMDLEGKQGNFKNLREFVFKNIDGYFKIYSKHTPINLVRDLPQGFSALEPLVDLPIGINITRFQTLLALHRSYLTPGDSSSGWTAGAAAYYVGYLQPRTFLLKYNENGTITDAVDCALDPLSETKCTLKSFTVEKGIYQTSNFRVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFNFNGLTGTGVLTESNKKFLPFQQFGRDIADTTDAVRDPQTLEILDITPCSFGGVSVITPGTNTSNQVAVLYQDVNCTEVPVAIHADQLTPTWRVYSTGSNVFQTRAGCLIGAEHVNNSYECDIPIGAGICASYQTQTNSPRRARSVASQSIIAYTMSLGAENSVAYSNNSIAIPTNFTISVTTEILPVSMTKTSVDCTMYICGDSTECSNLLLQYGSFCTQLNRALTGIAVEQDKNTQEVFAQVKQIYKTPPIKDFGGFNFSQILPDPSKPSKRSFIEDLLFNKVTLADAGFIKQYGDCLGDIAARDLICAQKFNGLTVLPPLLTDEMIAQYTSALLAGTITSGWTFGAGAALQIPFAMQMAYRFNGIGVTQNVLYENQKLIANQFNSAIGKIQDSLSSTASALGKLQDVVNQNAQALNTLVKQLSSNFGAISSVLNDILSRLDKVEAEVQIDRLITGRLQSLQTYVTQQLIRAAEIRASANLAATKMSECVLGQSKRVDFCGKGYHLMSFPQSAPHGVVFLHVTYVPAQEKNFTTAPAICHDGKAHFPREGVFVSNGTHWFVTQRNFYEPQIITTDNTFVSGNCDVVIGIVNNTVYDPLQPELDSFKEELDKYFKNHTSPDVDLGDISGINASVVNIQKEIDRLNEVAKNLNESLIDLQELGKYEQYIKWPWYIWLGFIAGLIAIVMVTIMLCCMTSCCSCLKGCCSCGSCCKFDEDDSEPVLKGVKLHYT",
+     "description": "Spike glycoprotein that binds ACE2 and mediates viral entry.",
+     "fun_fact": "The target of every mRNA COVID-19 vaccine.",
+     "category": "viral", "year_discovered": 2020},
+    {"name": "ACE2", "uniprot_id": "Q9BYF1",
+     "sequence": "MSSSSWLLLSLVAVTAAQSTIEEQAKTFLDKFNHEAEDLFYQSSLASWNYNTNITEENVQNMNNAGDKWSAFLKEQSTLAQMYPLQEIQNLTVKLQLQALQQNGSSVLSEDKSKRLNTILNTMSTIYSTGKVCNPDNPQECLLLEPGLNEIMANSLDYNERLWAWESWRSEVGKQLRPLYEEYVVLKNEMARANHYEDYGDYWRGDYEVNGVDGYDYSRGQLIEDVEHTFEEIKPLYEHLHAYVRAKLMNAYPSYISPIGCLPAHLLGDMWGRFWTNLYSLTVPFGQKPNIDVTDAMVDQAWDAQRIFKEAEKFFVSVGLPNMTQGFWENSMLTDPGNVQKAVCHPTAWDLGKGDFRILMCTKVTMDDFLTAHHEMGHIQYDMAYAAQPFLLRNGANEGFHEAVGEIMSLSAATPKHLKSIGLLSPDFQEDNETEINFLLKQALTIVGTLPFTYMLEKWRWMVFKGEIPKDQWMKKWWEMKREIVGVVEPVPHDETYCDPASLFHVSNDYSFIRYYTRTLYQFQFQEALCQAAKHEGPLHKCDISNSTEAGQKLFNMLRLGKSEPWTLALENVVGAKNMNVRPLLNYFEPLFTWLKDQNKNSFVGWSTDWSPYADQSIKVRISLKSALGDKAYEWNDNEMYLFRSSVAYAMRQYFLKVKNQMILFGEEDVRVANLKPRISFNFFVTAPKNVSDIIPRTEVEKAIRMSRSRINDAFRLNDNSLEFLGIQPTLGPPNQPPVSIWLIVFGVVMGVIVVGIVILIFTGIRDRKKKNKARSGENPYASIDISKGENNPGFQNTDDVQTSF",
+     "description": "Angiotensin-converting enzyme 2 - regulates blood pressure and is the SARS-CoV-2 receptor.",
+     "fun_fact": "A zinc metalloenzyme related to ACE but with opposite blood pressure effects.",
+     "category": "receptor", "year_discovered": 2000},
+    {"name": "TNF-alpha", "uniprot_id": "P01375",
+     "sequence": "MSTESMIRDVELAEEALPKKTGGPQGSRRCLFLSLFSFLIVAGATTLFCLLHFGVIGPQREEFPRDLSLISPLAQAVRSSSRTPSDKPVAHVVANPQAEGQLQWLNRRANALLANGVELRDNQLVVPSEGLYLIYSQVLFKGQGCPSTHVLLTHTISRIAVSYQTKVNLLSAIKSPCQRETPEGAEAKPWYEPIYLGGVFQLEKGDRLSAEINRPDYLDFAESGQVYFGIIAL",
+     "description": "Pro-inflammatory cytokine driving systemic inflammation and autoimmune disease.",
+     "fun_fact": "Anti-TNF drugs like Humira and Enbrel are among the best-selling medicines ever.",
+     "category": "cytokine", "year_discovered": 1975},
+    {"name": "Interleukin-6", "uniprot_id": "P05231",
+     "sequence": "MNSFSTSAFGPVAFSLGLLLVLPAAFPAPVPPGEDSKDVAAPHRQPLTSSERIDKQIRYILDGISALRKETCNKSNMCESSKEALAENNLNLPKMAEKDGCFQSGFNEETCLVKIITGLLEFEVYLEYLQNRFESSEEQARAVQMSTKVLIQFLQKKAKNLDAITTPDPTTNASLLTKLQAQNQWLQDMTTHLILRSFKEFLQSSLRALRQM",
+     "description": "Cytokine driving immunity and cytokine storms.",
+     "fun_fact": "Blocking IL-6 with tocilizumab was an early effective COVID-19 treatment.",
+     "category": "cytokine", "year_discovered": 1986},
+    {"name": "HSP90", "uniprot_id": "P07900",
+     "sequence": "MPEETQTQDQPMEEEEVETFAFQAEIAQLMSLIINTFYSNKEIFLRELISNSSDALDKIRYESLTDPSKLDSGKELHINLIPNKQDRTLTIVDTGIGMTKADLINNLGTIAKSGTKAFMEALQAGADISMIGQFGVGFYSAYLVAEKVTVITKHNDDEQYAWESSAGGSFTVRTDTGEPMGRGTKVILHLKEDQTEYLEERRIKEIVKKHSQFIGYPITLFVEKERDKEVSDDEAEEKEDKEEEKEKEEKESEDKPEIEDVGSDEEEEEKKDGDKKKKKKIKEKYIDQEELNKTKPIWTRNPDDITNEEYGEFYKSLTNDWEDHLAVKHFSVEGQLEFRALLFVPRRAPFDLFENRKKKNNIKLYVRRVFIMDNCEELIPEYLNFIRGVVDSEDLPLNISREMLQQSKILKVIRKNLVKKCLELFTELAEDKENYKKFYEQFSKNIKLGIHEDSQNRKKLSELLRYYTSASGDEMVSLKDYCTRMKENQKHIYYITGETKDQVANSAFVERLRKHGLEVIYMIEPIDEYCVQQLKEFEGKTLVSVTKEGLELPEDEEEKKKQEEKKTKFENLCKIMKDILEKKVEKVVVSNRLVTSPCCIVTSTYGWTANMERIMKAQALRDNSTMGYMAAKKHLEINPDHSIIETLRQKAEADKNDKSVKDLVILLYETALLSSGFSLEDPQTHANRIYRMIKLGLGIDEDDPTADDTSAAVTEEMPPLEGDDDTSRMEEVD",
+     "description": "Molecular chaperone essential for protein folding and kinase activation.",
+     "fun_fact": "A major cancer drug target; many oncoproteins depend on it to stay folded.",
+     "category": "chaperone", "year_discovered": 1982},
+    {"name": "Actin", "uniprot_id": "P60709",
+     "sequence": "MDDDIAALVVDNGSGMCKAGFAGDDAPRAVFPSIVGRPRHQGVMVGMGQKDSYVGDEAQSKRGILTLKYPIEHGIVTNWDDMEKIWHHTFYNELRVAPEEHPVLLTEAPLNPKANREKMTQIMFETFNTPAMYVAIQAVLSLYASGRTTGIVMDSGDGVTHTVPIYEGYALPHAILRLDLAGRDLTDYLMKILTERGYSFTTTAEREIVRDIKEKLCYVALDFEQEMATAASSSSLEKSYELPDGQVITIGNERFRCPEALFQPSFLGMESCGIHETTFNSIMKCDVDIRKDLYANTVLSGGTTMYPGIADRMQKEITALAPSTMKIKIIAPPERKYSVWIGGSILASLSTFQQMWISKQEYDESGPSIVHRKCF",
+     "description": "Most abundant protein in many eukaryotic cells; forms cytoskeleton microfilaments.",
+     "fun_fact": "G-actin polymerizes into F-actin filaments that drive cell motility and muscle contraction.",
+     "category": "structural", "year_discovered": 1942},
+    {"name": "Tubulin", "uniprot_id": "P07437",
+     "sequence": "MREIVHIQAGQCGNQIGAKFWEVISDEHGIDPTGTYHGDSDLQLDRISVYYNEATGGKYVPRAILVDLEPGTMDSVRSGPFGQIFRPDNFVFGQSGAGNNWAKGHYTEGAELVDSVLDVVRKEAESCDCLQGFQLTHSLGGGTGSGMGTLLISKIREEYPDRIMNTFSVVPSPKVSDTVVEPYNATLSVHQLVENTDETYCIDNEALYDICFRTLKLTTPTYGDLNHLVSATMSGVTTCLRFPGQLNADLRKLAVNMVPFPRLHFFMPGFAPLTSRGSQQYRALTVPELTQQVFDAKNMMAACDPRHGRYLTVAAVFRGRMSMKEVDEQMLNVQNKNSSYFVEWIPNNVKTAVCDIPPRGLKMAVTFIGNSTAIQELFKRISEQFTAMFRRKAFLHWYTGEGMDEMEFTEAESNMNDLVSEYQQYQDATAEEEEDFGEEAEEEA",
+     "description": "Building block of microtubules; essential for cell division and transport.",
+     "fun_fact": "Target of cancer drugs like paclitaxel (Taxol).",
+     "category": "structural", "year_discovered": 1968},
+    {"name": "Collagen", "uniprot_id": "P02452",
+     "sequence": "MFSFVDLRLLLLLAATALLTHGQEEGQVEGQDEDIPPITCVQNGLRYHDRDVWKPEPCRICVCDNGKVLCDDVICDETKNCPGAEVPEGECCPVCPDGSESPTDQETTGVEGPKGDTGPRGPRGPAGPPGRDGIPGQPGLPGPPGPPGPPGPPGLGGNFAPQLSYGYDEKSTGGISVPGPMGPSGPRGLPGPPGAPGPQGFQGPPGEPGEPGASGPMGPRGPPGPPGKNGDDGEAGKPGRPGERGPPGPQGARGLPGTAGLPGMKGHRGFSGLDGAKGDAGPAGPKGEPGSPGENGAPGQMGPRGLPGERGRPGAPGPAGARGNDGATGAAGPPGPTGPAGPPGFPGAVGAKGEAGPQGPRGSEGPQGVRGEPGPPGPAGAAGPAGNPGADGQPGAKGANGAPGIAGAPGFPGARGPSGPQGPGGPPGPKGNSGEPGAPGSKGDTGAKGEPGPVGVQGPPGPAGEEGKRGAR",
+     "description": "Main structural protein in connective tissue; most abundant protein in mammals.",
+     "fun_fact": "Makes up about 30% of total protein in the human body.",
+     "category": "structural", "year_discovered": 1930},
+    {"name": "Fibrinogen", "uniprot_id": "P02671",
+     "sequence": "MFSMRIVCLVLSVVGTAWTADSGEGDFLAEGGGVRGPRVVERHQSACKDSDWPFCSDEDWNYKCPSGCRMKGLIDEVNQDFTNRINKLKNSLFEYQKNNKDSHSLTTNIMEILRGDFSSANNRDNTYNRVSEDLRSRIEVLKRKVIEKVQHIQLLQKNVRAQLVDMKRLEVDIDIKIRSCRGSCSRALAREVDLKDYEDQQKQLEQVIAKDLLPSRDRQHLPLIKMKPVPDLVPGNFKSQLQKVPPEWKALTDMPQMRMELERPGGNEITRGGSTSYGTGSETESPR",
+     "description": "Blood protein converted to fibrin during clotting to form a mesh trapping platelets.",
+     "fun_fact": "Elevated fibrinogen is a major risk factor for heart disease and stroke.",
+     "category": "blood", "year_discovered": 1876},
+    {"name": "Transferrin", "uniprot_id": "P02787",
+     "sequence": "MRLAVGALLVCAVLGLCLAVPDKTVRWCAVSEHEATKCQSFRDHMKSVIPSDGPSVACVKKASYLDCIRAIAANEADAVTLDAGLVYDAYLAPNNLKPVVAEFYGSKEDPQTFYYAVAVVKKDSGFQMNQLRGKKSCHTGLGRSAGWNIPIGLLYCDLPEPRKPLEKAVANFFSGSCAPCADGTDFPQLCQLCPGCGCSTLNQYFGYSGAFKCLKDGAGDVAFVKHSTIFENLANKADRDQYELLCLDNTRKPVDEYKDCHLAQVPSHTVVARSMGGKEDLIWELLNQAQEHFGKDKSKEFQLFSSPHGKDLLFKDSAHGFLKVPPRMDAKMYLGYEYVTAIRNLREGTCPEAPTDECKPVKWCALSHHERLKCDEWSVNSVGKIECVSAETTEDCIAKIMNGEADAMSLDGGFVYIAGKCGLVPVLAENYNKSDNCEDTPEAGYFAVAVVKKSASDLTWDNLKGKKSCHTAVGRTAGWNIPMGLLYNKINHCRFDEFFSEGCAPGSKKDSSLCKLCMGSGLNLCEPNNKEGYYGYTGAFRCLVEKGDVAFVKHQTVPQNTGGKNPDPWAKNLNEKDYELLCLDGTRKPVEEYANCHLARAPNHAVVTRKDKEACVHKILRQQQHLFGSNVTDCSGNFCLFRSETKDLLFRDDTVCLAKLHDRNTYEKYLGEEYVKAVGNLRKCSTSSLLEACTFRRP",
+     "description": "Iron-binding blood protein delivering iron to cells.",
+     "fun_fact": "Carries two iron atoms and is dramatically pink when iron-loaded.",
+     "category": "transport", "year_discovered": 1946},
+    {"name": "Ferritin", "uniprot_id": "P02794",
+     "sequence": "MTTASTSQVRQNYHQDSEAAINRQINLELYASYVYLSMSYYFDRDDVALKNFAKYFLHQSHEEREHAEKLMKLQNQRGGRIFLQDIKKPDCDDWESGLNAMECALHLEKNVNQSLLELHKLATDKNDPHLCDFIETHYLNEQVKAIKELGDHVTNLRKMGAPESGLAEYLFDKHTLGDSDNES",
+     "description": "Cell's iron storage protein - 24-subunit shell holding up to 4,500 iron atoms.",
+     "fun_fact": "Blood ferritin levels are the standard clinical measure of body iron stores.",
+     "category": "storage", "year_discovered": 1937},
+    {"name": "Keratin", "uniprot_id": "P04264",
+     "sequence": "MSRQFSSRSGYRSGGGFSSGSAGIINYQRRTTSSSTRRSGGGGGRFSSCGGGGGSFGAGGGFGSRSLVNLGGSKSISISVARGGGRGSGFGGGYGGGGFGGGGFGGGGFGGGGIGGGGFGGFGSGGGGFGGGGFGGGGYGGGYGPVCPPGGIQEVTINQSLLQPLNVEIDPEIQKVKSREREQIKSLNNQFASFIDKVRFLEQQNQVLQTKWELLQQVDTSTRTHNLEPYFESFINNLRRRVDQLKSDQSRLDSELKNMQDMVEDYRNKYEDEINKRTNAENEFVTIKKDVDGAYMTKVDLQAKLDNLQQEIDFLTALYQAELSQMQTQISETNVILSMDNNRSLDLDSIIAEVKAQYEDIAQKSKAEAESLYQSKYEELQITAGRHGDSVRNSKIEISELNRVIQRLRSEIDNVKKQISNLQQSISDAEQRGENALKDAKNKLNDLEDALQQAKEDLARLLRDYQELMNTKLALDLEIATYRTLLEGEESRMSGECAPNVSVSVSTSHTTISGGGSRGGGGGGYGSGGSSYGSGGGSYGSGGGGGGGRGSYGSGGSSYGSGGGSYGSGGGGGGHGSYGSGSSSGGYRGGSGGGGGGSSGGRGSGGGSSGGSIGGRGSSSGGVKSSGGSSSVKFVSTTYSGVTR",
+     "description": "Structural protein in hair, nails, feathers, horns, and skin.",
+     "fun_fact": "Hair and fingernails are mostly keratin - the same protein forms rhino horns.",
+     "category": "structural", "year_discovered": 1905},
+    {"name": "Catalase", "uniprot_id": "P04040",
+     "sequence": "MADSRDPASDQMQHWKEQRAAQKADVLTTGAGNPVGDKLNVITVGPRGPLLVQDVVFTDEMAHFDRERIPERVVHAKGAGAFGYFEVTHDITKYSKAKVFEHIGKKTPIAVRFSTVAGESGSADTVRDPRGFAVKFYTEDGNWDLVGNNTPIFFIRDPILFPSFIHSQKRNPQTHLKDPDMVWDFWSLRPESLHQVSFLFSDRGIPDGHRHMNGYGSHTFKLVNANGEAVYCKFHYKTDQGIKNLSVEDAARLSQEDPDYGIRDLFNAIATGKYPSWTFYIQVMTFNQAETFPFNPFDLTKVWPHKDYPLIPVGKLVLNRNPVNYFAEVEQIAFDPSNMPPGIEASPDKMLQGRLFAYPDTHRHRLGPNYLHIPVNCPYRARVANYQRDGPMCMQDNQGGAPNYYPNSFGAPEQQPSALEHSIQYSGEVRRFNTANDDNVTQVRAFYVNVLNEEQRKRLCENIAGHLKDAQIFIQKKAVKNFTEVHPDYGSHIQALLDKYNAEKPKNAIHTFVQSGSHLAAREKANL",
+     "description": "Tetrameric heme enzyme that decomposes hydrogen peroxide to water and oxygen.",
+     "fun_fact": "One of the fastest enzymes - a single molecule can break down millions of H2O2 per second.",
+     "category": "enzyme", "year_discovered": 1900},
+    {"name": "Cytochrome c", "uniprot_id": "P99999",
+     "sequence": "MGDVEKGKKIFIMKCSQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGYSYTAANKNKGIIWGEDTLMEYLENPKKYIPGTKMIFVGIKKKEERADLIAYLKKATNE",
+     "description": "Small heme protein of the electron transport chain; released during apoptosis.",
+     "fun_fact": "Highly conserved - yeast and human differ by only ~40 of 104 residues.",
+     "category": "electron_transport", "year_discovered": 1925},
+]
+
+
+@app.get("/v1/protein_of_the_day")
+def protein_of_the_day():
+    import datetime, hashlib
+    today = datetime.date.today().isoformat()
+    h = hashlib.sha256(today.encode("utf-8")).digest()
+    idx = int.from_bytes(h[:4], "big") % len(PROTEINS_OF_THE_DAY)
+    return PROTEINS_OF_THE_DAY[idx]
+
+
+# =============================================================================
 # Phase 7: crash reporting + self-healing
 # =============================================================================
 
@@ -2195,6 +2462,62 @@ async def llm_chat_stream(body: _ChatBody):
     return StreamingResponse(_iter(), media_type="text/plain")
 
 
+class _ExtractPaperBody(BaseModel):
+    text: Optional[str] = None
+    pdf_base64: Optional[str] = None
+    summarize: bool = False
+
+
+@app.post("/v1/llm/extract_paper")
+def llm_extract_paper(body: _ExtractPaperBody):
+    """Scan raw text or a base64-encoded PDF for protein references."""
+    from opendna.llm.paper_extractor import (
+        extract_sequences_from_text,
+        extract_from_pdf_bytes,
+    )
+
+    text = body.text or ""
+    if body.pdf_base64:
+        import base64
+        try:
+            data = base64.b64decode(body.pdf_base64)
+        except Exception:
+            data = b""
+        pdf_text = extract_from_pdf_bytes(data)
+        if pdf_text:
+            text = (text + "\n" + pdf_text) if text else pdf_text
+
+    extractions = extract_sequences_from_text(text)
+
+    summaries: List[Dict[str, Any]] = []
+    if body.summarize and extractions:
+        try:
+            from opendna.llm.ollama_manager import stream_chat, DEFAULT_MODEL
+            for ext in extractions[:10]:
+                prompt = (
+                    f"Briefly (1-2 sentences) describe this protein reference: "
+                    f"type={ext['type']}, value={ext['value'][:80]}, "
+                    f"context={ext['context'][:200]}"
+                )
+                acc = []
+                for chunk in stream_chat(
+                    [{"role": "user", "content": prompt}],
+                    model=DEFAULT_MODEL,
+                    system="You are a protein science expert. Be concise.",
+                    temperature=0.4,
+                ):
+                    acc.append(chunk)
+                summaries.append({"value": ext["value"], "summary": "".join(acc)})
+        except Exception as e:
+            summaries.append({"error": str(e)})
+
+    return {
+        "count": len(extractions),
+        "extractions": extractions,
+        "summaries": summaries,
+    }
+
+
 @app.get("/v1/llm/chat/history/{session_id}")
 def llm_chat_history(session_id: str):
     from opendna.llm.ollama_manager import session_history
@@ -2267,6 +2590,532 @@ def compliance_delete_user(body: _GdprUser):
     result = delete_user_data(body.user_id)
     get_audit_log().append("gdpr.erasure", actor=body.user_id, details=result)
     return result
+
+
+# =============================================================================
+# Competitions (academy)
+# =============================================================================
+
+
+@app.get("/v1/competitions")
+def list_competitions_api():
+    from opendna.academy.competitions import list_competitions
+    return {"competitions": list_competitions()}
+
+
+class _CompSubmitBody(BaseModel):
+    user_id: str = "anon"
+    sequence: str
+
+
+@app.post("/v1/competitions/{competition_id}/submit")
+def submit_competition_entry(competition_id: str, body: _CompSubmitBody):
+    from opendna.academy.competitions import submit_entry
+    try:
+        return submit_entry(competition_id, body.user_id, body.sequence)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/v1/competitions/{competition_id}/leaderboard")
+def competition_leaderboard_api(competition_id: str, top_n: int = 20):
+    from opendna.academy.competitions import competition_leaderboard
+    try:
+        return {"leaderboard": competition_leaderboard(competition_id, top_n)}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# =============================================================================
+# OpenDNA Hub (local stub)
+# =============================================================================
+
+
+class _HubPublishBody(BaseModel):
+    user_id: str
+    project_name: str
+    pdb_string: str = ""
+    description: str = ""
+
+
+@app.post("/v1/hub/publish")
+def hub_publish(body: _HubPublishBody):
+    from opendna.hub import publish_project
+    return publish_project(body.user_id, body.project_name, body.pdb_string, body.description)
+
+
+@app.get("/v1/hub/projects")
+def hub_list_projects():
+    from opendna.hub import list_public_projects
+    return {"projects": list_public_projects()}
+
+
+class _HubForkBody(BaseModel):
+    hub_url: str
+    new_user_id: str
+
+
+@app.post("/v1/hub/fork")
+def hub_fork(body: _HubForkBody):
+    from opendna.hub import fork_project
+    try:
+        return fork_project(body.hub_url, body.new_user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+class _HubPrBody(BaseModel):
+    source: str
+    target: str
+    message: str
+
+
+@app.post("/v1/hub/pull_requests")
+def hub_open_pr(body: _HubPrBody):
+    from opendna.hub import open_pull_request
+    return open_pull_request(body.source, body.target, body.message)
+
+
+@app.get("/v1/hub/pull_requests")
+def hub_list_prs(project: str = ""):
+    from opendna.hub import list_pull_requests
+    return {"pull_requests": list_pull_requests(project)}
+
+
+# =============================================================================
+# Paper writer
+# =============================================================================
+
+
+class _PwMethodsBody(BaseModel):
+    project_id: str
+
+
+class _PwAbstractBody(BaseModel):
+    project_id: str
+    research_question: str
+
+
+class _PwFullBody(BaseModel):
+    project_id: str
+    title: str
+    research_question: str
+    author_names: List[str] = []
+
+
+@app.post("/v1/paper_writer/methods")
+def paper_writer_methods(body: _PwMethodsBody):
+    from opendna.llm.paper_writer import draft_methods_section
+    return {"markdown": draft_methods_section(body.project_id)}
+
+
+@app.post("/v1/paper_writer/abstract")
+def paper_writer_abstract(body: _PwAbstractBody):
+    from opendna.llm.paper_writer import draft_abstract
+    return {"markdown": draft_abstract(body.project_id, body.research_question)}
+
+
+@app.post("/v1/paper_writer/full")
+def paper_writer_full(body: _PwFullBody):
+    from opendna.llm.paper_writer import draft_full_paper
+    return {
+        "markdown": draft_full_paper(
+            body.project_id, body.title, body.research_question, body.author_names
+        )
+    }
+
+
+# -------- Cloud burst --------
+
+@app.get("/v1/cloud/providers")
+def cloud_providers():
+    from opendna.cloud import list_providers
+    return {"providers": list_providers()}
+
+
+class _BurstBody(BaseModel):
+    job_type: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+    provider: str
+
+
+@app.post("/v1/cloud/burst")
+def cloud_burst(body: _BurstBody):
+    from opendna.cloud import burst_job
+    return burst_job(body.job_type, body.params, body.provider)
+
+
+# -------- Telemetry --------
+
+@app.get("/v1/telemetry/stats")
+def telemetry_stats(days: int = 30):
+    from opendna.telemetry import get_stats
+    return get_stats(days=days)
+
+
+class _ConsentBody(BaseModel):
+    consent: bool
+
+
+@app.post("/v1/telemetry/consent")
+def telemetry_consent(body: _ConsentBody):
+    from opendna.telemetry import set_consent
+    return set_consent(body.consent)
+
+
+@app.delete("/v1/telemetry")
+def telemetry_delete():
+    from opendna.telemetry import clear_telemetry
+    return clear_telemetry()
+
+
+# -------- Determinism --------
+
+class _SeedBody(BaseModel):
+    seed: int = 42
+
+
+@app.post("/v1/determinism/seed")
+def determinism_seed(body: _SeedBody):
+    from opendna.reliability.determinism import set_global_seed, get_current_seed
+    set_global_seed(body.seed)
+    return {"seed": get_current_seed()}
+
+
+# =============================================================================
+# "I'm Feeling Lucky" one-button pipeline
+# =============================================================================
+
+class _FeelingLuckyBody(BaseModel):
+    sequence: str
+    user_id: Optional[str] = None
+
+
+def _feeling_lucky_pipeline(on_progress, sequence: str, user_id: Optional[str] = None):
+    """Runs the full Lucky pipeline as a single queue job.
+
+    All steps are wrapped in try/except so a single failure doesn't abort the
+    whole pipeline -- the returned result carries per-step status.  Progress
+    is streamed via ``on_progress(stage, fraction, message)``.
+    """
+    import traceback
+    from opendna.provenance import record_step
+    from opendna.notebook import get_notebook
+
+    result: Dict[str, Any] = {
+        "sequence": sequence,
+        "score": None,
+        "pdb": None,
+        "analysis": None,
+        "top_candidates": [],
+        "md_summary": None,
+        "cost": None,
+        "llm_summary": None,
+        "provenance_node_ids": [],
+        "notebook_entry_id": None,
+        "errors": {},
+    }
+
+    project_id = f"lucky_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    prov_ids: List[str] = []
+
+    def _safe_step(name: str, frac: float, fn):
+        on_progress(name, frac, f"Running {name}...")
+        try:
+            return fn()
+        except Exception as e:
+            result["errors"][name] = f"{type(e).__name__}: {e}"
+            on_progress(name, frac, f"{name} failed: {e}")
+            return None
+
+    # 1. Quick score of the input sequence
+    def _s1():
+        from opendna.engines.scoring import evaluate
+        s = evaluate(sequence)
+        sc = {
+            "overall": float(getattr(s, "overall", 0.0)),
+            "confidence": float(getattr(s, "confidence", 0.0)),
+            "summary": getattr(s, "summary", ""),
+        }
+        try:
+            node = record_step(
+                project_id, "evaluate", {"sequence": sequence},
+                {"sequence": sequence, "score": sc["overall"]},
+                score=sc["overall"],
+            )
+            prov_ids.append(node.id)
+        except Exception:
+            pass
+        return sc
+    result["score"] = _safe_step("evaluate", 0.05, _s1)
+
+    # 2. Fold with ESMFold
+    def _s2():
+        from opendna.engines.folding import fold as fold_fn
+        fr = fold_fn(sequence, method="esmfold",
+                     on_progress=lambda s, f: on_progress("fold", 0.08 + 0.17 * f, s))
+        pdb = getattr(fr, "pdb_string", None) or getattr(getattr(fr, "structure", None), "pdb_string", None) or str(fr)
+        try:
+            parent = prov_ids[-1:] if prov_ids else None
+            node = record_step(
+                project_id, "fold", {"sequence": sequence},
+                {"sequence": sequence, "pdb": "<pdb>"},
+                parent_ids=parent,
+            )
+            prov_ids.append(node.id)
+        except Exception:
+            pass
+        return pdb
+    result["pdb"] = _safe_step("fold", 0.08, _s2)
+
+    # 3. Analyze (50+ sequence/structure metrics)
+    def _s3():
+        from opendna.engines.analysis import compute_properties
+        props = compute_properties(sequence)
+        metrics: Dict[str, Any] = {}
+        for k in dir(props):
+            if k.startswith("_"):
+                continue
+            v = getattr(props, k, None)
+            if isinstance(v, (int, float, str, list, dict)):
+                metrics[k] = v
+        return metrics
+    result["analysis"] = _safe_step("analyze", 0.28, _s3)
+
+    # 4. Design 10 candidate variants
+    def _s4():
+        if not result.get("pdb"):
+            return []
+        from opendna.engines.design import design as design_fn, DesignConstraints
+        dr = design_fn(
+            result["pdb"],
+            constraints=DesignConstraints(num_candidates=10),
+            on_progress=lambda s, f: on_progress("design", 0.32 + 0.28 * f, s),
+        )
+        cands = []
+        for c in getattr(dr, "candidates", [])[:10]:
+            cands.append({
+                "rank": int(getattr(c, "rank", 0)),
+                "sequence": str(getattr(c, "sequence", "")),
+                "score": float(getattr(c, "score", 0.0)),
+                "recovery": float(getattr(c, "recovery", 0.0)),
+            })
+        return cands
+    candidates = _safe_step("design", 0.32, _s4) or []
+
+    # 5. Score each candidate and keep top 3 by overall score
+    def _s5():
+        from opendna.engines.scoring import evaluate
+        scored = []
+        for c in candidates:
+            try:
+                s = evaluate(c["sequence"])
+                overall = float(getattr(s, "overall", 0.0))
+            except Exception:
+                overall = c.get("score", 0.0)
+            scored.append({**c, "overall_score": overall})
+        scored.sort(key=lambda x: x.get("overall_score", 0.0), reverse=True)
+        top3 = scored[:3]
+        try:
+            parent = prov_ids[-1:] if prov_ids else None
+            for i, c in enumerate(top3):
+                node = record_step(
+                    project_id, "design",
+                    {"parent_sequence": sequence},
+                    {"sequence": c["sequence"], "rank": i + 1},
+                    score=c.get("overall_score", 0.0),
+                    parent_ids=parent,
+                )
+                prov_ids.append(node.id)
+        except Exception:
+            pass
+        return top3
+    result["top_candidates"] = _safe_step("score_candidates", 0.62, _s5) or []
+
+    # 6. Quick MD stability on the top 1 (100 ps implicit solvent)
+    def _s6():
+        if not result.get("top_candidates") or not result.get("pdb"):
+            return None
+        from opendna.engines.dynamics import quick_md
+        md = quick_md(
+            result["pdb"],
+            duration_ps=100,
+            on_progress=lambda s, f: on_progress("md", 0.70 + 0.15 * f, s),
+        )
+        # Normalise into a small JSON-safe dict
+        summary: Dict[str, Any] = {"duration_ps": 100, "solvent": "implicit"}
+        for k in ("rmsd", "rmsf", "radius_of_gyration", "final_energy", "stable"):
+            v = getattr(md, k, None)
+            if isinstance(v, (int, float, str, bool)):
+                summary[k] = v
+        if isinstance(md, dict):
+            summary.update({k: v for k, v in md.items() if isinstance(v, (int, float, str, bool))})
+        return summary
+    result["md_summary"] = _safe_step("md", 0.70, _s6)
+
+    # 7. Synthesis cost estimate
+    def _s7():
+        from opendna.data.synthesis import estimate_synthesis_cost
+        best_seq = (result["top_candidates"][0]["sequence"]
+                    if result["top_candidates"] else sequence)
+        c = estimate_synthesis_cost(best_seq)
+        return {
+            "sequence_length": c.sequence_length,
+            "twist": c.twist_bioscience_usd,
+            "idt": c.idt_usd,
+            "genscript": c.genscript_usd,
+            "cheapest_vendor": c.cheapest_vendor,
+            "cheapest_price": c.cheapest_price,
+            "notes": c.notes,
+        }
+    result["cost"] = _safe_step("cost", 0.88, _s7)
+
+    # 8. LLM summary
+    def _s8():
+        from opendna.llm.agent import simple_chat
+        score = result.get("score") or {}
+        cost = result.get("cost") or {}
+        top = result.get("top_candidates") or []
+        md = result.get("md_summary") or {}
+        prompt = (
+            "Summarize these results in 3 bullet points for a researcher.\n"
+            f"- Input sequence length: {len(sequence)} aa\n"
+            f"- Overall quality score: {score.get('overall')} (confidence {score.get('confidence')})\n"
+            f"- Top designed candidate score: {top[0]['overall_score'] if top else 'n/a'}\n"
+            f"- MD stability (100 ps implicit solvent): {md}\n"
+            f"- Cheapest synthesis: {cost.get('cheapest_vendor')} at ${cost.get('cheapest_price')}\n"
+        )
+        try:
+            resp = simple_chat(prompt)
+            return resp.get("text") or str(resp)
+        except Exception as e:
+            return f"(LLM unavailable: {e})"
+    result["llm_summary"] = _safe_step("llm_summary", 0.94, _s8)
+
+    # Persist provenance + notebook entry
+    result["provenance_node_ids"] = prov_ids
+    try:
+        nb = get_notebook(project_id)
+        body = (
+            f"# Feeling Lucky run\n\n"
+            f"**Input:** `{sequence[:80]}{'...' if len(sequence) > 80 else ''}` "
+            f"({len(sequence)} aa)\n\n"
+            f"**Quality score:** {(result.get('score') or {}).get('overall')}\n\n"
+            f"**Top candidates:** {len(result.get('top_candidates') or [])}\n\n"
+            f"**LLM summary:**\n\n{result.get('llm_summary') or ''}\n"
+        )
+        entry = nb.add_entry(
+            title=f"Feeling Lucky: {sequence[:24]}",
+            body_md=body,
+            tags=["feeling_lucky", "auto"],
+            prov_node_ids=prov_ids,
+            author=user_id,
+        )
+        result["notebook_entry_id"] = entry.id
+    except Exception as e:
+        result["errors"]["notebook"] = str(e)
+
+    on_progress("done", 1.0, "Lucky pipeline complete")
+    return result
+
+
+@app.post("/v1/feeling_lucky")
+async def feeling_lucky(body: _FeelingLuckyBody):
+    """One-button pipeline: evaluate -> fold -> analyze -> design -> score ->
+    MD -> cost -> LLM summary, saved to provenance + notebook.
+
+    Returns a job_id immediately; clients should stream progress via
+    ``/v1/ws/jobs/{job_id}`` (same as other queue jobs) and read the rich
+    result object from the final ``finished`` event (``job.result``).
+    """
+    sequence = (body.sequence or "").strip().upper()
+    if not sequence:
+        raise HTTPException(status_code=400, detail="sequence is required")
+    from opendna.runtime import get_queue
+    q = get_queue()
+    await q.start()
+    job_id = await q.submit(
+        _feeling_lucky_pipeline,
+        priority=0,
+        job_type="feeling_lucky",
+        kwargs={"sequence": sequence, "user_id": body.user_id},
+        user_id=body.user_id,
+    )
+    return {"job_id": job_id}
+
+
+# =============================================================================
+# Project templates (pre-built starter projects)
+# =============================================================================
+
+class _TemplateInstantiateBody(BaseModel):
+    user_id: str
+    project_id: str
+
+
+@app.get("/v1/templates")
+def templates_list():
+    from opendna.templates import list_templates
+    return {"templates": list_templates()}
+
+
+@app.get("/v1/templates/{template_id}")
+def templates_get(template_id: str):
+    from opendna.templates import get_template
+    t = get_template(template_id)
+    if t is None:
+        raise HTTPException(status_code=404, detail=f"unknown template: {template_id}")
+    return t
+
+
+@app.post("/v1/templates/{template_id}/instantiate")
+def templates_instantiate(template_id: str, body: _TemplateInstantiateBody):
+    from opendna.templates import instantiate_template
+    try:
+        return instantiate_template(template_id, body.user_id, body.project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/v1/foldseek/search")
+def foldseek_search_endpoint(body: dict):
+    from opendna.external.foldseek import foldseek_search
+    pdb = body.get("pdb_string") or ""
+    db = body.get("database") or "afdb"
+    return foldseek_search(pdb, db)
+
+
+@app.post("/v1/antibody/number")
+def antibody_number_endpoint(body: dict):
+    from opendna.engines.antibody_design import number_antibody
+    return number_antibody(body.get("sequence") or "", body.get("scheme") or "kabat")
+
+
+@app.post("/v1/antibody/humanize")
+def antibody_humanize_endpoint(body: dict):
+    from opendna.engines.antibody_design import humanize
+    return humanize(body.get("sequence") or "", body.get("target_germline") or "IGHV1-46")
+
+
+@app.post("/v1/antibody/immunogenicity")
+def antibody_immunogenicity_endpoint(body: dict):
+    from opendna.engines.antibody_design import immunogenicity_delta
+    delta = immunogenicity_delta(body.get("parent") or "", body.get("humanized") or "")
+    return {
+        "delta": delta,
+        "interpretation": "positive = humanized has fewer immunogenic motifs",
+    }
+
+
+@app.post("/v1/plasmid/generate")
+def plasmid_generate_endpoint(body: dict):
+    from opendna.engines.plasmid import generate_plasmid
+    return generate_plasmid(
+        body.get("protein_sequence") or "",
+        body.get("vector") or "pET28a",
+        body.get("tag") or "His6",
+        body.get("promoter") or "T7",
+    )
 
 
 def start_server(host: str = "127.0.0.1", port: int = 8765):

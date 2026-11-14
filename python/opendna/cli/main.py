@@ -278,6 +278,30 @@ def models_list():
     console.print(table)
 
 
+@app.command()
+def watch(
+    directory: Path = typer.Argument(..., help="Directory to monitor for new FASTA files"),
+    process_existing: bool = typer.Option(
+        False, "--existing/--no-existing", help="Also process files already in the directory"
+    ),
+):
+    """Watch a directory and auto-score + fold any new .fasta/.fa files."""
+    from opendna.cli.watch import watch_directory
+
+    try:
+        watch_directory(
+            directory,
+            process_existing=process_existing,
+            log=lambda msg: console.print(msg),
+        )
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    except NotADirectoryError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+
 def main():
     app()
 

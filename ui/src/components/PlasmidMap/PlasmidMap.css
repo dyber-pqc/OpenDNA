@@ -1,0 +1,45 @@
+.pm-modal {
+  background: var(--panel-bg, #1a1a1a);
+  color: var(--text, #e8e8e8);
+  border-radius: 10px;
+  padding: 18px 20px;
+  min-width: 560px;
+  max-width: 760px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+.pm-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.pm-header h3 { margin: 0; }
+.pm-controls { margin-bottom: 14px; }
+.pm-label { display: block; font-size: 12px; color: #999; margin: 6px 0 4px; }
+.pm-textarea {
+  width: 100%; box-sizing: border-box;
+  background: #0d0d0d; color: #cfe; border: 1px solid #333;
+  border-radius: 6px; padding: 8px; font-family: monospace; font-size: 12px;
+  resize: vertical;
+}
+.pm-row { display: flex; gap: 12px; align-items: flex-end; margin-top: 8px; }
+.pm-select {
+  background: #0d0d0d; color: #e8e8e8; border: 1px solid #333;
+  padding: 6px 10px; border-radius: 6px; font-size: 13px;
+}
+.pm-run {
+  background: #4af; color: #000; border: none; border-radius: 6px;
+  padding: 8px 16px; font-weight: 600; cursor: pointer;
+}
+.pm-run:disabled { background: #555; cursor: not-allowed; }
+.pm-meta { font-size: 12px; color: #aaa; margin: 10px 0; display: flex; align-items: center; gap: 12px; }
+.pm-download {
+  background: #333; color: #eee; border: 1px solid #555;
+  padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-left: auto;
+}
+.pm-download:hover { background: #444; }
+.pm-mapwrap { position: relative; display: flex; justify-content: center; margin-top: 10px; }
+.pm-tooltip {
+  position: absolute; top: 10px; right: 10px;
+  background: #0b0b0b; border: 1px solid #444; padding: 8px 12px; border-radius: 6px;
+  font-size: 11px; color: #ddd; font-family: monospace; pointer-events: none;
+  min-width: 140px;
+}
+.pm-error { background: #3a0a0a; color: #f88; padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 12px; }

@@ -174,3 +174,82 @@ def test_compliance_sbom_and_privacy():
     assert "auth_db" in rep["areas"]
     assert len(hipaa_checklist()) >= 5
     assert len(gdpr_checklist()) >= 5
+
+
+def test_casp_benchmark_importable():
+    from opendna.benchmarks.casp import (
+        CASP_TARGETS,
+        run_casp_benchmark,
+        generate_leaderboard_md,
+    )
+    assert callable(run_casp_benchmark)
+    assert isinstance(CASP_TARGETS, dict)
+    assert len(CASP_TARGETS) >= 5
+    for tid, t in CASP_TARGETS.items():
+        assert t["target_id"] == tid
+        assert "sequence" in t and len(t["sequence"]) > 0
+        assert "reference_tm_score" in t
+        assert "reference_source" in t
+    md = generate_leaderboard_md()
+    assert isinstance(md, str)
+    assert "CASP15" in md
+
+
+def test_cascade_fallback():
+    """fold_cascade must return a well-formed dict even with no ML models installed."""
+    from opendna.engines.cascade import fold_cascade
+    seq = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ"
+    result = fold_cascade(seq, target_confidence=70)
+    assert isinstance(result, dict)
+    assert "tier_used" in result
+    assert "tiers_attempted" in result
+    assert "confidence" in result
+    assert "reason" in result
+    assert isinstance(result["tiers_attempted"], list)
+    assert len(result["tiers_attempted"]) >= 1
+    assert result["tier_used"] in {"chou_fasman", "esmfold", "colabfold", "boltz"}
+    # Chou-Fasman tier 0 always runs; verify the ss string length matches sequence
+    ss = result.get("secondary_structure")
+    assert ss is not None
+    assert len(ss["ss"]) == len(seq)
+
+
+def test_cloud_burst_no_credentials(monkeypatch):
+    monkeypatch.delenv("VAST_API_KEY", raising=False)
+    # Point HOME to a tmp dir so no existing cloud.json interferes.
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    monkeypatch.setenv("HOME", tmp)
+    monkeypatch.setenv("USERPROFILE", tmp)
+    from opendna.cloud import burst_job
+    out = burst_job("fold", {"seq": "MKT"}, "vast")
+    assert out["status"] == "no_credentials"
+    assert out["provider"] == "vast"
+    assert "message" in out
+
+
+def test_telemetry_opt_in(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.delenv("OPENDNA_TELEMETRY_CONSENT", raising=False)
+    # Force reimport so Path.home() picks up the new HOME.
+    import importlib, opendna.telemetry as tel
+    importlib.reload(tel)
+    log = tmp_path / ".opendna" / "telemetry.jsonl"
+    tel.record_event("ping", {"x": 1})
+    assert not log.exists()
+    monkeypatch.setenv("OPENDNA_TELEMETRY_CONSENT", "1")
+    importlib.reload(tel)
+    assert tel.record_event("ping", {"x": 2}) is True
+    assert log.exists()
+    assert log.stat().st_size > 0
+
+
+def test_deterministic_seed():
+    from opendna.reliability.determinism import set_global_seed
+    import random
+    set_global_seed(123)
+    a = [random.random() for _ in range(5)]
+    set_global_seed(123)
+    b = [random.random() for _ in range(5)]
+    assert a == b

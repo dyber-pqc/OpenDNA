@@ -1,0 +1,15 @@
+# Per-IP rate limit: 60 requests/minute.
+#
+# Requires the caddy-ratelimit module (github.com/mholt/caddy-ratelimit).
+# Build Caddy with xcaddy if your base image doesn't include it:
+#   xcaddy build --with github.com/mholt/caddy-ratelimit
+#
+# Adjust `window` / `max_events` for your demo budget.
+
+rate_limit {
+    zone per_ip {
+        key {remote_host}
+        events 60
+        window 1m
+    }
+}

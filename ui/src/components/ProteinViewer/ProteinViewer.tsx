@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import ExplainButton from "../ExplainButton/ExplainButton";
+import PresentationMode from "../PresentationMode/PresentationMode";
+import * as api from "../../api/client";
 import "./ProteinViewer.css";
 
 interface ScoreData {
@@ -23,7 +26,31 @@ interface ProteinViewerProps {
   designResults?: DesignCandidate[] | null;
   onUseCandidate?: (sequence: string) => void;
   onCloseDesign?: () => void;
+  trajectoryFrames?: string[];
+  currentFrame?: number;
+  onMutate?: (chain: string, position: number, newAA: string, oldAA: string) => void;
 }
+
+// 3-letter to 1-letter amino acid mapping for residues from Molstar
+const THREE_TO_ONE: Record<string, string> = {
+  ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C",
+  GLU: "E", GLN: "Q", GLY: "G", HIS: "H", ILE: "I",
+  LEU: "L", LYS: "K", MET: "M", PHE: "F", PRO: "P",
+  SER: "S", THR: "T", TRP: "W", TYR: "Y", VAL: "V",
+};
+
+const AA_LIST: { code: string; name: string }[] = [
+  { code: "A", name: "Alanine" }, { code: "R", name: "Arginine" },
+  { code: "N", name: "Asparagine" }, { code: "D", name: "Aspartate" },
+  { code: "C", name: "Cysteine" }, { code: "E", name: "Glutamate" },
+  { code: "Q", name: "Glutamine" }, { code: "G", name: "Glycine" },
+  { code: "H", name: "Histidine" }, { code: "I", name: "Isoleucine" },
+  { code: "L", name: "Leucine" }, { code: "K", name: "Lysine" },
+  { code: "M", name: "Methionine" }, { code: "F", name: "Phenylalanine" },
+  { code: "P", name: "Proline" }, { code: "S", name: "Serine" },
+  { code: "T", name: "Threonine" }, { code: "W", name: "Tryptophan" },
+  { code: "Y", name: "Tyrosine" }, { code: "V", name: "Valine" },
+];
 
 function ProteinViewer({
   pdbData,
@@ -32,7 +59,16 @@ function ProteinViewer({
   designResults,
   onUseCandidate,
   onCloseDesign,
+  onMutate,
+  trajectoryFrames,
+  currentFrame,
 }: ProteinViewerProps) {
+  // When a trajectory is active, swap the displayed frame in for pdbData
+  const hasTraj = !!(trajectoryFrames && trajectoryFrames.length > 0);
+  const frameIdx = hasTraj
+    ? Math.max(0, Math.min((currentFrame ?? 0), (trajectoryFrames!.length - 1)))
+    : 0;
+  // (effectivePdb is inlined into the main rebuild effect as initialPdb.)
   const containerRef = useRef<HTMLDivElement>(null);
   const compareRef = useRef<HTMLDivElement>(null);
   const pluginRef = useRef<any>(null);
@@ -47,10 +83,57 @@ function ProteinViewer({
     x: number;
     y: number;
   } | null>(null);
+  const [presentationOpen, setPresentationOpen] = useState(false);
+  const [foldseekOpen, setFoldseekOpen] = useState(false);
+  const [foldseekBusy, setFoldseekBusy] = useState(false);
+  const [foldseekResult, setFoldseekResult] = useState<api.FoldseekResult | null>(null);
+
+  const runFoldseek = async () => {
+    if (!pdbData) return;
+    setFoldseekOpen(true);
+    setFoldseekBusy(true);
+    setFoldseekResult(null);
+    try {
+      const r = await api.foldseekSearch(pdbData, "afdb");
+      setFoldseekResult(r);
+    } catch (e: any) {
+      setFoldseekResult({ error: e.message || String(e), hits: [] });
+    } finally {
+      setFoldseekBusy(false);
+    }
+  };
+
+  const loadFoldseekHit = async (targetId: string) => {
+    // Heuristic: AFDB ids like AF-P12345-F1 → fetch from AlphaFold DB
+    const m = targetId.match(/AF[-_]([A-Z0-9]+)/i);
+    if (m) {
+      const acc = m[1];
+      try {
+        const resp = await fetch(`https://alphafold.ebi.ac.uk/files/AF-${acc}-F1-model_v4.pdb`);
+        if (resp.ok) {
+          const pdb = await resp.text();
+          const blob = new Blob([pdb], { type: "chemical/x-pdb" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${targetId}.pdb`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } catch {/* ignore */}
+    }
+  };
+
+  // Baseline used for the full-rebuild effect. When a trajectory is active, we
+  // key off the *first* frame so scrubbing doesn't retrigger a full plugin
+  // teardown — the in-place swap effect below handles frame changes.
+  const rebuildKey = hasTraj ? (trajectoryFrames![0] || "") : pdbData;
 
   useEffect(() => {
-    if (!pdbData || !containerRef.current) return;
+    const initialPdb = hasTraj ? (trajectoryFrames![frameIdx] || trajectoryFrames![0]) : pdbData;
+    if (!initialPdb || !containerRef.current) return;
     let cancelled = false;
+    const pdbDataLocal = initialPdb;
 
     (async () => {
       try {
@@ -99,9 +182,9 @@ function ProteinViewer({
 
         // For confidence coloring, transform pLDDT (stored in B-factor as 0-1 fraction)
         // into proper AlphaFold pLDDT scale (0-100) so Molstar's plddt-confidence theme works.
-        let pdbForViewer = pdbData;
+        let pdbForViewer = pdbDataLocal;
         if (colorMode === "confidence") {
-          pdbForViewer = pdbData
+          pdbForViewer = pdbDataLocal
             .split("\n")
             .map((line) => {
               if ((line.startsWith("ATOM") || line.startsWith("HETATM")) && line.length >= 66) {
@@ -274,7 +357,7 @@ function ProteinViewer({
         }
 
         // Stats
-        const lines = pdbData.split("\n");
+        const lines = pdbDataLocal.split("\n");
         const atomLines = lines.filter(
           (l) => l.startsWith("ATOM") || l.startsWith("HETATM")
         );
@@ -296,7 +379,70 @@ function ProteinViewer({
         pluginRef.current = null;
       }
     };
-  }, [pdbData, repMode]);
+  }, [rebuildKey, repMode]);
+
+  // In-place frame swap for trajectory scrubbing: replace the current structure's
+  // data without tearing down the plugin, so playback is smooth.
+  useEffect(() => {
+    if (!hasTraj) return;
+    const plugin = pluginRef.current;
+    if (!plugin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const frame = trajectoryFrames![frameIdx];
+        if (!frame) return;
+
+        let pdbForViewer = frame;
+        if (colorMode === "confidence") {
+          pdbForViewer = frame
+            .split("\n")
+            .map((line) => {
+              if ((line.startsWith("ATOM") || line.startsWith("HETATM")) && line.length >= 66) {
+                const bfStr = line.substring(60, 66);
+                const bf = parseFloat(bfStr.trim());
+                if (!isNaN(bf) && bf <= 1.0) {
+                  const scaled = (bf * 100).toFixed(2).padStart(6);
+                  return line.substring(0, 60) + scaled + line.substring(66);
+                }
+              }
+              return line;
+            })
+            .join("\n");
+        }
+
+        await plugin.clear();
+        if (cancelled) return;
+        const data = await plugin.builders.data.rawData({
+          data: pdbForViewer,
+          label: `Trajectory frame ${frameIdx + 1}`,
+        });
+        if (cancelled) return;
+        const traj = await plugin.builders.structure.parseTrajectory(data, "pdb");
+        if (cancelled) return;
+
+        const colorTheme = colorMode === "confidence" ? "plddt-confidence" : "chain-id";
+        try {
+          await plugin.builders.structure.hierarchy.applyPreset(traj, "default", {
+            representationPresetParams: {
+              theme: { globalName: colorTheme, focus: { name: colorTheme } },
+            },
+          } as any);
+        } catch {
+          await plugin.builders.structure.hierarchy.applyPreset(traj, "default");
+        }
+      } catch (e) {
+        console.debug("trajectory frame swap failed:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally exclude trajectoryFrames identity from deps — we only want
+    // frame index + color changes to drive the in-place swap. A full trajectory
+    // swap-out is handled by rebuildKey in the main effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasTraj, frameIdx, colorMode]);
 
   // Dedicated effect: when only colorMode changes, re-theme in place without
   // tearing down the plugin. This is what actually drives live color switches.
@@ -392,7 +538,18 @@ function ProteinViewer({
               <div className="score-label">/ 100</div>
             </div>
             <div className="score-summary">
-              <h2>Protein Evaluation</h2>
+              <h2>
+                Protein Evaluation{" "}
+                <ExplainButton
+                  context={`Overall score: ${Math.round(score.overall * 100)}/100. Summary: ${score.summary}. Breakdown: ${Object.entries(
+                    score.breakdown
+                  )
+                    .map(([k, v]) => `${k}=${(v * 100).toFixed(0)}`)
+                    .join(", ")}. Recommendations: ${(score.recommendations || []).join("; ")}.`}
+                  prompt="Explain this protein score breakdown in plain language:"
+                  title="Explain this score"
+                />
+              </h2>
               <p>{score.summary}</p>
             </div>
           </div>
@@ -496,6 +653,11 @@ function ProteinViewer({
             >
               Chain
             </button>
+            <ExplainButton
+              context={`3D protein structure currently displayed. Coloring: ${colorMode === "confidence" ? "pLDDT confidence" : "per-chain"}. Stats: ${stats?.atoms ?? "?"} atoms, ${stats?.residues ?? "?"} residues. Representation: ${repMode}.`}
+              prompt="Explain this structure's confidence/coloring and what it tells us about the model:"
+              title="Explain confidence & coloring"
+            />
           </div>
           <div className="vc-group">
             <span className="vc-label">Style:</span>
@@ -528,21 +690,141 @@ function ProteinViewer({
               Surface
             </button>
           </div>
+          {pdbData && (
+            <div className="vc-group">
+              <button
+                className="vc-btn"
+                onClick={runFoldseek}
+                title="Search Foldseek for structural neighbors"
+              >
+                🔎 Foldseek
+              </button>
+              <button
+                className="vc-btn"
+                onClick={() => setPresentationOpen(true)}
+                title="Open presentation mode"
+              >
+                🎬 Present
+              </button>
+            </div>
+          )}
         </div>
 
-        {hoverInfo && (
-          <div className="residue-popup" style={{ left: hoverInfo.x, top: hoverInfo.y }}>
-            <div className="rp-row">
-              <strong>{hoverInfo.residue}{hoverInfo.residueNum}</strong>
-              <span className="rp-chain">Chain {hoverInfo.chain}</span>
-              <button
-                className="rp-close"
-                onClick={() => setHoverInfo(null)}
-                title="Close"
-              >×</button>
+        {presentationOpen && (
+          <PresentationMode
+            pdb_string={hasTraj ? trajectoryFrames![frameIdx] : pdbData}
+            trajectoryFrames={hasTraj ? trajectoryFrames : undefined}
+            onClose={() => setPresentationOpen(false)}
+          />
+        )}
+
+        {foldseekOpen && (
+          <div className="modal-backdrop" onClick={() => setFoldseekOpen(false)}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "var(--panel-bg, #1a1a1a)",
+                color: "#e8e8e8",
+                padding: 18,
+                borderRadius: 10,
+                minWidth: 520,
+                maxWidth: 720,
+                maxHeight: "85vh",
+                overflowY: "auto",
+                boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <h3 style={{ margin: 0 }}>Foldseek: Structural Neighbors</h3>
+                <button className="header-btn small" onClick={() => setFoldseekOpen(false)}>Close</button>
+              </div>
+              {foldseekBusy && <div style={{ color: "#aaa", padding: "8px 0" }}>Searching Foldseek (this may take up to ~90s)...</div>}
+              {foldseekResult?.error && <div style={{ background: "#3a0a0a", color: "#f88", padding: 8, borderRadius: 4 }}>{foldseekResult.error}</div>}
+              {foldseekResult && !foldseekResult.error && foldseekResult.hits.length === 0 && !foldseekBusy && (
+                <div style={{ color: "#888" }}>No hits returned.</div>
+              )}
+              {foldseekResult && foldseekResult.hits.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+                    Top {Math.min(20, foldseekResult.hits.length)} of {foldseekResult.hits.length} hits
+                    {foldseekResult.database && ` in ${foldseekResult.database}`}
+                  </div>
+                  <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ color: "#888", textAlign: "left", borderBottom: "1px solid #333" }}>
+                        <th style={{ padding: 4 }}>Target</th>
+                        <th style={{ padding: 4 }}>E-value</th>
+                        <th style={{ padding: 4 }}>Score</th>
+                        <th style={{ padding: 4 }}>Len</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {foldseekResult.hits.slice(0, 20).map((h, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #222" }}>
+                          <td style={{ padding: 4, fontFamily: "monospace" }}>{h.target_id}</td>
+                          <td style={{ padding: 4 }}>{h.evalue.toExponential(1)}</td>
+                          <td style={{ padding: 4 }}>{h.score.toFixed(1)}</td>
+                          <td style={{ padding: 4 }}>{h.length}</td>
+                          <td style={{ padding: 4 }}>
+                            <button
+                              className="vc-btn"
+                              style={{ fontSize: 10 }}
+                              onClick={() => loadFoldseekHit(h.target_id)}
+                            >
+                              Load
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
+
+        {hoverInfo && (() => {
+          const oldAA = THREE_TO_ONE[hoverInfo.residue.toUpperCase()] || "X";
+          return (
+            <div className="residue-popup" style={{ left: hoverInfo.x, top: hoverInfo.y }}>
+              <div className="rp-row">
+                <strong>{hoverInfo.residue}{hoverInfo.residueNum} ({oldAA})</strong>
+                <span className="rp-chain">Chain {hoverInfo.chain}</span>
+                <ExplainButton
+                  context={`Residue ${hoverInfo.residue}${hoverInfo.residueNum} (${oldAA}) on chain ${hoverInfo.chain} of the currently displayed protein.`}
+                  prompt="Explain what this residue typically does (chemistry, common roles in proteins, notable features):"
+                  title="Explain this residue"
+                />
+                <button
+                  className="rp-close"
+                  onClick={() => setHoverInfo(null)}
+                  title="Close"
+                >×</button>
+              </div>
+              {onMutate && oldAA !== "X" && (
+                <div className="rp-mutate">
+                  <div className="rp-mutate-label">Mutate to...</div>
+                  <div className="rp-aa-grid">
+                    {AA_LIST.map((aa) => (
+                      <button
+                        key={aa.code}
+                        className={`rp-aa-btn ${aa.code === oldAA ? "current" : ""}`}
+                        disabled={aa.code === oldAA}
+                        title={`${aa.name} (${aa.code})`}
+                        onClick={() => {
+                          onMutate(hoverInfo.chain, hoverInfo.residueNum, aa.code, oldAA);
+                          setHoverInfo(null);
+                        }}
+                      >{aa.code}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     );
   }

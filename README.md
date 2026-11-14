@@ -208,8 +208,12 @@ Everything under [docs/](docs/):
 - [DEVELOPER.md](docs/DEVELOPER.md) — contributing and extending
 - [ROADMAP.md](docs/ROADMAP.md) — what's next
 - [CHANGELOG.md](docs/CHANGELOG.md) — every release
-- [MODEL_CARD.md](MODEL_CARD.md) — Mitchell-et-al. cards for ESMFold / ESM-IF1 / ESM-2
-- [paper/preprint.md](paper/preprint.md) — bioRxiv-ready writeup
+- [MODEL_CARD.md](MODEL_CARD.md) — legacy Mitchell-et-al. cards for ESMFold / ESM-IF1 / ESM-2
+- [docs/MODEL_CARDS.md](docs/MODEL_CARDS.md) — v0.5.0 full model cards for every registry component
+- [docs/BENCHMARKS.md](docs/BENCHMARKS.md) — CASP15 benchmark suite and leaderboard
+- [paper/preprint_v050.md](paper/preprint_v050.md) — v0.5.0 preprint manuscript
+- [paper/references.bib](paper/references.bib) — machine-readable bibliography
+- [paper/preprint.md](paper/preprint.md) — earlier bioRxiv-ready writeup
 - [paper/BENCHMARKS.md](paper/BENCHMARKS.md) — reproducibility methodology
 
 ---

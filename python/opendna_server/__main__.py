@@ -11,6 +11,13 @@ from __future__ import annotations
 import os
 import sys
 
+# Deterministic seeding at process start.
+try:
+    from opendna.reliability.determinism import set_global_seed
+    set_global_seed(int(os.environ.get("OPENDNA_RANDOM_SEED", "42")))
+except Exception:
+    pass
+
 
 def main():
     # Allow port/host override via env var or CLI arg

@@ -134,6 +134,23 @@ async function get<T>(path: string): Promise<T> {
 export const fold = (sequence: string) =>
   post<{ job_id: string }>("/v1/fold", { sequence });
 
+export interface FoldCascadeResult {
+  tier_used: string;
+  pdb: string | null;
+  confidence: number;
+  tiers_attempted: string[];
+  reason: string;
+  secondary_structure?: {
+    ss: string;
+    helix_frac: number;
+    sheet_frac: number;
+    coil_frac: number;
+  };
+}
+
+export const foldCascade = (sequence: string, target_confidence = 70) =>
+  post<FoldCascadeResult>("/v1/fold/cascade", { sequence, target_confidence });
+
 export const evaluate = (sequence: string) =>
   post<ScoreData>("/v1/evaluate", { sequence });
 
@@ -354,6 +371,16 @@ export const getJob = (jobId: string) =>
 export const listJobs = () => get<{ jobs: any[] }>("/v1/jobs");
 
 export const getHardware = () => get<any>("/v1/hardware");
+
+export const getProteinOfTheDay = () => get<{
+  name: string;
+  uniprot_id: string;
+  sequence: string;
+  description: string;
+  fun_fact: string;
+  category: string;
+  year_discovered: number;
+}>("/v1/protein_of_the_day");
 
 export const mutate_ = mutate;
 
@@ -588,6 +615,54 @@ export const academyAnswer = (user_id: string, sequence: string) =>
   post<any>("/v1/academy/daily/answer", { user_id, sequence });
 export const academyLeaderboard = (limit = 20) =>
   get<{ leaderboard: any[] }>(`/v1/academy/leaderboard?limit=${limit}`);
+
+// ========== Foldseek / antibody / plasmid ==========
+export interface FoldseekHit {
+  target_id: string;
+  evalue: number;
+  score: number;
+  length: number;
+  alignment: any;
+}
+export interface FoldseekResult {
+  ticket_id?: string;
+  database?: string;
+  error?: string;
+  hits: FoldseekHit[];
+}
+export const foldseekSearch = (pdb_string: string, database = "afdb") =>
+  post<FoldseekResult>("/v1/foldseek/search", { pdb_string, database });
+
+export const antibodyNumber = (sequence: string, scheme = "kabat") =>
+  post<any>("/v1/antibody/number", { sequence, scheme });
+export const antibodyHumanize = (sequence: string, target_germline = "IGHV1-46") =>
+  post<any>("/v1/antibody/humanize", { sequence, target_germline });
+export const antibodyImmunogenicity = (parent: string, humanized: string) =>
+  post<any>("/v1/antibody/immunogenicity", { parent, humanized });
+
+export interface PlasmidFeature {
+  name: string;
+  type: string;
+  start: number;
+  end: number;
+  strand: number;
+}
+export interface PlasmidResult {
+  vector: string;
+  tag: string;
+  promoter: string;
+  length: number;
+  dna_sequence: string;
+  features: PlasmidFeature[];
+  genbank: string;
+  error?: string;
+}
+export const plasmidGenerate = (
+  protein_sequence: string,
+  vector = "pET28a",
+  tag = "His6",
+  promoter = "T7",
+) => post<PlasmidResult>("/v1/plasmid/generate", { protein_sequence, vector, tag, promoter });
 
 
 

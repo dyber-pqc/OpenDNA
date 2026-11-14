@@ -1,0 +1,38 @@
+# OpenDNA public web demo Caddy config.
+#
+# Automatic HTTPS via Let's Encrypt. Point opendna.org DNS A/AAAA at this
+# host before bringing Caddy up.
+
+{
+    # Global options
+    email admin@opendna.org
+    # Uncomment for staging certs while testing:
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+    order rate_limit before reverse_proxy
+}
+
+opendna.org, www.opendna.org {
+    encode zstd gzip
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Rate limit (see rate_limit.caddy for the policy block)
+    import /etc/caddy/rate_limit.caddy
+
+    reverse_proxy opendna:8765 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        transport http {
+            read_timeout 600s
+            write_timeout 600s
+        }
+    }
+}

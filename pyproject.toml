@@ -57,6 +57,11 @@ md = [
     "openmm>=8.0",
 ]
 
+# Directory watcher mode (opendna watch <dir>)
+watch = [
+    "watchdog>=3.0",
+]
+
 # Optional docking support (DiffDock - install separately)
 docking = []
 

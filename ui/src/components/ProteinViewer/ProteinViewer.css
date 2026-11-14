@@ -95,8 +95,9 @@
   border-radius: 6px;
   padding: 8px 12px;
   font-size: 12px;
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 100;
+  min-width: 220px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   transform: translate(10px, -100%);
 }
@@ -123,6 +124,57 @@
   margin-left: 4px;
 }
 .rp-close:hover { color: var(--text-primary); }
+
+.rp-explain {
+  background: rgba(120, 80, 200, 0.25);
+  border: 1px solid rgba(160, 120, 240, 0.5);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+.rp-explain:hover { background: rgba(160, 120, 240, 0.4); }
+
+.rp-mutate {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+.rp-mutate-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+.rp-aa-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+}
+.rp-aa-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: bold;
+  padding: 3px 0;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.rp-aa-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+}
+.rp-aa-btn.current,
+.rp-aa-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 .vc-btn {
   background: rgba(0, 0, 0, 0.7);

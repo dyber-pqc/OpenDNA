@@ -7,6 +7,8 @@ import CommandPalette, { type Command } from "./components/CommandPalette/Comman
 import Toasts from "./components/Toasts/Toasts";
 import AnalysisPanel from "./components/AnalysisPanel/AnalysisPanel";
 import Dashboard from "./components/Dashboard/Dashboard";
+import HardwarePanel from "./components/HardwarePanel/HardwarePanel";
+import ProteinOfDayBanner from "./components/ProteinOfDayBanner/ProteinOfDayBanner";
 import Academy from "./components/Academy/Academy";
 import IterativePanel from "./components/IterativePanel/IterativePanel";
 import AgentPanel from "./components/AgentPanel/AgentPanel";
@@ -19,11 +21,42 @@ import OnboardingTour from "./components/Onboarding/OnboardingTour";
 import ProteinSearch from "./components/ProteinSearch/ProteinSearch";
 import AcademyGamesPanel from "./components/Academy/AcademyGamesPanel";
 import ProjectExplorer from "./components/ProjectExplorer/ProjectExplorer";
+import PaperExtractor from "./components/PaperExtractor/PaperExtractor";
+import MutationScanner from "./components/MutationScanner/MutationScanner";
+import TrajectoryPlayer from "./components/TrajectoryPlayer/TrajectoryPlayer";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
+import VRMode from "./components/VRMode/VRMode";
+import AntibodyTools from "./components/AntibodyTools/AntibodyTools";
+import PlasmidMap from "./components/PlasmidMap/PlasmidMap";
+import Competitions from "./components/Competitions/Competitions";
+import Hub from "./components/Hub/Hub";
+import VoiceControl from "./components/VoiceControl/VoiceControl";
+import PaperWriter from "./components/PaperWriter/PaperWriter";
+import FeelingLucky from "./components/FeelingLucky/FeelingLucky";
+import ProjectTemplates from "./components/ProjectTemplates/ProjectTemplates";
 import { useToasts } from "./hooks/useToasts";
 import { useKeyboard } from "./hooks/useKeyboard";
+import { useRecentlyUpdated } from "./hooks/useRecentlyUpdated";
+import { isNightAt, getUserLocation } from "./utils/sunset";
 import * as api from "./api/client";
+import {
+  playDing,
+  playSuccess,
+  playFail,
+  playClick,
+  playWhoosh,
+  getSfxEnabled,
+  setSfxEnabled,
+  SFX_MUTE_HOTKEY,
+} from "./utils/sfx";
 import "./App.css";
+
+type ThemeMode = "light" | "dark" | "auto";
+const THEME_KEY = "opendna.themeMode";
+function loadThemeMode(): ThemeMode {
+  const v = localStorage.getItem(THEME_KEY);
+  return v === "light" || v === "dark" || v === "auto" ? v : "dark";
+}
 
 interface Job {
   id: string;
@@ -50,7 +83,7 @@ interface DesignCandidate {
   recovery: number;
 }
 
-type Overlay = "none" | "analysis" | "dashboard" | "academy" | "agent" | "components" | "workflow" | "collab" | "search" | "ramachandran" | "games";
+type Overlay = "none" | "analysis" | "dashboard" | "academy" | "agent" | "components" | "workflow" | "collab" | "search" | "ramachandran" | "games" | "trajectory" | "scanner" | "paper" | "vr" | "competitions" | "hub" | "voice" | "paper_writer" | "feeling_lucky" | "project_templates" | "antibody" | "plasmid" | "hardware";
 
 const AUTOSAVE_KEY = "opendna.autosave";
 const AUTOSAVE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -66,12 +99,21 @@ function App() {
   const [iterativeResult, setIterativeResult] = useState<any>(null);
   const [costInfo, setCostInfo] = useState<any>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [darkMode, setDarkMode] = useState(true);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode());
+  const [autoIsDark, setAutoIsDark] = useState<boolean>(true);
+  const [xrAvailable, setXrAvailable] = useState<boolean>(
+    typeof navigator !== "undefined" && !!(navigator as any).xr
+  );
+  const darkMode = themeMode === "auto" ? autoIsDark : themeMode === "dark";
   const [currentSequence, setCurrentSequence] = useState<string>("");
   const [overlay, setOverlay] = useState<Overlay>("none");
+  const [trajectoryFrames, setTrajectoryFrames] = useState<string[]>([]);
+  const [currentFrame, setCurrentFrame] = useState<number>(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [showExplorer, setShowExplorer] = useState(false);
   const [xp, setXp] = useState(0);
+  const [sfxEnabled, setSfxEnabledState] = useState<boolean>(() => getSfxEnabled());
+  const scoreGlow = useRecentlyUpdated(score ? `${score.overall}` : null);
   const [showOnboarding, setShowOnboarding] = useState(() => {
     return localStorage.getItem("opendna.onboarded") !== "true";
   });
@@ -103,8 +145,42 @@ function App() {
     };
   }, []);
   const [switchToToolsTrigger, setSwitchToToolsTrigger] = useState(0);
-  const { toasts, addToast, removeToast } = useToasts();
+  const { toasts, addToast: _rawAddToast, removeToast } = useToasts();
+  const addToast = useCallback(
+    (t: any) => {
+      if (t?.kind === "success") playSuccess();
+      else if (t?.kind === "error") playFail();
+      _rawAddToast(t);
+    },
+    [_rawAddToast]
+  );
   const [restorePrompt, setRestorePrompt] = useState<any>(null);
+
+  // SFX: ding on score update, whoosh on overlay open, mute hotkey
+  useEffect(() => {
+    if (score) playDing();
+  }, [score]);
+  useEffect(() => {
+    if (overlay !== "none") playWhoosh();
+  }, [overlay]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === SFX_MUTE_HOTKEY && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        const nv = !getSfxEnabled();
+        setSfxEnabled(nv);
+        setSfxEnabledState(nv);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const toggleSfx = useCallback(() => {
+    const nv = !getSfxEnabled();
+    setSfxEnabled(nv);
+    setSfxEnabledState(nv);
+  }, []);
 
   // === Auto-save state every 30s ===
   useEffect(() => {
@@ -172,6 +248,45 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem(THEME_KEY, themeMode);
+  }, [themeMode]);
+
+  // Auto-theme: fetch location once, then re-evaluate every 5 minutes.
+  useEffect(() => {
+    if (themeMode !== "auto") return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    (async () => {
+      const loc = await getUserLocation();
+      if (cancelled) return;
+      const evaluate = () => setAutoIsDark(isNightAt(loc.lat, loc.lon));
+      evaluate();
+      timer = setInterval(evaluate, 5 * 60 * 1000);
+    })();
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [themeMode]);
+
+  // Detect WebXR once (and listen for late availability).
+  useEffect(() => {
+    const nav: any = navigator;
+    if (!nav.xr) {
+      setXrAvailable(false);
+      return;
+    }
+    if (typeof nav.xr.isSessionSupported === "function") {
+      nav.xr
+        .isSessionSupported("immersive-vr")
+        .then((ok: boolean) => setXrAvailable(ok))
+        .catch(() => setXrAvailable(false));
+    } else {
+      setXrAvailable(true);
+    }
+  }, []);
 
   const activeStructure = structures.find((s) => s.id === activeStructureId);
   const compareStructure = structures.find((s) => s.id === compareStructureId);
@@ -607,7 +722,7 @@ function App() {
       { id: "open-dash", group: "View", label: "Open Dashboard", action: () => setOverlay("dashboard") },
       { id: "open-acad", group: "View", label: "Open Protein Academy", action: () => setOverlay("academy") },
       { id: "open-agent", group: "View", label: "Open AI Agent", action: () => setOverlay("agent") },
-      { id: "theme", group: "View", label: "Toggle dark/light mode", action: () => setDarkMode((d) => !d) },
+      { id: "theme", group: "View", label: "Toggle dark/light mode", action: () => setThemeMode((m) => (m === "light" ? "dark" : m === "dark" ? "auto" : "light")) },
     ],
     [currentSequence, activeStructure]
   );
@@ -664,8 +779,26 @@ function App() {
           <h1 className="logo">OpenDNA</h1>
           <span className="version">v0.2.0-beta</span>
           {xp > 0 && <span className="xp-badge">⭐ {xp} XP</span>}
+          {score && (
+            <span className={`score-badge ${scoreGlow}`}>
+              Score: {(score.overall * 100).toFixed(0)}
+            </span>
+          )}
         </div>
-        <div className="header-right">
+        <div
+          className="header-right"
+          onClick={(e) => {
+            const tgt = e.target as HTMLElement;
+            if (tgt && tgt.closest && tgt.closest(".header-btn")) {
+              playClick();
+              const btn = tgt.closest(".header-btn") as HTMLElement;
+              btn.classList.remove("ma-bounce");
+              // Force reflow to restart the animation
+              void btn.offsetWidth;
+              btn.classList.add("ma-bounce");
+            }
+          }}
+        >
           <button className="header-btn small" onClick={() => setOverlay("search")} title="Search UniProt">🔍 Search</button>
           <button className="header-btn small" onClick={() => setPaletteOpen(true)} title="Command palette (Ctrl+K)">
             ⌘K
@@ -674,11 +807,18 @@ function App() {
             🤖 Agent
           </button>
           <button className="header-btn small" onClick={() => setOverlay("dashboard")}>Dashboard</button>
+          <button className="header-btn small" onClick={() => setOverlay("hardware")} title="Hardware acceleration details">⚡ Hardware</button>
           <button className="header-btn small" onClick={() => setOverlay("academy")}>Academy</button>
           <button className="header-btn small" onClick={() => setOverlay("components")} title="Component Manager">📦 Components</button>
+          <button className="header-btn small" onClick={() => setOverlay("feeling_lucky")} title="I'm Feeling Lucky — one-click full pipeline">🍀 Lucky</button>
+          <button className="header-btn small" onClick={() => setOverlay("project_templates")} title="Start from a project template">📋 Templates</button>
           <button className="header-btn small" onClick={() => setOverlay("workflow")} title="Visual Workflow Editor">🧩 Workflow</button>
           <button className="header-btn small" onClick={() => setOverlay("collab")} title="Real-time co-editing">🤝 Collab</button>
           <button className="header-btn small" onClick={() => setOverlay("games")} title="Academy Mini-games">🎮 Mini-games</button>
+          <button className="header-btn small" onClick={() => setOverlay("paper")} title="Extract proteins from a paper">📄 Paper</button>
+          <button className="header-btn small" onClick={() => setOverlay("antibody")} title="Antibody numbering / humanization">🧪 Antibody</button>
+          <button className="header-btn small" onClick={() => setOverlay("plasmid")} title="Plasmid map generator">🧬 Plasmid</button>
+          <button className="header-btn small" onClick={() => setOverlay("trajectory")} title="Trajectory player">🎞️ Trajectory</button>
           <button className="header-btn small" onClick={() => setShowExplorer(v => !v)} title="Project Explorer">🗂️ Explorer</button>
           <button
             className="header-btn small"
@@ -688,14 +828,48 @@ function App() {
           >
             📐 Ramachandran
           </button>
+          <button
+            className="header-btn small"
+            onClick={() => setOverlay("scanner")}
+            title="Saturation mutagenesis heatmap"
+            disabled={!currentSequence}
+          >
+            🎯 Scanner
+          </button>
           <button className="header-btn small" onClick={handleManualSave} title="Save session to local storage">
             💾 Save
           </button>
           {activeStructure && (
             <button className="header-btn" onClick={handleSavePdb}>Save PDB</button>
           )}
-          <button className="theme-toggle" onClick={() => setDarkMode(!darkMode)}>
-            {darkMode ? "☀" : "☾"}
+          <button className="header-btn small" onClick={() => setOverlay("competitions")} title="In-app competitions">🏆 Compete</button>
+          <button className="header-btn small" onClick={() => setOverlay("hub")} title="OpenDNA Hub">🌐 Hub</button>
+          <button className="header-btn small" onClick={() => setOverlay("voice")} title="Voice control">🎤 Voice</button>
+          <button className="header-btn small" onClick={() => setOverlay("paper_writer")} title="Auto paper writer">📝 Paper writer</button>
+          <button
+            className="header-btn small"
+            onClick={toggleSfx}
+            title={`Sound effects ${sfxEnabled ? "on" : "off"} (press '${SFX_MUTE_HOTKEY}' to toggle)`}
+          >
+            {sfxEnabled ? "🔊" : "🔇"}
+          </button>
+          <button
+            className="header-btn small"
+            onClick={() => xrAvailable && setOverlay("vr")}
+            disabled={!xrAvailable}
+            title={xrAvailable ? "Enter VR mode" : "WebXR not detected — needs a WebXR-capable browser + headset"}
+            style={!xrAvailable ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          >
+            🥽 VR
+          </button>
+          <button
+            className="theme-toggle"
+            onClick={() =>
+              setThemeMode((m) => (m === "light" ? "dark" : m === "dark" ? "auto" : "light"))
+            }
+            title={`Theme: ${themeMode}`}
+          >
+            {themeMode === "light" ? "☀" : themeMode === "dark" ? "☾" : "🌆"}
           </button>
         </div>
       </header>
@@ -740,7 +914,23 @@ function App() {
                 handleFold(seq);
               }}
               onCloseDesign={() => setDesignResults(null)}
+              trajectoryFrames={trajectoryFrames.length > 0 ? trajectoryFrames : undefined}
+              currentFrame={trajectoryFrames.length > 0 ? currentFrame : undefined}
+              onMutate={(_chain, position, newAA, oldAA) => {
+                const mutation = `${oldAA}${position}${newAA}`;
+                addToast({ kind: "info", message: `Mutating ${mutation}...` });
+                handleMutate(mutation);
+              }}
             />
+
+            {!activeStructure && (
+              <ProteinOfDayBanner
+                onLoadSequence={(seq, label) => {
+                  setCurrentSequence(seq);
+                  addToast({ kind: "success", message: `Loaded ${label} (${seq.length} aa)` });
+                }}
+              />
+            )}
 
             {overlay === "analysis" && analysis && (
               <ErrorBoundary>
@@ -749,7 +939,24 @@ function App() {
             )}
             {overlay === "dashboard" && (
               <ErrorBoundary>
-                <Dashboard structures={structures.length} onClose={() => setOverlay("none")} />
+                <Dashboard
+                  structures={structures.length}
+                  onClose={() => setOverlay("none")}
+                  onLoadSequence={(seq, label) => {
+                    setCurrentSequence(seq);
+                    setOverlay("none");
+                    addToast({ kind: "success", message: `Loaded ${label} (${seq.length} aa)` });
+                  }}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "hardware" && (
+              <ErrorBoundary>
+                <div className="modal-backdrop" onClick={() => setOverlay("none")}>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <HardwarePanel onClose={() => setOverlay("none")} />
+                  </div>
+                </div>
               </ErrorBoundary>
             )}
             {overlay === "academy" && (
@@ -789,6 +996,29 @@ function App() {
                 </div>
               </ErrorBoundary>
             )}
+            {overlay === "feeling_lucky" && (
+              <ErrorBoundary>
+                <FeelingLucky
+                  initialSequence={currentSequence}
+                  onClose={() => setOverlay("none")}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "project_templates" && (
+              <ErrorBoundary>
+                <ProjectTemplates
+                  onClose={() => setOverlay("none")}
+                  onInstantiated={({ starterSequence }) => {
+                    if (starterSequence) {
+                      setCurrentSequence(starterSequence);
+                      addToast({ kind: "success", message: "Template loaded into editor" });
+                    } else {
+                      addToast({ kind: "info", message: "Template instantiated (no starter sequence)" });
+                    }
+                  }}
+                />
+              </ErrorBoundary>
+            )}
             {overlay === "collab" && (
               <ErrorBoundary>
                 <div className="modal-backdrop">
@@ -812,6 +1042,26 @@ function App() {
                 </div>
               </div>
             )}
+            {overlay === "scanner" && currentSequence && (
+              <ErrorBoundary>
+                <div className="modal-backdrop" onClick={() => setOverlay("none")}>
+                  <div onClick={e => e.stopPropagation()}>
+                    <MutationScanner
+                      sequence={currentSequence}
+                      onClose={() => setOverlay("none")}
+                      onCellClick={(position, newAA) => {
+                        const oldAA = currentSequence[position - 1];
+                        if (!oldAA || oldAA === newAA) return;
+                        const mutation = `${oldAA}${position}${newAA}`;
+                        addToast({ kind: "info", message: `Mutating ${mutation}...` });
+                        handleMutate(mutation);
+                        setOverlay("none");
+                      }}
+                    />
+                  </div>
+                </div>
+              </ErrorBoundary>
+            )}
             {overlay === "search" && (
               <ErrorBoundary>
                 <div className="modal-backdrop">
@@ -824,6 +1074,46 @@ function App() {
                         addToast({ kind: "success", message: `Loaded ${hit.gene || hit.accession} (${hit.length} aa)` });
                       }}
                     />
+                  </div>
+                </div>
+              </ErrorBoundary>
+            )}
+            {overlay === "trajectory" && (
+              <ErrorBoundary>
+                <div className="modal-backdrop" onClick={() => setOverlay("none")}>
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      background: "var(--panel-bg, #1a1a1a)",
+                      padding: 16,
+                      borderRadius: 8,
+                      minWidth: 520,
+                      maxWidth: "90vw",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <h3 style={{ margin: 0 }}>Trajectory Player</h3>
+                      <button className="header-btn small" onClick={() => setOverlay("none")}>Close</button>
+                    </div>
+                    <TrajectoryPlayer
+                      frames={trajectoryFrames}
+                      onFrameChange={setCurrentFrame}
+                      onFramesLoaded={(fr) => {
+                        setTrajectoryFrames(fr);
+                        setCurrentFrame(0);
+                      }}
+                      sourcePdb={activeStructure?.pdbData || ""}
+                    />
+                    {trajectoryFrames.length > 0 && (
+                      <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                        <button
+                          className="header-btn small"
+                          onClick={() => { setTrajectoryFrames([]); setCurrentFrame(0); }}
+                        >
+                          Clear trajectory
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </ErrorBoundary>
@@ -841,6 +1131,69 @@ function App() {
                     addToast({ kind: "success", message: `Loaded ${label || "sequence"} (${seq.length} aa)` });
                   }}
                 />
+              </ErrorBoundary>
+            )}
+            {overlay === "vr" && (
+              <ErrorBoundary>
+                <VRMode
+                  pdbString={activeStructure?.pdbData ?? null}
+                  onClose={() => setOverlay("none")}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "paper" && (
+              <ErrorBoundary>
+                <PaperExtractor
+                  onClose={() => setOverlay("none")}
+                  onPickSequence={(seq, label) => {
+                    setCurrentSequence(seq);
+                    setOverlay("none");
+                    addToast({ kind: "success", message: `Loaded ${label || "sequence"} (${seq.length} aa)` });
+                  }}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "antibody" && (
+              <ErrorBoundary>
+                <AntibodyTools
+                  initialSequence={currentSequence}
+                  onClose={() => setOverlay("none")}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "plasmid" && (
+              <ErrorBoundary>
+                <PlasmidMap
+                  initialSequence={currentSequence}
+                  onClose={() => setOverlay("none")}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "competitions" && (
+              <ErrorBoundary>
+                <Competitions
+                  onClose={() => setOverlay("none")}
+                  defaultSequence={currentSequence}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "hub" && (
+              <ErrorBoundary>
+                <Hub
+                  onClose={() => setOverlay("none")}
+                  currentPdb={activeStructure?.pdbData || ""}
+                  currentSequence={currentSequence}
+                />
+              </ErrorBoundary>
+            )}
+            {overlay === "voice" && (
+              <ErrorBoundary>
+                <VoiceControl onClose={() => setOverlay("none")} />
+              </ErrorBoundary>
+            )}
+            {overlay === "paper_writer" && (
+              <ErrorBoundary>
+                <PaperWriter onClose={() => setOverlay("none")} defaultProjectId="default" />
               </ErrorBoundary>
             )}
             {showExplorer && (

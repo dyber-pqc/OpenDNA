@@ -2,6 +2,10 @@
 
 This document explains what each algorithm in OpenDNA actually does, the science behind it, and what the results mean.
 
+> See also: [MODEL_CARDS.md](MODEL_CARDS.md) for per-component intended-use /
+> limitations / licence information, and [BENCHMARKS.md](BENCHMARKS.md) for
+> the CASP15 validation suite.
+
 ## Table of Contents
 1. [Protein Folding (ESMFold)](#1-protein-folding-esmfold)
 2. [Inverse Folding (ESM-IF1)](#2-inverse-folding-esm-if1)

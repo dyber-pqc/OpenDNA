@@ -1,4 +1,5 @@
 import type { AnalysisResult } from "../../api/client";
+import ExplainButton from "../ExplainButton/ExplainButton";
 import "./AnalysisPanel.css";
 
 interface AnalysisPanelProps {
@@ -24,6 +25,11 @@ export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps)
     <div className="analysis-panel">
       <div className="analysis-header">
         <h2>Protein Analysis Suite</h2>
+        <ExplainButton
+          context={`Full protein analysis. Length=${p.length}aa, MW=${p.molecular_weight}Da, pI=${p.isoelectric_point.toFixed(2)}, GRAVY=${p.gravy.toFixed(3)}, instability=${p.instability_index.toFixed(1)} (${p.classification}), Lipinski RO5=${lipinski.passes_ro5 ? "pass" : "fail"}, disorder=${disorder?.disorder_percent?.toFixed(1) ?? "?"}%, TM helices=${transmembrane?.n_helices ?? 0}, signal peptide=${signal_peptide?.has_signal ? "yes" : "no"}, aggregation risk=${aggregation?.risk_level ?? "?"}.`}
+          prompt="Explain this full protein analysis in plain language. Highlight the most important findings:"
+          title="Explain full analysis"
+        />
         <button className="ap-close" onClick={onClose}>×</button>
       </div>
 

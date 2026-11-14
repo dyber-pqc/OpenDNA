@@ -5,17 +5,20 @@ import "./Dashboard.css";
 interface DashboardProps {
   structures: number;
   onClose: () => void;
+  onLoadSequence?: (sequence: string, label: string) => void;
 }
 
-export default function Dashboard({ structures, onClose }: DashboardProps) {
+export default function Dashboard({ structures, onClose, onLoadSequence }: DashboardProps) {
   const [hardware, setHardware] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [potd, setPotd] = useState<any>(null);
 
   useEffect(() => {
     api.getHardware().then(setHardware).catch(() => {});
     api.listJobs().then((d) => setJobs(d.jobs)).catch(() => {});
     api.listProjects().then((d) => setProjects(d.projects)).catch(() => {});
+    api.getProteinOfTheDay().then(setPotd).catch(() => {});
   }, []);
 
   const completedJobs = jobs.filter((j) => j.status === "completed").length;
@@ -28,6 +31,31 @@ export default function Dashboard({ structures, onClose }: DashboardProps) {
         <h2>OpenDNA Dashboard</h2>
         <button className="dash-close" onClick={onClose}>×</button>
       </div>
+
+      {potd && (
+        <div className="potd-card">
+          <div className="potd-card-image">🧬</div>
+          <div className="potd-card-body">
+            <div className="potd-card-label">Protein of the Day</div>
+            <h3 className="potd-card-name">{potd.name}</h3>
+            <p className="potd-card-desc">{potd.description}</p>
+            <p className="potd-card-fact">💡 {potd.fun_fact}</p>
+            <div className="potd-card-meta">
+              {potd.category && <span>{potd.category}</span>}
+              {potd.year_discovered && <span>since {potd.year_discovered}</span>}
+              {potd.uniprot_id && <span>{potd.uniprot_id}</span>}
+            </div>
+            {onLoadSequence && (
+              <button
+                className="potd-card-btn"
+                onClick={() => onLoadSequence(potd.sequence, potd.name)}
+              >
+                Load this protein
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="dash-grid">
         <div className="dash-card">

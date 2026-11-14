@@ -119,3 +119,58 @@
   font-size: 12px;
   padding: 16px;
 }
+
+.potd-card {
+  display: flex;
+  gap: 16px;
+  background: linear-gradient(135deg, #6a4cff 0%, #4f8cff 60%, #4fbfff 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 24px rgba(80, 80, 200, 0.35);
+}
+.potd-card-image {
+  font-size: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+}
+.potd-card-body { flex: 1; min-width: 0; }
+.potd-card-label {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+.potd-card-name { margin: 4px 0 6px; font-size: 20px; }
+.potd-card-desc { margin: 0 0 6px; font-size: 13px; opacity: 0.95; }
+.potd-card-fact { margin: 0 0 8px; font-size: 12px; font-style: italic; opacity: 0.9; }
+.potd-card-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+.potd-card-meta span {
+  background: rgba(255, 255, 255, 0.18);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.potd-card-btn {
+  background: #fff;
+  color: #4f3fbf;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.potd-card-btn:hover { background: #f0f0ff; }

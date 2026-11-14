@@ -1,0 +1,176 @@
+.mutation-scanner {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.ms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.ms-header h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+}
+.ms-sub {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ms-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ms-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ms-btn:hover:not(:disabled) { background: var(--bg-tertiary, #333); }
+.ms-btn.primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.ms-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ms-progress {
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.ms-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+.ms-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.ms-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ms-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.ms-grids {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ms-grid {
+  display: flex;
+  flex-direction: column;
+  font-family: monospace;
+  font-size: 9px;
+}
+
+.ms-axis-top {
+  display: flex;
+  align-items: flex-end;
+  height: 16px;
+}
+.ms-corner {
+  width: 20px;
+  flex-shrink: 0;
+}
+.ms-col-label {
+  width: 14px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.ms-row {
+  display: flex;
+  align-items: center;
+}
+.ms-row-label {
+  width: 20px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #222;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: 10px;
+}
+.ms-cell {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  text-align: center;
+  line-height: 14px;
+  color: #555;
+  flex-shrink: 0;
+  transition: transform 0.05s;
+}
+.ms-cell:hover {
+  transform: scale(1.4);
+  z-index: 2;
+  position: relative;
+  border-color: black;
+}
+.ms-cell.wt {
+  cursor: default;
+  color: #888;
+}
+.ms-cell.wt:hover {
+  transform: none;
+}
+
+.ms-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  border: 1px solid var(--accent);
+}
+
+.ms-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-secondary);
+}

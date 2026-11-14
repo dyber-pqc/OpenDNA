@@ -1,0 +1,226 @@
+.paper-extractor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8000;
+}
+
+.paper-extractor {
+  width: min(760px, 94vw);
+  max-height: 90vh;
+  background: #161320;
+  color: #eaeaea;
+  border: 1px solid rgba(160, 110, 255, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pe-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pe-close {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.pe-close:hover {
+  color: #fff;
+}
+
+.pe-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+.pe-hint {
+  color: #a0a0b0;
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.pe-textarea {
+  width: 100%;
+  background: #0d0c15;
+  color: #eaeaea;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  resize: vertical;
+}
+
+.pe-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.pe-file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  background: #242038;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pe-file-label:hover {
+  background: #2e2844;
+}
+
+.pe-extract-btn {
+  padding: 7px 16px;
+  background: linear-gradient(135deg, #7a4fd4, #a065f5);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pe-extract-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pe-error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 70, 70, 0.1);
+  border: 1px solid rgba(255, 70, 70, 0.4);
+  border-radius: 6px;
+  color: #ff8a8a;
+  font-size: 13px;
+}
+
+.pe-results {
+  margin-top: 16px;
+}
+
+.pe-results-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c9b6ff;
+  margin-bottom: 8px;
+}
+
+.pe-empty {
+  color: #888;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.pe-card {
+  background: #0f0e18;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid #7a4fd4;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.pe-card-fasta {
+  border-left-color: #5ed27a;
+}
+.pe-card-uniprot {
+  border-left-color: #5eb0ff;
+}
+.pe-card-pdb {
+  border-left-color: #ffb85e;
+}
+.pe-card-sequence {
+  border-left-color: #d45ef0;
+}
+
+.pe-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.pe-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pe-badge-fasta {
+  background: rgba(94, 210, 122, 0.2);
+  color: #8dec9e;
+}
+.pe-badge-uniprot {
+  background: rgba(94, 176, 255, 0.2);
+  color: #9acbff;
+}
+.pe-badge-pdb {
+  background: rgba(255, 184, 94, 0.2);
+  color: #ffcb82;
+}
+.pe-badge-sequence {
+  background: rgba(212, 94, 240, 0.2);
+  color: #e49dfb;
+}
+
+.pe-value {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #eaeaea;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pe-context {
+  color: #888;
+  font-size: 11.5px;
+  margin-bottom: 6px;
+  font-style: italic;
+  max-height: 32px;
+  overflow: hidden;
+}
+
+.pe-load-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(160, 110, 255, 0.5);
+  color: #d8c8ff;
+  border-radius: 4px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.pe-load-btn:hover {
+  background: rgba(160, 110, 255, 0.15);
+}
