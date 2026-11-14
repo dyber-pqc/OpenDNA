@@ -48,4 +48,34 @@ impl DisorderHead {
         let per_residue = convolved.squeeze(0)?.transpose(0, 1)?.contiguous()?;
         self.output.forward(&per_residue)?.squeeze(1)
     }
+
+    /// Per-residue disorder **probabilities** for one sequence.
+    ///
+    /// `per_residue` is [`crate::esm2::Embedding::per_residue`], row-major
+    /// `length x embedding_dim`. The sigmoid is applied here so that callers
+    /// cannot forget it and read raw logits as probabilities.
+    ///
+    /// # Errors
+    /// Propagates tensor errors, or reports a length that does not divide the
+    /// embedding evenly.
+    pub fn predict(
+        &self,
+        per_residue: &[f32],
+        length: usize,
+        device: &candle_core::Device,
+    ) -> candle_core::Result<Vec<f32>> {
+        if length == 0 {
+            return Ok(Vec::new());
+        }
+        if !per_residue.len().is_multiple_of(length) {
+            return Err(candle_core::Error::Msg(format!(
+                "{} embedding values do not divide into {length} residues",
+                per_residue.len()
+            )));
+        }
+        let width = per_residue.len() / length;
+        let tensor = Tensor::from_vec(per_residue.to_vec(), (length, width), device)?;
+        let logits = self.forward(&tensor)?.to_vec1::<f32>()?;
+        Ok(logits.into_iter().map(|l| 1.0 / (1.0 + (-l).exp())).collect())
+    }
 }

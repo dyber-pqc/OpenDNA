@@ -33,4 +33,20 @@ impl SolubilityHead {
     pub fn forward(&self, pooled: &Tensor) -> candle_core::Result<Tensor> {
         self.mlp.forward(pooled)?.squeeze(1)
     }
+
+    /// Predict solubility from one mean-pooled embedding.
+    ///
+    /// Pass [`crate::esm2::Embedding::pooled`] directly: the head was trained
+    /// on that exact pooling, and recomputing it elsewhere risks the two
+    /// drifting apart.
+    ///
+    /// # Errors
+    /// Propagates tensor errors.
+    pub fn predict(&self, pooled: &[f32], device: &candle_core::Device) -> candle_core::Result<f32> {
+        let tensor = Tensor::from_vec(pooled.to_vec(), (1, pooled.len()), device)?;
+        let out = self.forward(&tensor)?.to_vec1::<f32>()?;
+        out.first()
+            .copied()
+            .ok_or_else(|| candle_core::Error::Msg("the solubility head returned no value".to_string()))
+    }
 }

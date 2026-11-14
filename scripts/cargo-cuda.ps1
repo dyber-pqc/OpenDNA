@@ -11,8 +11,19 @@
     candle 0.11 supports CUDA up to 13.4; newer toolkits fail the build with
     "Unsupported cuda toolkit version".
 
+    Do not redirect this script's output (`2>$null`, `*>file`, `| tee`).
+    Cargo writes its progress to stderr, and PowerShell turns a native
+    program's stderr into NativeCommandError records, so the run reports
+    failure even when cargo exited 0. Let it write to the console, or capture
+    it from outside PowerShell.
+
+    Compiling the CUDA kernels starts one nvcc per core and each is a heavy
+    C++ compile; on a machine with many cores and limited RAM that can
+    exhaust memory and lock up the desktop. Pass `-j 4` (or lower) for the
+    first build, after which the kernels are cached.
+
 .EXAMPLE
-    ./scripts/cargo-cuda.ps1 build -p opendna-ml --features cuda --release
+    ./scripts/cargo-cuda.ps1 build -j 4 -p opendna-ml --features cuda --release
 
 .EXAMPLE
     ./scripts/cargo-cuda.ps1 run -p opendna-train --features cuda -- embed --dataset disorder

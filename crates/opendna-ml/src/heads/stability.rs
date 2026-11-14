@@ -61,6 +61,35 @@ impl StabilityHead {
         self.mlp.forward(features)?.squeeze(1)
     }
 
+    /// Predict ΔΔG for each assembled feature row.
+    ///
+    /// Takes and returns plain slices so callers do not need candle: the
+    /// desktop application depends on this crate, not on a tensor library.
+    ///
+    /// # Errors
+    /// Propagates tensor errors, or reports a row width that does not match
+    /// the head.
+    pub fn predict(
+        &self,
+        rows: &[Vec<f32>],
+        embedding_dim: usize,
+        device: &candle_core::Device,
+    ) -> candle_core::Result<Vec<f32>> {
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
+        let width = Self::input_width(embedding_dim);
+        if let Some(bad) = rows.iter().position(|r| r.len() != width) {
+            return Err(candle_core::Error::Msg(format!(
+                "stability feature row {bad} is {} wide; this head expects {width}",
+                rows[bad].len()
+            )));
+        }
+        let flat: Vec<f32> = rows.iter().flatten().copied().collect();
+        let tensor = Tensor::from_vec(flat, (rows.len(), width), device)?;
+        self.forward(&tensor)?.to_vec1::<f32>()
+    }
+
     /// Assemble one feature row.
     ///
     /// `embedding` is the wild-type embedding at the mutated position.

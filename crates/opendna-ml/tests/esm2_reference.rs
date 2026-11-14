@@ -14,7 +14,7 @@
 
 use opendna_ml::esm2::{Esm2, ModelSize};
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 
 fn data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data")
@@ -41,6 +41,24 @@ fn cases() -> Vec<(String, usize)> {
         .iter()
         .map(|c| (c["sequence"].as_str().unwrap().to_string(), c["n_tokens"].as_u64().unwrap() as usize))
         .collect()
+}
+
+/// Serialises the tests that run the model.
+///
+/// `cargo test` runs tests on several threads, and they share one [`Esm2`]
+/// through the `OnceLock` below. Driving one CUDA model from several threads
+/// at once changes results in the last bits — about 2e-7 relative, which is
+/// algorithm selection inside cuBLAS rather than a wrong answer, but it is
+/// enough to break the exactness check in
+/// `windowing_is_exact_for_short_sequences`. Serialising restores
+/// reproducibility instead of hiding the variation behind a tolerance.
+///
+/// Verified: the whole file passes with `--test-threads=1` and that one test
+/// fails without it, while three sequential `embed` calls of the same
+/// sequence on the GPU are bit-identical.
+fn exclusive() -> MutexGuard<'static, ()> {
+    static LOCK: Mutex<()> = Mutex::new(());
+    LOCK.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 fn model() -> &'static Esm2 {
@@ -76,6 +94,7 @@ const TOLERANCE: f32 = 5e-4;
 #[test]
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn hidden_states_match_reference() {
+    let _serial = exclusive();
     let model = model();
     for (i, (sequence, n_tokens)) in cases().into_iter().enumerate() {
         let hidden = model.hidden_states(&[&sequence]).unwrap();
@@ -95,6 +114,7 @@ fn hidden_states_match_reference() {
 #[test]
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn logits_match_reference() {
+    let _serial = exclusive();
     let model = model();
     for (i, (sequence, _)) in cases().into_iter().enumerate() {
         let got = model.logits(&[&sequence]).unwrap().flatten_all().unwrap().to_vec1::<f32>().unwrap();
@@ -107,6 +127,7 @@ fn logits_match_reference() {
 #[test]
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn pooled_embeddings_match_reference() {
+    let _serial = exclusive();
     let model = model();
     for (i, (sequence, _)) in cases().into_iter().enumerate() {
         let out = model.embed(&[&sequence]).unwrap();
@@ -123,6 +144,7 @@ fn pooled_embeddings_match_reference() {
 #[test]
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn padding_does_not_affect_results() {
+    let _serial = exclusive();
     let model = model();
     let all = cases();
     let sequences: Vec<&str> = all.iter().map(|(s, _)| s.as_str()).collect();
@@ -137,6 +159,7 @@ fn padding_does_not_affect_results() {
 #[test]
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn rejects_empty_and_overlong_sequences() {
+    let _serial = exclusive();
     let model = model();
     assert!(matches!(model.embed(&[""]), Err(opendna_ml::MlError::EmptySequence { index: 0 })));
     let too_long = "A".repeat(model.max_residues() + 1);
@@ -147,6 +170,7 @@ fn rejects_empty_and_overlong_sequences() {
 #[test]
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn windowing_is_exact_for_short_sequences() {
+    let _serial = exclusive();
     let model = model();
     let (sequence, _) = cases().remove(0);
     let direct = model.embed(&[&sequence]).unwrap().remove(0);
@@ -161,6 +185,7 @@ fn windowing_is_exact_for_short_sequences() {
 #[test]
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn windowing_covers_every_residue_of_a_long_sequence() {
+    let _serial = exclusive();
     let model = model();
     let unit = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG";
     let long: String = unit.repeat(20); // 1520 residues, past the 1024 limit
@@ -185,6 +210,7 @@ fn windowing_covers_every_residue_of_a_long_sequence() {
 #[ignore = "downloads ~31 MB of ESM-2 weights on first run"]
 fn masked_predictions_recover_the_true_residue() {
     use opendna_ml::esm2::alphabet;
+    let _serial = exclusive();
     let model = model();
     let sequence = "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG";
     let positions: Vec<usize> = (0..sequence.len()).collect();

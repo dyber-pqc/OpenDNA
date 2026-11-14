@@ -51,6 +51,23 @@ Useful flags: `--embedder` chooses the ESM-2 checkpoint (default
 `--learning-rate`, `--patience` and `--seed` control the run, and `--out`
 sets where weights go (default `../models`).
 
+## Reproducibility
+
+A run is reproducible from its seed: re-running `train` with the same
+`--seed`, `--batch-size` and `--learning-rate` reproduces the weights byte
+for byte. That was checked by retraining the stability head and comparing
+SHA-256 against the committed file.
+
+Two caveats worth knowing:
+
+- The embedding caches must match too. They are keyed by sequence and by
+  embedding model, so a cache built with a different checkpoint is rejected
+  rather than silently reused.
+- On a CUDA device, embedding is bit-reproducible only because this pipeline
+  runs inference on one thread. Several threads sharing one model on a GPU
+  perturb results at the level of f32 rounding; see the note on
+  [`Esm2`](../crates/opendna-ml/src/esm2/mod.rs).
+
 ## Outputs
 
 Per task, in `--out`:

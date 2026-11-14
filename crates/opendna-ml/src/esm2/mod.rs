@@ -80,6 +80,19 @@ impl Embedding {
 }
 
 /// A loaded ESM-2 model.
+///
+/// # Concurrency
+///
+/// Calls are independent and this type is `Sync`, but driving one instance
+/// from several threads at once on a CUDA device changes results in the last
+/// bits of an f32 — around 2e-7 relative, from cuBLAS choosing differently
+/// shaped reductions under concurrent load. Sequential calls are
+/// bit-identical. That is far below any meaningful signal, so it does not
+/// make a prediction wrong, but it does mean results are only
+/// bit-reproducible if inference is serialised. Where reproducibility
+/// matters — building an embedding cache, comparing two runs — keep calls on
+/// one thread or behind a lock, which is what the embedding pipeline and the
+/// desktop application both do.
 pub struct Esm2 {
     model: model::Model,
 }
