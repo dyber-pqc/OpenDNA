@@ -49,6 +49,10 @@ fn prose(task: Task) -> Prose {
                  insertions or deletions.",
                 "Trained on frozen embeddings, so accuracy is bounded by what ESM-2 already \
                  encodes about the position.",
+                "Trained with a squared-error loss, so predictions are compressed toward the \
+                 training mean and span a much narrower range than the measurements do. The rank \
+                 order is the usable signal, which is why Spearman is the headline metric; treat \
+                 an individual predicted value as a weak estimate.",
             ],
             citation: "Tsuboyama, K. et al. Mega-scale experimental analysis of protein folding \
                        stability in biology and design. Nature 620, 434-444 (2023).",

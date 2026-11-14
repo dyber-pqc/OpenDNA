@@ -26,14 +26,14 @@ This is a small head trained on **frozen** [facebook/esm2_t30_150M_UR50D](https:
 
 | Metric | Validation | Test | Baseline (test) |
 |---|---|---|---|
-| MAE | 0.615 | 0.539 | — |
-| Pearson r | 0.671 | 0.708 | 0.497 |
-| RMSE | 0.829 | 0.723 | — |
-| Spearman ρ | 0.682 | 0.676 | 0.445 |
+| MAE | 0.605 | 0.532 | — |
+| Pearson r | 0.678 | 0.717 | 0.497 |
+| RMSE | 0.802 | 0.699 | — |
+| Spearman ρ | 0.674 | 0.674 | 0.445 |
 
 Baseline: The language model's masked log-odds used directly, with no trained head.
 
-Validation chose the epoch that was kept (epoch 5 of 12 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
+Validation chose the epoch that was kept (epoch 1 of 11 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
 
 ## Training
 
@@ -42,7 +42,7 @@ Validation chose the epoch that was kept (epoch 5 of 12 run). The test split was
 | Embedding model | `facebook/esm2_t30_150M_UR50D` (640 dimensions, frozen) |
 | Optimiser | AdamW, learning rate 0.001 |
 | Batch size | 512 |
-| Seed | 20260101 (data order only; the training device could not seed weight initialisation) |
+| Seed | 20260101 |
 | Dataset | [`opendna-stability`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) |
 | Data licence | CC BY 4.0 (Tsuboyama et al. 2023, FireProtDB) |
 
@@ -59,6 +59,7 @@ cargo run --release -p opendna-train -- train --task stability
 - The source assay infers ΔΔG from protease resistance over a range of roughly -1 to 5 kcal/mol for ΔG. Mutations outside that range are absent from training, so strongly destabilising substitutions are under-represented.
 - Only single substitutions. The model says nothing about combined mutations, insertions or deletions.
 - Trained on frozen embeddings, so accuracy is bounded by what ESM-2 already encodes about the position.
+- Trained with a squared-error loss, so predictions are compressed toward the training mean and span a much narrower range than the measurements do. The rank order is the usable signal, which is why Spearman is the headline metric; treat an individual predicted value as a weak estimate.
 
 ## Intended use
 

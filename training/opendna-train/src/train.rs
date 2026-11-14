@@ -77,8 +77,8 @@ pub struct Report {
     pub batch_size: usize,
     /// Seed used.
     pub seed: u64,
-    /// Whether the compute device accepted the seed. When false, only the
-    /// data order was reproducible, not the initial weights.
+    /// Whether weights were drawn from the seed. Always true now that
+    /// initialisation does not depend on the device's own generator.
     pub seed_applied: bool,
     /// Validation metrics at the kept epoch.
     pub validation: SplitMetrics,
@@ -92,21 +92,39 @@ fn metric_map(pairs: &[(&str, Option<f64>)]) -> std::collections::BTreeMap<Strin
     pairs.iter().filter_map(|(k, v)| v.map(|v| ((*k).to_string(), (v * 1e6).round() / 1e6))).collect()
 }
 
-/// Seed the device's generator if it supports one.
+/// Re-initialise every variable from a seeded generator.
 ///
-/// candle's CPU backend has no seedable generator, so weight initialisation
-/// there is not reproducible. Shuffling always is: it uses this crate's own
-/// generator. The return value records which case applied, and goes into the
-/// report rather than being quietly ignored.
-fn apply_seed(device: &candle_core::Device, seed: u64) -> bool {
-    if device.set_seed(seed).is_ok() {
-        return true;
+/// candle's CPU backend has no seedable device generator, so a run would
+/// otherwise start from different weights each time — on this task that moved
+/// the test score by about 0.03 Spearman, which is enough to make two runs
+/// disagree about which model is better. Weights are therefore drawn here,
+/// from this crate's own generator, which makes a run reproducible on any
+/// device.
+///
+/// The distribution matches `PyTorch`'s default for linear and convolutional
+/// layers: uniform over ±1/sqrt(`fan_in`), where `fan_in` is the product of every
+/// dimension after the first.
+///
+/// # Errors
+/// Propagates tensor errors.
+fn seed_weights(varmap: &VarMap, seed: u64) -> Result<()> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    // Sort by name so the draw order does not depend on hash iteration order.
+    let data = varmap.data().lock().expect("varmap mutex");
+    let mut names: Vec<&String> = data.keys().collect();
+    names.sort();
+
+    for name in names {
+        let var = &data[name];
+        let shape = var.shape().clone();
+        let dims = shape.dims();
+        let fan_in: usize = if dims.len() > 1 { dims[1..].iter().product() } else { dims[0] };
+        let bound = 1.0 / (fan_in as f64).sqrt();
+        let count = shape.elem_count();
+        let values: Vec<f32> = (0..count).map(|_| rng.random_range(-bound..bound) as f32).collect();
+        var.set(&Tensor::from_vec(values, shape, var.device())?)?;
     }
-    eprintln!(
-        "note: {} cannot be seeded, so weight initialisation is not reproducible; data order still is",
-        opendna_ml::device_description(device)
-    );
-    false
+    Ok(())
 }
 
 fn amino_index(residue: char) -> Option<usize> {
@@ -225,7 +243,6 @@ pub fn stability(
     config: &TrainConfig,
 ) -> Result<Report> {
     let device = opendna_ml::best_device()?;
-    let seed_applied = apply_seed(&device, config.seed);
     let hidden = model_size.hidden_size();
     let vocab = opendna_ml::esm2::alphabet::TOKENS.len();
 
@@ -269,6 +286,7 @@ pub fn stability(
     let mut varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
     let head = StabilityHead::new(hidden, vb)?;
+    seed_weights(&varmap, config.seed)?;
     let mut optimizer =
         AdamW::new(varmap.all_vars(), ParamsAdamW { lr: config.learning_rate, ..Default::default() })?;
 
@@ -376,7 +394,7 @@ pub fn stability(
         learning_rate: config.learning_rate,
         batch_size: config.batch_size,
         seed: config.seed,
-        seed_applied,
+        seed_applied: true,
         validation: evaluate(validation)?,
         test: evaluate(test)?,
         baseline,
@@ -401,7 +419,6 @@ pub fn solubility(
     config: &TrainConfig,
 ) -> Result<Report> {
     let device = opendna_ml::best_device()?;
-    let seed_applied = apply_seed(&device, config.seed);
     let hidden = model_size.hidden_size();
     let cache = MatrixCache::open(
         cache_dir,
@@ -434,6 +451,7 @@ pub fn solubility(
     let mut varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
     let head = SolubilityHead::new(hidden, vb)?;
+    seed_weights(&varmap, config.seed)?;
     let mut optimizer =
         AdamW::new(varmap.all_vars(), ParamsAdamW { lr: config.learning_rate, ..Default::default() })?;
 
@@ -530,7 +548,7 @@ pub fn solubility(
         learning_rate: config.learning_rate,
         batch_size: config.batch_size,
         seed: config.seed,
-        seed_applied,
+        seed_applied: true,
         validation: evaluate(1)?,
         test: evaluate(2)?,
         baseline,
@@ -559,7 +577,6 @@ pub fn disorder(
     config: &TrainConfig,
 ) -> Result<Report> {
     let device = opendna_ml::best_device()?;
-    let seed_applied = apply_seed(&device, config.seed);
     let hidden = model_size.hidden_size();
     let cache = MatrixCache::open(
         cache_dir,
@@ -587,6 +604,7 @@ pub fn disorder(
     let mut varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
     let head = DisorderHead::new(hidden, vb)?;
+    seed_weights(&varmap, config.seed)?;
     let mut optimizer =
         AdamW::new(varmap.all_vars(), ParamsAdamW { lr: config.learning_rate, ..Default::default() })?;
 
@@ -703,7 +721,7 @@ pub fn disorder(
         learning_rate: config.learning_rate,
         batch_size: config.batch_size,
         seed: config.seed,
-        seed_applied,
+        seed_applied: true,
         validation: summarise(&splits[1])?,
         test: summarise(&splits[2])?,
         baseline,
