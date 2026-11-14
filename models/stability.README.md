@@ -31,6 +31,8 @@ This is a small head trained on **frozen** [facebook/esm2_t30_150M_UR50D](https:
 | RMSE | 0.802 | 0.699 | — |
 | Spearman ρ | 0.674 | 0.674 | 0.445 |
 
+A — in the baseline column means the metric is undefined for that baseline, not unmeasured: a baseline that predicts the same value for every input has no correlation with the truth.
+
 Baseline: The language model's masked log-odds used directly, with no trained head.
 
 Validation chose the epoch that was kept (epoch 1 of 11 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
@@ -46,12 +48,17 @@ Validation chose the epoch that was kept (epoch 1 of 11 run). The test split was
 | Dataset | [`opendna-stability`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) |
 | Data licence | CC BY 4.0 (Tsuboyama et al. 2023, FireProtDB) |
 
-Reproduce with:
+Reproduce by building the dataset first — see [`datasets/README.md`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) — and then, from `training/`:
 
 ```bash
 cargo run --release -p opendna-train -- embed --task stability
-cargo run --release -p opendna-train -- train --task stability
+cargo run --release -p opendna-train -- train --task stability \
+    --batch-size 512 --learning-rate 0.001 --seed 20260101
 ```
+
+The hyperparameters are spelled out above even where they match the current defaults, so the command reproduces *this* run rather than whatever the defaults happen to be later.
+
+Both commands take `--datasets <dir>` if the dataset is not at the default `../datasets/out`. Embedding is cached, so the second run of either command is cheap.
 
 ## Limitations
 

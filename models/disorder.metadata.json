@@ -1,0 +1,6 @@
+{
+  "task": "disorder",
+  "embedding_model": "facebook/esm2_t30_150M_UR50D",
+  "embedding_dim": 640,
+  "version": "0.6.0-dev"
+}
