@@ -39,51 +39,48 @@ jobs:
           ruff check python/ || true
         continue-on-error: true
 
-  rust-tests:
-    name: Rust on ${{ matrix.os }}
+  rust:
+    name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Docs
+        run: cargo doc --workspace --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
 
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+  cargo-deny:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
 
-      - name: Build core crates only (skip PyO3 bindings on CI)
-        run: |
-          cargo build -p opendna-core
-          cargo build -p opendna-hal
+  msrv:
+    name: Minimum supported Rust (1.95)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --locked
 
-      - name: Run Rust tests
-        run: |
-          cargo test -p opendna-core
-          cargo test -p opendna-hal
-
-      - name: Check formatting (non-blocking)
-        run: cargo fmt --check
-        continue-on-error: true
-
-      - name: Run clippy (non-blocking)
-        run: |
-          cargo clippy -p opendna-core -- -D warnings
-          cargo clippy -p opendna-hal -- -D warnings
-        continue-on-error: true
-
+  # Legacy jobs below cover the Python backend and React UI until the Rust
+  # rewrite reaches parity; they are removed at cutover.
   ui-build:
     name: UI build & type check
     runs-on: ubuntu-latest
