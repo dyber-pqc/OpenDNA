@@ -20,6 +20,14 @@ pub mod command {
     pub const ANALYZE_SEQUENCE: &str = "analyze_sequence";
     /// `{ id } -> StructureReport`
     pub const ANALYZE_STRUCTURE: &str = "analyze_structure";
+    /// `() -> ModelStatus`. Does not download anything.
+    pub const MODEL_STATUS: &str = "model_status";
+    /// `{ id, position } -> StabilityScan`
+    pub const PREDICT_STABILITY: &str = "predict_stability";
+    /// `{ id } -> SolubilityPrediction`
+    pub const PREDICT_SOLUBILITY: &str = "predict_solubility";
+    /// `{ id } -> DisorderPrediction`
+    pub const PREDICT_DISORDER: &str = "predict_disorder";
 }
 
 /// One row in the project explorer.
@@ -134,4 +142,96 @@ pub struct StructureReport {
 pub struct CommandError {
     /// Human-readable description.
     pub message: String,
+}
+
+/// Whether a trained head can be used, and if not, why not.
+///
+/// A head that is absent or mismatched is reported as such. The application
+/// never substitutes a heuristic for a missing model, so the UI needs the
+/// reason in order to say what is wrong rather than show an empty panel.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum HeadStatus {
+    /// Weights and metadata loaded and matched the embedding model.
+    Ready {
+        /// Version string from the head's metadata.
+        version: String,
+    },
+    /// The head's files are not in the models directory.
+    Missing,
+    /// The files are present but unusable — unreadable, or trained against a
+    /// different embedding model.
+    Unusable {
+        /// What went wrong, safe to show to users.
+        reason: String,
+    },
+}
+
+impl HeadStatus {
+    /// Whether a prediction can be requested.
+    pub fn is_ready(&self) -> bool {
+        matches!(self, Self::Ready { .. })
+    }
+}
+
+/// What the machine-learning side of the application can currently do.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ModelStatus {
+    /// Directory searched for trained heads.
+    pub models_dir: String,
+    /// Hugging Face repository of the embedding model.
+    pub embedding_model: String,
+    /// Whether the embedding model is already in the local cache. When false,
+    /// the first prediction downloads it, which is slow and needs a network.
+    pub embedding_cached: bool,
+    /// Device predictions will run on, e.g. `CPU`.
+    pub device: String,
+    /// ΔΔG head.
+    pub stability: HeadStatus,
+    /// Solubility head.
+    pub solubility: HeadStatus,
+    /// Per-residue disorder head.
+    pub disorder: HeadStatus,
+}
+
+/// One substitution's predicted effect on folding stability.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SubstitutionScore {
+    /// Mutant residue, one-letter.
+    pub mutant: char,
+    /// Predicted ΔΔG in kcal/mol. Negative is destabilising.
+    pub ddg: f64,
+    /// The language model's `log P(mutant) - log P(wild type)` at this
+    /// position, shown alongside because it is the zero-shot signal the head
+    /// is built on and disagreement between the two is informative.
+    pub log_odds: f64,
+}
+
+/// Every substitution at one position, ranked.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StabilityScan {
+    /// 1-based position scanned.
+    pub position: usize,
+    /// Wild-type residue at that position.
+    pub wild_type: char,
+    /// The 19 substitutions, most stabilising first.
+    pub scores: Vec<SubstitutionScore>,
+}
+
+/// Predicted solubility for a whole protein.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SolubilityPrediction {
+    /// Percentage on the source assay's scale; not clipped to 0-100.
+    pub percent: f64,
+}
+
+/// Per-residue disorder probabilities.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DisorderPrediction {
+    /// One probability per residue, in sequence order.
+    pub probabilities: Vec<f64>,
+    /// Probability at or above which a residue is called disordered.
+    pub threshold: f64,
+    /// Whether the sequence was longer than the embedding model's limit and
+    /// was covered by overlapping windows.
+    pub windowed: bool,
 }

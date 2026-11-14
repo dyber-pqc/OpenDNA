@@ -7,6 +7,7 @@
 
 mod commands;
 mod import;
+mod predict;
 mod reports;
 mod state;
 
@@ -24,6 +25,10 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             app.manage(state::AppState::open(&dir.join("opendna.sqlite3"))?);
+            // Models are found now but not loaded: the embedding model is a
+            // few hundred megabytes, so the first prediction pays for it
+            // rather than every launch.
+            app.manage(predict::Predictor::new(predict::models_dir(&dir)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -33,6 +38,10 @@ pub fn run() {
             commands::delete_protein,
             commands::analyze_sequence,
             commands::analyze_structure,
+            commands::model_status,
+            commands::predict_stability,
+            commands::predict_solubility,
+            commands::predict_disorder,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start OpenDNA");

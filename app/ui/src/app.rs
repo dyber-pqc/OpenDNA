@@ -1,6 +1,6 @@
 //! Root component and shared workspace state.
 
-use crate::components::{AnalysisPanel, Explorer, SequenceRuler, ViewerPane};
+use crate::components::{AnalysisPanel, Explorer, PredictionPanel, SequenceRuler, ViewerPane};
 use crate::ipc;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -150,6 +150,7 @@ pub fn App() -> impl IntoView {
             </main>
             <aside class="panel">
                 <AnalysisPanel />
+                <PredictionPanel />
             </aside>
             <footer class="statusbar">
                 <span>

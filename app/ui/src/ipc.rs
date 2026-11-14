@@ -2,7 +2,8 @@
 //! `opendna_app_protocol::command` and protocol types for arguments and results.
 
 use opendna_app_protocol::{
-    command, CommandError, ProteinDetail, ProteinSummary, SequenceReport, StructureReport,
+    command, CommandError, DisorderPrediction, ModelStatus, ProteinDetail, ProteinSummary, SequenceReport,
+    SolubilityPrediction, StabilityScan, StructureReport,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use wasm_bindgen::prelude::*;
@@ -67,4 +68,28 @@ pub async fn analyze_sequence(id: &str) -> Result<SequenceReport, String> {
 
 pub async fn analyze_structure(id: &str) -> Result<StructureReport, String> {
     call(command::ANALYZE_STRUCTURE, &Id { id }).await
+}
+
+/// Which heads are installed and whether the embedding model is cached.
+/// Downloads nothing, so this is safe to call on startup.
+pub async fn model_status() -> Result<ModelStatus, String> {
+    call(command::MODEL_STATUS, &()).await
+}
+
+#[derive(Serialize)]
+struct Scan<'a> {
+    id: &'a str,
+    position: usize,
+}
+
+pub async fn predict_stability(id: &str, position: usize) -> Result<StabilityScan, String> {
+    call(command::PREDICT_STABILITY, &Scan { id, position }).await
+}
+
+pub async fn predict_solubility(id: &str) -> Result<SolubilityPrediction, String> {
+    call(command::PREDICT_SOLUBILITY, &Id { id }).await
+}
+
+pub async fn predict_disorder(id: &str) -> Result<DisorderPrediction, String> {
+    call(command::PREDICT_DISORDER, &Id { id }).await
 }

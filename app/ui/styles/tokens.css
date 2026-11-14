@@ -36,6 +36,7 @@
   --accent-soft: #dbe7fd;
   --danger: #c62828;
   --danger-soft: #fbe4e4;
+  --ok: #1b7f4b;
 
   /* Secondary structure (shared by the ruler and legends). */
   --ss-helix: #c2185b;
@@ -57,6 +58,7 @@
     --accent-soft: #1b2a44;
     --danger: #ef6b6b;
     --danger-soft: #3a1c1c;
+    --ok: #4cc38a;
     --ss-helix: #f06292;
     --ss-strand: #e6b422;
     --ss-turn: #8b96a1;

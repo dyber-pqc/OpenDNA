@@ -1,9 +1,10 @@
 //! Tauri command handlers. Each is a thin adapter: validate input, call into
 //! the library crates, convert the result to a protocol type.
 
-use crate::{import, reports, state::AppState};
+use crate::{import, predict::Predictor, reports, state::AppState};
 use opendna_app_protocol::{
-    CommandError, ProteinDetail, ProteinSummary, SequenceReport, StructurePayload, StructureReport,
+    CommandError, DisorderPrediction, ModelStatus, ProteinDetail, ProteinSummary, SequenceReport,
+    SolubilityPrediction, StabilityScan, StructurePayload, StructureReport,
 };
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -99,4 +100,54 @@ pub fn analyze_structure(state: State<'_, AppState>, id: String) -> CommandResul
     let file =
         state.db().structure(&id).map_err(fail)?.ok_or_else(|| fail("this protein has no structure"))?;
     reports::structure(&file)
+}
+
+/// What the prediction models can currently do. Loads nothing and downloads
+/// nothing, so the UI can call it at startup.
+///
+/// Infallible by design: a head that cannot be used is a value in the result,
+/// not an error, so the UI can report *which* head is unusable and why rather
+/// than losing that detail in a single failure.
+#[tauri::command(async)]
+pub fn model_status(predictor: State<'_, Predictor>) -> ModelStatus {
+    predictor.status()
+}
+
+/// Score all 19 substitutions at one position.
+///
+/// The first prediction of a session loads the embedding model, which may
+/// download it; later calls reuse it.
+#[tauri::command(async)]
+pub fn predict_stability(
+    state: State<'_, AppState>,
+    predictor: State<'_, Predictor>,
+    id: String,
+    position: usize,
+) -> CommandResult<StabilityScan> {
+    predictor.stability_scan(&sequence_of(&state, &id)?, position)
+}
+
+#[tauri::command(async)]
+pub fn predict_solubility(
+    state: State<'_, AppState>,
+    predictor: State<'_, Predictor>,
+    id: String,
+) -> CommandResult<SolubilityPrediction> {
+    predictor.solubility(&sequence_of(&state, &id)?)
+}
+
+#[tauri::command(async)]
+pub fn predict_disorder(
+    state: State<'_, AppState>,
+    predictor: State<'_, Predictor>,
+    id: String,
+) -> CommandResult<DisorderPrediction> {
+    predictor.disorder(&sequence_of(&state, &id)?)
+}
+
+/// Look up a stored protein's sequence, releasing the database lock before
+/// the long-running model work starts.
+fn sequence_of(state: &State<'_, AppState>, id: &str) -> CommandResult<String> {
+    let stored = state.db().get(id).map_err(fail)?.ok_or_else(|| fail(format!("no protein with id {id}")))?;
+    Ok(stored.protein.sequence.to_string())
 }

@@ -17,6 +17,7 @@ opendna-core = { path = "../crates/opendna-core", version = "0.6.0-dev" }
 opendna-io = { path = "../crates/opendna-io", version = "0.6.0-dev" }
 opendna-analysis = { path = "../crates/opendna-analysis", version = "0.6.0-dev" }
 opendna-store = { path = "../crates/opendna-store", version = "0.6.0-dev" }
+opendna-ml = { path = "../crates/opendna-ml", version = "0.6.0-dev" }
 opendna-app-protocol = { path = "protocol", version = "0.6.0-dev" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
