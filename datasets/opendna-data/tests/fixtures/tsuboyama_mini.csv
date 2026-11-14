@@ -1,0 +1,12 @@
+name,aa_seq,mut_type,WT_name,dG_ML,ddG_ML,Stabilizing_mut
+P1.pdb,MKV,wt,P1.pdb,1.5,0.0,False
+P1.pdb_wtm,MKV,wt,P1.pdb,1.6,0.1,False
+P2.pdb,MKL,wt,P2.pdb,2.0,0.0,False
+P1.pdb_K2A,MAV,K2A,P1.pdb,1.9,0.40,True
+P1.pdb_V3G,MKG,V3G,P1.pdb,0.3,-1.2,False
+P1.pdb_T9Q:N23Q,MKV,T9Q:N23Q,P1.pdb,1.0,-0.5,False
+P1.pdb_insG1,GMKV,insG1,P1.pdb,1.0,-0.5,False
+P1.pdb_K2G,MGV,K2G,P1.pdb,-,-,-
+P1.pdb_V3A,MKA,V3A,P1.pdb,>5,0.1,False
+P1.pdb_K2L,MKV,K2L,P1.pdb,1.7,0.2,False
+P2.pdb_K2A,MAL,K2A,P2.pdb,1.7,-0.3,False
