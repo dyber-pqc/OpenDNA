@@ -3,15 +3,16 @@
 Model weights are never committed to this repository; they are downloaded or
 built on demand.
 
-Two things live here:
+This directory holds OpenDNA's own prediction heads, trained by the
+[training workspace](../training) and described below.
 
-- **OpenDNA's own prediction heads**, trained by the
-  [training workspace](../training) and described below.
-- **Third-party models** the Python backend downloads on first use —
-  ESMFold, ProteinMPNN, ESM-2 and others, listed in `manifest.yaml` and
-  cached under `~/.opendna/models/`. That backend is being replaced by the
-  Rust crates and will be removed at cutover; the Rust side fetches ESM-2
-  through `opendna-ml` instead, into the standard Hugging Face cache.
+It used to hold a second thing as well: `manifest.yaml`, a list of third-party
+models — ESMFold, ProteinMPNN and others — that the Python backend downloaded
+into `~/.opendna/models/`. That backend is gone, nothing reads the manifest,
+and none of those models can be loaded by the Rust application, so the
+manifest has been removed rather than left to imply they are available. The
+only third-party model in use is ESM-2, fetched by `opendna-ml` into the
+standard Hugging Face cache.
 
 ## OpenDNA prediction heads
 
