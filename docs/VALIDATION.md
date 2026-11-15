@@ -189,6 +189,39 @@ Intervals on every figure above are bootstrapped over **proteins**, not
 residues. Neighbouring residues almost always share a label, so resampling
 residues would report an interval several times too narrow.
 
+## Should I trust every residue equally?
+
+No, and the disorder head now says which ones. How far the calibrated
+probability sits from the decision threshold orders residues by how likely the
+call is to be wrong, measured on the held-out split:
+
+| Minimum confidence | Residues kept | Error among them |
+|---|---|---|
+| 0.00 (everything) | 100% | 15.7% |
+| 0.05 | 89% | 12.0% |
+| 0.10 | 80% | 9.3% |
+| 0.20 | 66% | 6.5% |
+| 0.25 | 57% | 5.3% |
+
+The signal captures **55%** of the error reduction an oracle shows is
+available — an oracle being a rule that discards exactly the wrong calls. Half
+of what is there. Worth having, not a guarantee.
+
+Every disorder output carries a `confidence` column.
+`predict --min-confidence <c>` additionally marks the rows below a cut-off in a
+`low_confidence` column and prints what that cut-off was measured to buy.
+Nothing is ever removed: a table quietly missing rows looks exactly like a
+complete one, and the cut-off is the caller's because the right one depends on
+what a wrong call costs them.
+
+**A signal that failed, recorded so nobody re-tests it.** The obvious
+out-of-domain proxy — whether the 5-mer centred on a residue was seen in
+training — carries no information about error. Its area under the risk–coverage
+curve was 0.171 against 0.158 for discarding residues at random, so marginally
+*worse* than nothing, despite 44.9% of held-out residues sitting on an unseen
+5-mer. Error on novel k-mers is not higher than on familiar ones. A plausible
+story about why a signal should work is not evidence that it does.
+
 ## Can I run it without a network?
 
 ```bash
@@ -306,9 +339,11 @@ marketing.
   above. The three regressors have no equivalent: nothing establishes how
   often a predicted ddG of 1.2 kcal/mol lands within any stated distance of
   the truth, so those outputs remain scores for ranking.
-- **No head abstains.** Nothing refuses to predict on an input unlike its
-  training data. A sequence from a family the head never saw gets a confident
-  number with no indication that it is out of domain.
+- **Nothing detects out-of-domain input.** The disorder head reports a
+  confidence that predicts error (see above), but that is not the same thing: a
+  sequence from a family it never saw can still produce a confident wrong
+  answer. The one out-of-domain proxy measured here, whether a residue's 5-mer
+  was seen in training, carried no information about error at all.
 
 ## Reproducing the checks
 

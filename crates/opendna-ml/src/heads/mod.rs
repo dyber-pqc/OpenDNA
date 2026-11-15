@@ -59,6 +59,43 @@ pub struct Calibration {
     pub test_mcc: f64,
 }
 
+/// One measured point on a confidence/error trade-off.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Reliability {
+    /// Minimum distance from the threshold a call must have to be kept.
+    pub min_confidence: f64,
+    /// Fraction of residues that clears it.
+    pub coverage: f64,
+    /// Error rate among those, measured on the held-out split.
+    pub error: f64,
+}
+
+/// What abstaining on low-confidence calls was measured to buy.
+///
+/// Recorded so a chosen cut-off can be reported with the number that justifies
+/// it. Nothing abstains by default: the confidence is reported and the choice
+/// is the caller's, because the right cut-off depends on what a wrong call
+/// costs them and that is not knowable from here.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Abstention {
+    /// The trade-off curve, ordered by increasing confidence requirement.
+    pub curve: Vec<Reliability>,
+    /// Error rate over every residue, which the curve's first point
+    /// approaches: the baseline any cut-off is an improvement on.
+    pub base_error: f64,
+    /// Share of the reduction an oracle shows is available that this signal
+    /// captures, between 0 and 1.
+    ///
+    /// The honest summary of how good the confidence signal is. A signal
+    /// capturing a small share orders residues barely better than chance, and
+    /// a rule built on one mostly refuses correct predictions.
+    pub captured: f64,
+    /// Signals that were measured and carried nothing, named so the next
+    /// person does not spend the afternoon re-testing them.
+    #[serde(default)]
+    pub rejected: Vec<String>,
+}
+
 impl Calibration {
     /// Apply the map to a raw logit.
     pub fn apply(&self, logit: f32) -> f32 {
@@ -116,4 +153,7 @@ pub struct HeadMetadata {
     /// checked and found unnecessary", and the model card says which.
     #[serde(default)]
     pub calibration: Option<Calibration>,
+    /// What abstaining on low-confidence calls was measured to buy.
+    #[serde(default)]
+    pub abstention: Option<Abstention>,
 }

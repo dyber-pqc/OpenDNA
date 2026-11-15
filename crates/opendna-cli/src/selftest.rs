@@ -460,7 +460,7 @@ pub fn run(
     // The same calls `predict` makes, in the same order.
     let disorder_runs =
         crate::disorder(&proteins, &heads, &model, &device, budget, threshold).blame(Install)?;
-    let disorder_table = crate::disorder_table(&disorder_runs);
+    let disorder_table = crate::disorder_table(&disorder_runs, threshold, None);
     let burial_table = crate::burial(&proteins, &heads, &model, &device, budget).blame(Install)?;
     let solubility_table = crate::solubility(&proteins, &heads, &model, &device, budget).blame(Install)?;
     let stability_table = crate::stability(&proteins, &resolved, &heads, &model, &device).blame(Install)?;
@@ -470,9 +470,11 @@ pub fn run(
             // Nothing here is sampled, so a second run on this machine has to
             // agree with the first. Run it before anything is compared, so the
             // determinism check cannot be skipped by an earlier failure.
-            let again = crate::disorder_table(&crate::disorder(
-                &proteins, &heads, &model, &device, budget, threshold,
-            )?);
+            let again = crate::disorder_table(
+                &crate::disorder(&proteins, &heads, &model, &device, budget, threshold)?,
+                threshold,
+                None,
+            );
             column(&again, "probability")?
         },
         probabilities: column(&disorder_table, "probability")?,

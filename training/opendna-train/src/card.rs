@@ -432,6 +432,54 @@ fn calibration_section(task: Task, calibration: Option<&opendna_ml::heads::Calib
     )
 }
 
+/// What the card says about confidence and abstention.
+///
+/// Includes the signals that were measured and rejected. A card that lists
+/// only what worked invites the next person to spend an afternoon re-testing
+/// what did not.
+fn confidence_section(abstention: Option<&opendna_ml::heads::Abstention>) -> String {
+    let Some(a) = abstention else {
+        return String::new();
+    };
+    let mut out = String::from(
+        "\n## Confidence, and whether to abstain\n\n\
+         How far the calibrated probability sits from the decision threshold orders residues by \
+         how likely the call is to be wrong, so a caller can trade coverage for accuracy. \
+         Measured on the held-out split:\n\n\
+         | Minimum confidence | Residues kept | Error among them |\n|---|---|---|\n",
+    );
+    for point in &a.curve {
+        let _ = writeln!(
+            out,
+            "| {:.2} | {:.0}% | {:.1}% |",
+            point.min_confidence,
+            100.0 * point.coverage,
+            100.0 * point.error
+        );
+    }
+    let _ = write!(
+        out,
+        "\nNothing abstains by default. The confidence is reported for every residue and the \
+         cut-off is the caller's, because the right one depends on what a wrong call costs them. \
+         `opendna predict --min-confidence` marks the rows that do not clear a cut-off rather than \
+         removing them: a table quietly missing rows looks exactly like a complete one.\n\n\
+         This signal captures {:.0}% of the error reduction an oracle shows is available -- an \
+         oracle being a rule that discards exactly the wrong calls. Half of what is there, which \
+         is worth having and is not a guarantee.\n",
+        100.0 * a.captured
+    );
+    if !a.rejected.is_empty() {
+        let _ = write!(
+            out,
+            "\nMeasured and rejected: {}. Ordering residues by this was no better than \
+             discarding them at random, so no rule is built on it. It is recorded because the \
+             obvious next idea is to try it.\n",
+            a.rejected.join(", ")
+        );
+    }
+    out
+}
+
 pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> Result<()> {
     // Benchmark reports are matched on the embedding model, so a card can
     // never quote a figure measured on a different one than it documents.
@@ -444,7 +492,13 @@ pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> 
         .ok()
         .and_then(|t| serde_json::from_str::<opendna_ml::heads::HeadMetadata>(&t).ok())
         .and_then(|m| m.calibration);
-    let body = render(task, report, &external) + &calibration_section(task, calibration.as_ref());
+    let abstention = std::fs::read_to_string(&files.metadata)
+        .ok()
+        .and_then(|t| serde_json::from_str::<opendna_ml::heads::HeadMetadata>(&t).ok())
+        .and_then(|m| m.abstention);
+    let body = render(task, report, &external)
+        + &calibration_section(task, calibration.as_ref())
+        + &confidence_section(abstention.as_ref());
     std::fs::write(&path, body).with_context(|| format!("writing {}", path.display()))?;
     println!(
         "Wrote {} ({} external benchmark{})",

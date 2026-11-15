@@ -19,6 +19,7 @@ mod card;
 mod data;
 mod embed;
 mod metrics;
+mod selective;
 mod train;
 
 use anyhow::{Context, Result};
@@ -166,6 +167,28 @@ enum Command {
         #[arg(long, default_value = "../models")]
         out: PathBuf,
     },
+    /// Measure whether abstaining on low-confidence predictions would improve
+    /// what is left.
+    ///
+    /// Changes nothing. It reports a risk-coverage curve for each candidate
+    /// signal against discarding residues at random and against an oracle, so
+    /// the question of whether an abstention rule is justified is answered
+    /// with evidence rather than plausibility.
+    Abstain {
+        /// Which head. Only `disorder` has a calibrated probability.
+        #[arg(long, value_enum, default_value_t = Task::Disorder)]
+        task: Task,
+        /// Directory holding the head.
+        #[arg(long, default_value = "../models")]
+        out: PathBuf,
+        /// Record the measured trade-off in the head's metadata.
+        ///
+        /// Changes no prediction. It lets the CLI report what a chosen
+        /// confidence cut-off was measured to buy, instead of asking somebody
+        /// to pick a number with nothing to go on.
+        #[arg(long)]
+        apply: bool,
+    },
     /// Measure whether a head's probabilities mean what they say, and fit a
     /// correction if they do not.
     ///
@@ -270,6 +293,9 @@ fn main() -> Result<()> {
             let report: train::Report =
                 serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
             train::stamp(task, &out, model, &report, &cli.datasets)?;
+        }
+        Command::Abstain { task, out, apply } => {
+            train::abstain(task, &cli.datasets, &cli.cache, &out, model, apply)?;
         }
         Command::Calibrate { task, out, apply } => {
             train::calibrate(task, &cli.datasets, &cli.cache, &out, model, apply)?;

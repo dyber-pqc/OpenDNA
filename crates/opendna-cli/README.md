@@ -157,6 +157,35 @@ A head carrying no recorded calibration falls back to 0.5 and its card says
 calibration was not measured. "Measured and left alone" and "never measured"
 are different states and the card distinguishes them.
 
+## Not every residue deserves equal trust
+
+Every disorder output carries a `confidence` column: how far the calibrated
+probability sits from the decision threshold. Measured on held-out data, it
+orders residues by how likely the call is to be wrong.
+
+```bash
+opendna predict --task disorder -i candidates.fasta --min-confidence 0.25 -o out.csv
+```
+
+That adds a `low_confidence` column marking the rows below the cut-off, and
+prints what the cut-off was measured to buy:
+
+```
+Marking calls below confidence 0.25. Measured at the nearest recorded cut-off
+(0.25) on held-out data: 57% of residues clear it and 5.3% of those calls were
+wrong, against 15.7% over all residues.
+```
+
+Rows are marked, never removed. A table quietly missing rows looks exactly like
+a complete one. The cut-off is yours because the right one depends on what a
+wrong call costs you; what the head supplies is the measured consequence of
+each choice, recorded in its metadata.
+
+The signal captures about half the error reduction an oracle would achieve, so
+it is worth having and is not a guarantee. The one out-of-domain proxy measured
+alongside it — whether a residue's 5-mer appeared in training — carried no
+information about error, and the card records that so nobody re-tests it.
+
 ## Stability needs to be told which mutations
 
 The head scores named substitutions rather than scanning everything, so it

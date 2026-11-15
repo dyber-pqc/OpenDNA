@@ -180,6 +180,15 @@ struct PredictArgs {
     /// `ubiquitin,L8P`. Mutations are 1-based, as they are written.
     #[arg(long)]
     mutations: Option<PathBuf>,
+    /// For `disorder` only: mark calls whose confidence is below this.
+    ///
+    /// Confidence is the distance of the calibrated probability from the
+    /// decision threshold. Rows are marked in a `low_confidence` column and
+    /// never removed: a table quietly missing rows looks exactly like a
+    /// complete one. The head records what each cut-off was measured to buy,
+    /// and the chosen one is reported against that.
+    #[arg(long)]
+    min_confidence: Option<f64>,
 }
 
 /// Settings that apply to every subcommand.
@@ -563,7 +572,7 @@ fn prepare(dir: &Path, global: Global, task: Task) -> Result<Prepared, Failure> 
 /// [`Fault`] on the failure distinguishes the install's problems from the
 /// data's, because a caller can only act on the difference.
 fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure> {
-    let PredictArgs { task, input, output, format, mutations } = args;
+    let PredictArgs { task, input, output, format, mutations, min_confidence } = args;
     let started_utc = chrono::Utc::now();
     let started = std::time::Instant::now();
     // Nothing installed can make this combination meaningful, so it is
@@ -650,10 +659,17 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
     }
 
     let table = match task {
-        Task::Disorder => disorder_table(
-            &disorder(&proteins, heads, model, device, budget, disorder_threshold(metadata))
-                .blame(Fault::Input)?,
-        ),
+        Task::Disorder => {
+            let threshold = disorder_threshold(metadata);
+            if let Some(cut) = min_confidence {
+                report_confidence_cut(metadata, cut);
+            }
+            disorder_table(
+                &disorder(&proteins, heads, model, device, budget, threshold).blame(Fault::Input)?,
+                threshold,
+                min_confidence,
+            )
+        }
         Task::Burial => burial(&proteins, heads, model, device, budget).blame(Fault::Input)?,
         Task::Solubility => solubility(&proteins, heads, model, device, budget).blame(Fault::Input)?,
         Task::Stability => {
@@ -867,20 +883,76 @@ fn burial(
 }
 
 /// The flat table form of a disorder run.
-fn disorder_table(predictions: &[(String, Vec<caid::Residue>)]) -> Table {
+///
+/// `confidence` is how far the calibrated probability sits from the decision
+/// threshold, which is the quantity measured to order residues by how likely
+/// the call is to be wrong. It is reported for every row, because a reader
+/// filtering a spreadsheet should not have to recompute it from the threshold
+/// in the comments.
+fn disorder_table(
+    predictions: &[(String, Vec<caid::Residue>)],
+    threshold: f64,
+    min_confidence: Option<f64>,
+) -> Table {
     let mut rows = Vec::new();
     for (name, residues) in predictions {
         for r in residues {
-            rows.push(vec![
+            let confidence = (r.score - threshold).abs();
+            let mut row = vec![
                 name.clone(),
                 r.position.to_string(),
                 r.code.to_string(),
                 format!("{:.4}", r.score),
                 u8::from(r.disordered).to_string(),
-            ]);
+                format!("{confidence:.4}"),
+            ];
+            if let Some(cut) = min_confidence {
+                row.push(u8::from(confidence < cut).to_string());
+            }
+            rows.push(row);
         }
     }
-    Table { columns: vec!["name", "position", "residue", "probability", "disordered"], rows }
+    let mut columns = vec!["name", "position", "residue", "probability", "disordered", "confidence"];
+    if min_confidence.is_some() {
+        columns.push("low_confidence");
+    }
+    Table { columns, rows }
+}
+
+/// Say what a chosen confidence cut-off was measured to buy.
+///
+/// Printed to standard error, so it reaches a person without entering the
+/// results. The numbers come from the head's own recorded measurement; when it
+/// has none, the cut-off still applies and this says there is nothing behind
+/// it, because a marked row with no evidence is worth less than the reader
+/// thinks.
+fn report_confidence_cut(metadata: &opendna_ml::heads::HeadMetadata, cut: f64) {
+    let Some(abstention) = metadata.abstention.as_ref() else {
+        eprintln!(
+            "Marking calls below confidence {cut:.2}. This head records no measured \
+             confidence/error trade-off, so nothing is known about what that buys. Run \
+             `opendna-train abstain --apply` against it."
+        );
+        return;
+    };
+    // The nearest recorded cut-off: the curve is measured at a few points, and
+    // quoting an interpolated number as measured would be inventing one.
+    let nearest = abstention
+        .curve
+        .iter()
+        .min_by(|a, b| (a.min_confidence - cut).abs().total_cmp(&(b.min_confidence - cut).abs()));
+    match nearest {
+        Some(point) => eprintln!(
+            "Marking calls below confidence {cut:.2}. Measured at the nearest recorded cut-off \
+             ({:.2}) on held-out data: {:.0}% of residues clear it and {:.1}% of those calls \
+             were wrong, against {:.1}% over all residues.",
+            point.min_confidence,
+            100.0 * point.coverage,
+            100.0 * point.error,
+            100.0 * abstention.base_error
+        ),
+        None => eprintln!("Marking calls below confidence {cut:.2}."),
+    }
 }
 
 fn solubility(
@@ -1190,6 +1262,42 @@ mod tests {
         assert_eq!(json_scalar("0.9412"), serde_json::json!(0.9412));
         assert_eq!(json_scalar("+0.333"), serde_json::json!(0.333));
         assert_eq!(json_scalar("L8P"), serde_json::json!("L8P"));
+    }
+
+    /// Confidence is the distance from the threshold, not from 0.5, and the
+    /// marking has to follow the cut-off rather than the probability.
+    #[test]
+    fn confidence_is_measured_from_the_head_s_own_threshold() {
+        let residues = vec![
+            caid::Residue { position: 1, code: 'M', score: 0.40, disordered: true },
+            caid::Residue { position: 2, code: 'Q', score: 0.04, disordered: false },
+        ];
+        let predictions = vec![("p".to_string(), residues)];
+
+        let table = disorder_table(&predictions, 0.34, None);
+        assert_eq!(table.columns.last(), Some(&"confidence"));
+        // 0.40 is 0.06 above a 0.34 threshold, not 0.10 below 0.5.
+        assert_eq!(table.rows[0][5], "0.0600");
+        assert_eq!(table.rows[1][5], "0.3000");
+
+        let marked = disorder_table(&predictions, 0.34, Some(0.25));
+        assert_eq!(marked.columns.last(), Some(&"low_confidence"));
+        assert_eq!(marked.rows[0][6], "1", "0.06 is below the 0.25 cut-off");
+        assert_eq!(marked.rows[1][6], "0", "0.30 clears it");
+    }
+
+    /// A row is never dropped for being uncertain: a table quietly missing
+    /// rows is indistinguishable from a complete one.
+    #[test]
+    fn marking_low_confidence_removes_no_rows() {
+        let residues: Vec<caid::Residue> = (1..=10)
+            .map(|position| caid::Residue { position, code: 'A', score: 0.34, disordered: true })
+            .collect();
+        let predictions = vec![("p".to_string(), residues)];
+        // Every residue sits exactly on the threshold, so every one is marked.
+        let marked = disorder_table(&predictions, 0.34, Some(0.5));
+        assert_eq!(marked.rows.len(), 10);
+        assert!(marked.rows.iter().all(|r| r[6] == "1"), "all should be marked");
     }
 
     #[test]

@@ -123,3 +123,23 @@ The map is monotonic, so it changes no ranking and no rank statistic: AUROC is i
 Calibration is against the labels. DisProt records disorder that has been demonstrated experimentally and unannotated residues are treated as ordered, so these probabilities are calibrated against the annotation rather than against nature. If the annotation under-reports disorder, and it does by an unknown amount, the calibrated probabilities inherit that.
 
 The threshold is a property of a distribution, not of the head. It was chosen on the validation split of this dataset, and it does not suit every set: on the CAID3 reference above, MCC, F1 and balanced accuracy are lower at this threshold than they were at the conventional 0.5, because 0.34 calibrated is about 0.78 raw and that set prefers a lower cut. The rank metrics are identical either way. If you threshold these probabilities for a decision of your own, the right cut depends on your class balance and on what a false positive costs you; the calibration is what makes it possible to reason about that at all.
+
+## Confidence, and whether to abstain
+
+How far the calibrated probability sits from the decision threshold orders residues by how likely the call is to be wrong, so a caller can trade coverage for accuracy. Measured on the held-out split:
+
+| Minimum confidence | Residues kept | Error among them |
+|---|---|---|
+| 0.00 | 100% | 15.7% |
+| 0.05 | 89% | 12.0% |
+| 0.10 | 80% | 9.3% |
+| 0.15 | 73% | 7.8% |
+| 0.20 | 66% | 6.5% |
+| 0.25 | 57% | 5.3% |
+| 0.30 | 31% | 4.8% |
+
+Nothing abstains by default. The confidence is reported for every residue and the cut-off is the caller's, because the right one depends on what a wrong call costs them. `opendna predict --min-confidence` marks the rows that do not clear a cut-off rather than removing them: a table quietly missing rows looks exactly like a complete one.
+
+This signal captures 55% of the error reduction an oracle shows is available -- an oracle being a rule that discards exactly the wrong calls. Half of what is there, which is worth having and is not a guarantee.
+
+Measured and rejected: k-mer novelty. Ordering residues by this was no better than discarding them at random, so no rule is built on it. It is recorded because the obvious next idea is to try it.

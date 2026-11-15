@@ -167,6 +167,7 @@ mod tests {
                 weights_sha256: sha.map(str::to_owned),
                 with_burial: false,
                 calibration: None,
+                abstention: None,
             }),
             problem: None,
             integrity: if sha.is_some() { Integrity::Verified } else { Integrity::Unrecorded },

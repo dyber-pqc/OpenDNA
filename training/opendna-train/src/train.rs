@@ -262,6 +262,7 @@ pub fn stamp(
         // Stamping restates an identity without retraining, so the weights
         // are the ones the calibration was fitted against and it still holds.
         calibration: existing.calibration,
+        abstention: existing.abstention,
     };
     std::fs::write(&files.metadata, serde_json::to_string_pretty(&metadata)?)
         .with_context(|| format!("writing {}", files.metadata.display()))?;
@@ -311,6 +312,9 @@ fn save(varmap: &VarMap, s: &Saved<'_>) -> Result<()> {
         // apply a correction measured for a different model. `calibrate`
         // measures it again.
         calibration: None,
+        // Void for the same reason: a confidence/error trade-off measured
+        // against other weights says nothing about these.
+        abstention: None,
     };
     std::fs::write(
         out_dir.join(format!("{}.metadata.json", task.name())),
@@ -788,6 +792,147 @@ pub fn solubility(
 ///
 /// # Errors
 /// If the datasets or caches cannot be read, or training fails.
+/// The disorder head's logits and labels for one split, plus the sequences.
+struct Predictions {
+    /// Per-protein logits and labels.
+    proteins: Vec<crate::calibrate::Protein>,
+    /// The sequences, in the same order, for sequence-level signals.
+    sequences: Vec<String>,
+}
+
+/// Run the disorder head over a split and keep its logits.
+///
+/// # Errors
+/// If the head is missing, its embedding cache is incomplete, or a cached
+/// embedding disagrees with its label array.
+fn disorder_predictions(
+    head: &opendna_ml::heads::DisorderHead,
+    cache: &MatrixCache,
+    datasets_root: &Path,
+    split: Split,
+    hidden: usize,
+    device: &candle_core::Device,
+) -> Result<Predictions> {
+    let rows = data::disorder(datasets_root, split)?;
+    let mut proteins = Vec::with_capacity(rows.len());
+    let mut sequences = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let (values, residues) = cache.get(&row.sequence)?;
+        if residues != row.disorder.len() {
+            bail!("cached embedding has {residues} residues but the label array has {}", row.disorder.len());
+        }
+        let x = Tensor::from_vec(values, (residues, hidden), device)?;
+        // Logits, not probabilities: the correction is fitted in logit space,
+        // and recovering a logit from a rounded probability loses precision
+        // exactly where the model is most confident.
+        let logits = head.forward(&x)?.to_vec1::<f32>()?;
+        proteins.push(crate::calibrate::Protein {
+            logits: logits.into_iter().map(f64::from).collect(),
+            labels: row.disorder.clone(),
+        });
+        sequences.push(row.sequence.clone());
+    }
+    Ok(Predictions { proteins, sequences })
+}
+
+/// Measure whether abstaining on low-confidence predictions would help.
+///
+/// Reports a risk-coverage curve for each candidate signal against two
+/// references: discarding residues at random, which is what no signal looks
+/// like, and an oracle that discards exactly the errors, which is what there
+/// was to win. Nothing is changed by this command. Its output is the evidence
+/// for or against writing an abstention rule at all, and "against" is a
+/// result.
+///
+/// # Errors
+/// If the head is missing or its embedding cache is incomplete.
+pub fn abstain(
+    task: Task,
+    datasets_root: &Path,
+    cache_dir: &Path,
+    out_dir: &Path,
+    model_size: ModelSize,
+    apply: bool,
+) -> Result<()> {
+    if task != Task::Disorder {
+        bail!(
+            "only the disorder head has a calibrated probability to abstain on. A regressor \
+             needs a prediction interval, which is a different measurement."
+        );
+    }
+    let device = opendna_ml::best_device()?;
+    let hidden = model_size.hidden_size();
+    let heads = opendna_ml::heads::Heads::load(out_dir, model_size, &device)?;
+    let head = heads
+        .disorder
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no disorder head in {}", out_dir.display()))?;
+    let cache = MatrixCache::open(
+        cache_dir,
+        &crate::embed::embedding_cache_name(Task::Disorder, model_size),
+        model_size.repo(),
+        hidden,
+    )?;
+
+    let files = opendna_ml::heads::HeadFiles::in_dir(out_dir, task.name());
+    let metadata = opendna_ml::heads::read_metadata(&files, task.name(), model_size)?;
+    let calibration = metadata.calibration.as_ref();
+    // The head applies its map inside `predict`, so the measurement has to
+    // apply the same one to the raw logits it reads here.
+    let mapping = calibration.map_or_else(crate::calibrate::Mapping::default, |c| {
+        crate::calibrate::Mapping { slope: c.slope, intercept: c.intercept }
+    });
+    let threshold = calibration.map_or(0.5, |c| c.threshold);
+    println!(
+        "Head {} at threshold {threshold:.2}, map p = sigmoid({:.4} * logit + {:.4})\n",
+        metadata.version, mapping.slope, mapping.intercept
+    );
+
+    let test = disorder_predictions(head, &cache, datasets_root, Split::Test, hidden, &device)?;
+    // Novelty is measured against the training split, which is what the head
+    // actually saw.
+    let training: Vec<String> =
+        data::disorder(datasets_root, Split::Train)?.into_iter().map(|r| r.sequence).collect();
+    let novel = crate::selective::novelty(&training, &test.sequences, 5);
+
+    let report = crate::selective::run(&test.proteins, mapping, threshold, &novel, 20_260_101);
+    print!("{}", report.summary());
+
+    if !apply {
+        println!(
+            "\nNothing was changed. Re-run with --apply to record the trade-off beside the \
+             head, which lets the CLI quote a measured error rate for a chosen cut-off."
+        );
+        return Ok(());
+    }
+
+    let trade_off = crate::selective::Report::trade_off(&test.proteins, mapping, threshold);
+    let curve: Vec<opendna_ml::heads::Reliability> = trade_off
+        .iter()
+        .map(|(min_confidence, coverage, error)| opendna_ml::heads::Reliability {
+            min_confidence: *min_confidence,
+            coverage: *coverage,
+            error: *error,
+        })
+        .collect();
+    let mut metadata = opendna_ml::heads::read_metadata(&files, task.name(), model_size)?;
+    metadata.abstention = Some(opendna_ml::heads::Abstention {
+        curve,
+        base_error: report.base_risk,
+        captured: report.captured(),
+        rejected: report.rejected(),
+    });
+    std::fs::write(&files.metadata, serde_json::to_string_pretty(&metadata)? + "\n")
+        .with_context(|| format!("writing {}", files.metadata.display()))?;
+    println!("\nRecorded in {}.", files.metadata.display());
+    println!(
+        "No prediction changes: the confidence is derived from the probability the head \
+         already reports, so the version and build id stay as they are. What is recorded is \
+         what a cut-off was measured to buy."
+    );
+    Ok(())
+}
+
 /// Measure a head's calibration and, with `apply`, record the correction.
 ///
 /// The validation split fits, the test split reports, and the test split is
@@ -836,32 +981,9 @@ pub fn calibrate(
 
     // The same splits the training run used, so "validation" and "test" mean
     // here exactly what they meant there.
-    let read = |split: Split| -> Result<Vec<crate::calibrate::Protein>> {
-        let rows = data::disorder(datasets_root, split)?;
-        let mut out = Vec::with_capacity(rows.len());
-        for row in &rows {
-            let (values, residues) = cache.get(&row.sequence)?;
-            if residues != row.disorder.len() {
-                bail!(
-                    "cached embedding has {residues} residues but the label array has {}",
-                    row.disorder.len()
-                );
-            }
-            let x = Tensor::from_vec(values, (residues, hidden), &device)?;
-            // Logits, not probabilities: the correction is fitted in logit
-            // space, and recovering a logit from a rounded probability loses
-            // precision exactly where the model is most confident.
-            let logits = head.forward(&x)?.to_vec1::<f32>()?;
-            out.push(crate::calibrate::Protein {
-                logits: logits.into_iter().map(f64::from).collect(),
-                labels: row.disorder.clone(),
-            });
-        }
-        Ok(out)
-    };
-
-    let validation = read(Split::Validation)?;
-    let test = read(Split::Test)?;
+    let validation =
+        disorder_predictions(head, &cache, datasets_root, Split::Validation, hidden, &device)?.proteins;
+    let test = disorder_predictions(head, &cache, datasets_root, Split::Test, hidden, &device)?.proteins;
     let residues: usize = validation.iter().chain(&test).map(|p| p.logits.len()).sum();
     println!(
         "{} validation and {} test proteins, {residues} assessed residues\n",

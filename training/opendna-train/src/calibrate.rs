@@ -127,9 +127,9 @@ pub fn sigmoid(z: f64) -> f64 {
 /// Clamped, because a probability that has been rounded to 1.0 would otherwise
 /// give an infinite logit and poison every sum it enters.
 ///
-/// Only the tests need this: the trainer reads logits from the head directly,
+/// The trainer reads logits from the head directly rather than using this,
 /// because recovering one from a rounded probability loses precision exactly
-/// where the model is most confident.
+/// where the model is most confident. It exists to build test fixtures.
 #[cfg(test)]
 pub fn logit(probability: f64) -> f64 {
     let p = probability.clamp(EPSILON, 1.0 - EPSILON);
