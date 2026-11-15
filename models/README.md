@@ -41,7 +41,36 @@ cargo run --release -p opendna-train -- train --task stability
 
 See [training/README.md](../training/README.md) for GPU setup and options.
 
-## Publishing to Hugging Face
+## Published repositories
+
+| Task | Model | Dataset |
+|---|---|---|
+| Stability (ΔΔG) | [`dyber-pqc/opendna-stability`](https://huggingface.co/dyber-pqc/opendna-stability) | [`datasets/dyber-pqc/opendna-stability`](https://huggingface.co/datasets/dyber-pqc/opendna-stability) |
+| Solubility | [`dyber-pqc/opendna-solubility`](https://huggingface.co/dyber-pqc/opendna-solubility) | [`datasets/dyber-pqc/opendna-solubility`](https://huggingface.co/datasets/dyber-pqc/opendna-solubility) |
+| Disorder | [`dyber-pqc/opendna-disorder`](https://huggingface.co/dyber-pqc/opendna-disorder) | [`datasets/dyber-pqc/opendna-disorder`](https://huggingface.co/datasets/dyber-pqc/opendna-disorder) |
+| — (no head yet) | — | [`datasets/dyber-pqc/opendna-structures`](https://huggingface.co/datasets/dyber-pqc/opendna-structures) |
+
+A model repository holds `<task>.safetensors`, `<task>.metadata.json`,
+`<task>.metrics.json` and the card as `README.md`. The weights keep their
+task-prefixed names so that all three repositories can be downloaded into one
+directory and used as-is:
+
+```bash
+hf download dyber-pqc/opendna-stability --local-dir models
+```
+
+Then point the application at it with `OPENDNA_MODELS=models`.
+
+### Licensing
+
+The heads do not all carry the same licence, because their training data does
+not. Stability and disorder are Apache-2.0: their sources are CC BY, which
+asks for attribution and sets no condition on derived work. Solubility is
+CC BY-SA 2.1 JP, following eSOL — whether weights are a derivative work of
+their training data is unsettled, and a share-alike condition is not something
+to assume away in our own favour. Each card states its own licence and why.
+
+## Publishing
 
 Publishing is a manual step, done by a maintainer. Nothing in this repository
 uploads automatically, and no token is stored here.
@@ -55,19 +84,43 @@ uploads automatically, and no token is stored here.
 2. Review the generated card. The metrics table, hyperparameters and kept
    epoch come from the run, but the intended-use and limitations sections are
    written by hand and should be re-read before each release — particularly
-   if the training data changed.
-
-3. Create the repository and upload:
+   if the training data changed. Re-render a card without retraining with:
 
    ```bash
-   hf repo create <org>/opendna-stability --type model
-   hf upload <org>/opendna-stability stability.safetensors
-   hf upload <org>/opendna-stability stability.metadata.json
-   hf upload <org>/opendna-stability stability.README.md README.md
+   cargo run --release -p opendna-train -- card --task stability --out ../models
    ```
 
-Publish the dataset that produced the model first, or at least alongside it,
-so the card's dataset link resolves.
+3. Publish the dataset that produced the model first, or at least alongside
+   it, so the card's dataset link resolves. A dataset directory from
+   `datasets/out/` uploads whole:
+
+   ```bash
+   hf repos create dyber-pqc/opendna-stability --repo-type dataset
+   hf upload dyber-pqc/opendna-stability datasets/out/stability . --repo-type dataset
+   ```
+
+4. Create the model repository and upload the four files, with the card as
+   `README.md`:
+
+   ```bash
+   hf repos create dyber-pqc/opendna-stability --repo-type model
+   hf upload dyber-pqc/opendna-stability models/stability.safetensors
+   hf upload dyber-pqc/opendna-stability models/stability.metadata.json
+   hf upload dyber-pqc/opendna-stability models/stability.metrics.json
+   hf upload dyber-pqc/opendna-stability models/stability.README.md README.md
+   ```
+
+5. Check what landed rather than trusting the upload summary. Download into an
+   empty directory, verify each Parquet file against the `sha256` in the
+   dataset's own `manifest.json`, and run one prediction from the downloaded
+   weights:
+
+   ```bash
+   cargo run --release -p opendna-ml --example predict_stability -- <dir> <sequence> 8
+   ```
+
+   The numbers must match a local run exactly. They are the same weights; any
+   difference means the upload is not what was trained.
 
 ## Honesty requirements
 

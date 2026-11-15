@@ -6,7 +6,7 @@ tags:
   - biology
   - protein-language-model
 datasets:
-  - opendna-disorder
+  - dyber-pqc/opendna-disorder
 base_model: facebook/esm2_t30_150M_UR50D
 ---
 
@@ -46,10 +46,16 @@ Validation chose the epoch that was kept (epoch 5 of 15 run). The test split was
 | Optimiser | AdamW, learning rate 0.001 |
 | Batch size | 256 |
 | Seed | 20260101 |
-| Dataset | [`opendna-disorder`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) |
-| Data licence | CC BY 4.0 (DisProt) |
+| Dataset | [`dyber-pqc/opendna-disorder`](https://huggingface.co/datasets/dyber-pqc/opendna-disorder) |
+| Data licence | CC BY 4.0 (DisProt 2025_12); the CAID3 reference set used only to hold proteins out is CC BY 3.0 |
 
-Reproduce by building the dataset first — see [`datasets/README.md`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) — and then, from `training/`:
+### Licence of these weights
+
+Both sources ask for attribution and place no condition on the licence of derived work, so the weights are Apache-2.0. Cite the dataset.
+
+### Reproducing this run
+
+Download the dataset from [`dyber-pqc/opendna-disorder`](https://huggingface.co/datasets/dyber-pqc/opendna-disorder) into `datasets/out/disorder/`, or rebuild it from its upstream sources with the `datasets/` workspace of the [OpenDNA repository](https://github.com/dyber-pqc/OpenDNA) — the dataset card lists every source file with its SHA-256. Then, from `training/`:
 
 ```bash
 cargo run --release -p opendna-train -- embed --task disorder

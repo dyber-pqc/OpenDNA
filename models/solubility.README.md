@@ -1,12 +1,14 @@
 ---
-license: apache-2.0
+license: other
+license_name: cc-by-sa-2.1-jp
+license_link: https://creativecommons.org/licenses/by-sa/2.1/jp/deed.en
 library_name: opendna
 tags:
   - protein
   - biology
   - protein-language-model
 datasets:
-  - opendna-solubility
+  - dyber-pqc/opendna-solubility
 base_model: facebook/esm2_t30_150M_UR50D
 ---
 
@@ -45,10 +47,16 @@ Validation chose the epoch that was kept (epoch 35 of 45 run). The test split wa
 | Optimiser | AdamW, learning rate 0.001 |
 | Batch size | 256 |
 | Seed | 20260101 |
-| Dataset | [`opendna-solubility`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) |
-| Data licence | see the dataset card; sources differ |
+| Dataset | [`dyber-pqc/opendna-solubility`](https://huggingface.co/datasets/dyber-pqc/opendna-solubility) |
+| Data licence | CC BY-SA 2.1 JP (eSOL, Niwa et al. 2009); the UniProtKB sequences it is joined against are CC BY 4.0 |
 
-Reproduce by building the dataset first — see [`datasets/README.md`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) — and then, from `training/`:
+### Licence of these weights
+
+The eSOL measurements are licensed CC BY-SA 2.1 JP, which is share-alike. Whether trained weights are a derivative work of their training data is an open legal question, and this project is not going to answer it in its own favour, so these weights are released under the same share-alike terms rather than the Apache-2.0 used for the other heads.
+
+### Reproducing this run
+
+Download the dataset from [`dyber-pqc/opendna-solubility`](https://huggingface.co/datasets/dyber-pqc/opendna-solubility) into `datasets/out/solubility/`, or rebuild it from its upstream sources with the `datasets/` workspace of the [OpenDNA repository](https://github.com/dyber-pqc/OpenDNA) — the dataset card lists every source file with its SHA-256. Then, from `training/`:
 
 ```bash
 cargo run --release -p opendna-train -- embed --task solubility

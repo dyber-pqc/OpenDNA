@@ -17,6 +17,16 @@ struct Prose {
     dataset: &'static str,
     dataset_url: &'static str,
     license: &'static str,
+    /// What the *weights* are released under, as a Hugging Face licence
+    /// identifier, with `weights_license_note` explaining the choice.
+    ///
+    /// This is not always `apache-2.0`. Whether model weights are a derivative
+    /// work of their training data is unsettled, and a head trained on
+    /// share-alike data is not something this project can relicense on the
+    /// strength of an assumption. Where the upstream licence is share-alike,
+    /// the weights carry it forward.
+    weights_license: &'static str,
+    weights_license_note: &'static str,
     inputs: &'static str,
     outputs: &'static str,
     baseline: &'static str,
@@ -24,14 +34,22 @@ struct Prose {
     citation: &'static str,
 }
 
+// One `match` of per-task prose. Splitting it per task would hide the fact
+// that the three cards are the same document with different words, which is
+// the property that keeps them comparable.
+#[allow(clippy::too_many_lines)]
 fn prose(task: Task) -> Prose {
     match task {
         Task::Stability => Prose {
             summary: "Predicts the change in folding free energy (ΔΔG) caused by a single \
                       amino-acid substitution.",
-            dataset: "opendna-stability",
-            dataset_url: "https://github.com/dyber-pqc/OpenDNA/tree/main/datasets",
-            license: "CC BY 4.0 (Tsuboyama et al. 2023, FireProtDB)",
+            dataset: "dyber-pqc/opendna-stability",
+            dataset_url: "https://huggingface.co/datasets/dyber-pqc/opendna-stability",
+            license: "CC BY 4.0 (Tsuboyama et al. 2023)",
+            weights_license: "apache-2.0",
+            weights_license_note: "The training data is CC BY 4.0, which asks for attribution \
+                                   and places no condition on the licence of derived work, so \
+                                   the weights are Apache-2.0. Cite the dataset.",
             inputs: "The wild-type sequence's ESM-2 embedding at the mutated position, one-hot \
                      encodings of the wild-type and mutant residues, and the masked \
                      log-odds `log P(mutant) - log P(wild type)` at that position.",
@@ -59,9 +77,18 @@ fn prose(task: Task) -> Prose {
         },
         Task::Solubility => Prose {
             summary: "Predicts protein solubility from sequence.",
-            dataset: "opendna-solubility",
-            dataset_url: "https://github.com/dyber-pqc/OpenDNA/tree/main/datasets",
-            license: "see the dataset card; sources differ",
+            dataset: "dyber-pqc/opendna-solubility",
+            dataset_url: "https://huggingface.co/datasets/dyber-pqc/opendna-solubility",
+            license: "CC BY-SA 2.1 JP (eSOL, Niwa et al. 2009); the UniProtKB sequences it is \
+                      joined against are CC BY 4.0",
+            weights_license: "other\nlicense_name: cc-by-sa-2.1-jp\nlicense_link: \
+                              https://creativecommons.org/licenses/by-sa/2.1/jp/deed.en",
+            weights_license_note: "The eSOL measurements are licensed CC BY-SA 2.1 JP, which is \
+                                   share-alike. Whether trained weights are a derivative work of \
+                                   their training data is an open legal question, and this \
+                                   project is not going to answer it in its own favour, so these \
+                                   weights are released under the same share-alike terms rather \
+                                   than the Apache-2.0 used for the other heads.",
             inputs: "The mean-pooled ESM-2 embedding of the sequence.",
             outputs: "A solubility percentage on the source assay's scale. Values above 100 occur \
                       in the source data and are not clipped.",
@@ -81,9 +108,14 @@ fn prose(task: Task) -> Prose {
         Task::Disorder => Prose {
             summary: "Predicts, for each residue, whether it lies in an intrinsically disordered \
                       region.",
-            dataset: "opendna-disorder",
-            dataset_url: "https://github.com/dyber-pqc/OpenDNA/tree/main/datasets",
-            license: "CC BY 4.0 (DisProt)",
+            dataset: "dyber-pqc/opendna-disorder",
+            dataset_url: "https://huggingface.co/datasets/dyber-pqc/opendna-disorder",
+            license: "CC BY 4.0 (DisProt 2025_12); the CAID3 reference set used only to hold \
+                      proteins out is CC BY 3.0",
+            weights_license: "apache-2.0",
+            weights_license_note: "Both sources ask for attribution and place no condition on \
+                                   the licence of derived work, so the weights are Apache-2.0. \
+                                   Cite the dataset.",
             inputs: "Per-residue ESM-2 embeddings. Sequences longer than the embedding model's \
                      limit are covered by overlapping windows.",
             outputs: "One probability per residue. The reported threshold is 0.5.",
@@ -175,8 +207,9 @@ pub fn render(task: Task, report: &Report) -> String {
     let mut out = String::new();
     let _ = write!(
         out,
-        "---\nlicense: apache-2.0\nlibrary_name: opendna\ntags:\n  - protein\n  - biology\n  - \
-         protein-language-model\ndatasets:\n  - {dataset}\nbase_model: {base}\n---\n\n\
+        "---\nlicense: {weights_license}\nlibrary_name: opendna\ntags:\n  - protein\n  - \
+         biology\n  - protein-language-model\ndatasets:\n  - {dataset}\nbase_model: \
+         {base}\n---\n\n\
          # OpenDNA {task} head\n\n{summary}\n\n\
          This is a small head trained on **frozen** [{base}](https://huggingface.co/{base}) \
          embeddings. It is not a fine-tuned language model: the embedding model is unchanged, and \
@@ -195,9 +228,12 @@ pub fn render(task: Task, report: &Report) -> String {
          | Seed | {seed}{seed_note} |\n\
          | Dataset | [`{dataset}`]({dataset_url}) |\n\
          | Data licence | {license} |\n\n\
-         Reproduce by building the dataset first — see \
-         [`datasets/README.md`](https://github.com/dyber-pqc/OpenDNA/tree/main/datasets) — and \
-         then, from `training/`:\n\n\
+         ### Licence of these weights\n\n{weights_license_note}\n\n\
+         ### Reproducing this run\n\n\
+         Download the dataset from [`{dataset}`]({dataset_url}) into `datasets/out/{task}/`, or \
+         rebuild it from its upstream sources with the `datasets/` workspace of the \
+         [OpenDNA repository](https://github.com/dyber-pqc/OpenDNA) — the dataset card lists \
+         every source file with its SHA-256. Then, from `training/`:\n\n\
          ```bash\ncargo run --release -p opendna-train -- embed --task {task}\n\
          cargo run --release -p opendna-train -- train --task {task} \\\n\
          \u{20}   --batch-size {batch} --learning-rate {lr} --seed {seed}\n```\n\n\
@@ -228,6 +264,8 @@ pub fn render(task: Task, report: &Report) -> String {
         },
         dataset_url = p.dataset_url,
         license = p.license,
+        weights_license = p.weights_license,
+        weights_license_note = p.weights_license_note,
     );
     for limitation in p.limitations {
         let _ = writeln!(out, "- {limitation}");
@@ -297,6 +335,54 @@ mod tests {
         assert!(card.contains("facebook/esm2_t30_150M_UR50D"));
         assert!(card.starts_with("---\nlicense: apache-2.0"), "needs YAML front matter");
         assert!(card.contains("## Limitations"));
+    }
+
+    /// The dataset link has to resolve for someone who only has the card.
+    ///
+    /// It used to point at `datasets/` inside the GitHub repository, a
+    /// directory that is not on the published branch — so every card shipped
+    /// a dead link to the one thing a reader most needs. It now points at the
+    /// dataset's own Hugging Face repository, which is published alongside.
+    #[test]
+    fn the_dataset_link_points_at_a_published_dataset() {
+        for task in [Task::Stability, Task::Solubility, Task::Disorder] {
+            let card = render(task, &report());
+            let expected = format!("https://huggingface.co/datasets/dyber-pqc/opendna-{}", task.name());
+            assert!(card.contains(&expected), "{} card: missing {expected}", task.name());
+            assert!(
+                !card.contains("OpenDNA/tree/main/datasets"),
+                "{} card still links to a directory that is not on the published branch",
+                task.name()
+            );
+        }
+    }
+
+    /// Share-alike data must not be laundered into an Apache-2.0 model.
+    ///
+    /// eSOL is CC BY-SA 2.1 JP. Declaring the head Apache-2.0 would assert
+    /// that weights are not a derivative work of their training data, which
+    /// is an open question and not one to settle in our own favour.
+    #[test]
+    fn a_head_trained_on_share_alike_data_does_not_claim_apache() {
+        let solubility = render(Task::Solubility, &report());
+        assert!(solubility.starts_with("---\nlicense: other\n"), "{solubility}");
+        assert!(solubility.contains("license_name: cc-by-sa-2.1-jp"), "{solubility}");
+        assert!(solubility.contains("### Licence of these weights"), "{solubility}");
+        // The other two are CC BY, which carries no such condition.
+        for task in [Task::Stability, Task::Disorder] {
+            let card = render(task, &report());
+            assert!(card.starts_with("---\nlicense: apache-2.0"), "{} card", task.name());
+        }
+    }
+
+    /// `FireProtDB` was dropped from the stability dataset for licensing
+    /// reasons, but the card went on crediting it — attributing data that is
+    /// not in the model.
+    #[test]
+    fn the_stability_card_credits_only_the_source_that_is_in_the_data() {
+        let card = render(Task::Stability, &report());
+        assert!(!card.contains("FireProtDB"), "{card}");
+        assert!(card.contains("Tsuboyama"), "{card}");
     }
 
     #[test]
