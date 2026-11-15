@@ -22,6 +22,7 @@
 mod caid;
 mod inventory;
 mod provenance;
+mod selftest;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -107,6 +108,10 @@ enum Command {
         #[arg(long)]
         check: Option<PathBuf>,
     },
+    /// Run the installed heads over a bundled sequence and check the results
+    /// against recorded values. Exits non-zero if this machine does not
+    /// reproduce them.
+    Selftest,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -286,6 +291,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::Models { lock, check } => models(&dir, lock.as_deref(), check.as_deref()),
+        Command::Selftest => selftest::run(&dir, EMBEDDER),
         Command::Predict { task, input, output, format, mutations } => {
             let text = read_input(&input)?;
             // Read as written: real files contain selenocysteine and the
@@ -352,7 +358,7 @@ fn main() -> Result<()> {
                              of `name,mutation` rows, for example `ubiquitin,L8P`."
                         )
                     })?;
-                    stability(&proteins, &path, &heads, &model, &device)?
+                    stability(&proteins, &read_mutations(&path)?, &heads, &model, &device)?
                 }
             };
             write_output(output.as_deref(), &table.render(format, &prov)?)
@@ -572,13 +578,12 @@ fn parse_mutation(label: &str, residues: &[char], name: &str) -> Result<(char, u
 
 fn stability(
     proteins: &[(String, String)],
-    mutations: &Path,
+    wanted: &[(String, String)],
     heads: &Heads,
     model: &Esm2,
     device: &candle_core::Device,
 ) -> Result<Table> {
     let head = heads.stability.as_ref().ok_or_else(|| anyhow!("the stability head did not load"))?;
-    let wanted = read_mutations(mutations)?;
     let standard = AminoAcid::STANDARD;
     let mut rows = Vec::new();
 
@@ -636,9 +641,8 @@ fn stability(
 
     if rows.is_empty() {
         bail!(
-            "no mutation in {} matched a sequence in the FASTA file. Names must match the FASTA \
-             header exactly.",
-            mutations.display()
+            "no mutation matched a sequence in the FASTA file. Names must match the FASTA header \
+             exactly."
         );
     }
     Ok(Table { columns: vec!["name", "mutation", "ddg_kcal_per_mol", "log_odds"], rows })

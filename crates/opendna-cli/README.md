@@ -66,6 +66,40 @@ file nobody can identify, which is worse than no numbers.
 including a retrain that kept the same version number — the build id catches
 that. Commit the lockfile beside the analysis it produced.
 
+## Proving the install works here
+
+Verifying the files is not the same as checking the machine. A head can hash
+correctly and still produce nonsense because this computer resolved a different
+BLAS, because the GPU path is broken, or because the embedding model in the
+cache is not the one the head was trained against.
+
+```bash
+opendna selftest
+```
+
+It runs all four heads over ubiquitin and checks seventeen things, going
+through the same code `predict` does rather than a parallel harness. Eight are
+invariants that hold for any build of these heads — the output has one value
+per residue, probabilities stay in `[0, 1]`, the hydrophobic core reads as less
+accessible than the chain-forming lysines, `L8P` is more destabilising than
+`L8M`, and a second identical run gives identical values. Nine are numbers
+measured from named builds, with a tolerance.
+
+A pinned number is only checked against the build it was measured from. Against
+any other build it reports `not checked`, naming both builds, because nobody
+has measured what that head does on this fixture. A retrain is therefore
+expected to leave those unchecked until someone records new values; the
+invariants still run.
+
+Exit status is 0 when nothing failed and non-zero when anything did, so it goes
+straight into an installation script. It catches what `models` cannot: swapping
+the burial weights into the disorder head and rewriting the metadata to match
+passes `opendna models` completely clean and fails three of the pinned checks.
+
+The tolerances are a judgement, not a measurement — the recorded values come
+from one machine, on CPU. A failure that lands just outside one is worth
+reporting rather than assuming the bound is too tight.
+
 ## Stability needs to be told which mutations
 
 The head scores named substitutions rather than scanning everything, so it
