@@ -3,8 +3,8 @@
 
 use crate::{import, predict::Predictor, reports, state::AppState};
 use opendna_app_protocol::{
-    CommandError, DisorderPrediction, ModelStatus, ProteinDetail, ProteinSummary, SequenceReport,
-    SolubilityPrediction, StabilityScan, StructurePayload, StructureReport,
+    BurialPrediction, CommandError, DisorderPrediction, ModelStatus, ProteinDetail, ProteinSummary,
+    SequenceReport, SolubilityPrediction, StabilityScan, StructurePayload, StructureReport,
 };
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -143,6 +143,15 @@ pub fn predict_disorder(
     id: String,
 ) -> CommandResult<DisorderPrediction> {
     predictor.disorder(&sequence_of(&state, &id)?)
+}
+
+#[tauri::command(async)]
+pub fn predict_burial(
+    state: State<'_, AppState>,
+    predictor: State<'_, Predictor>,
+    id: String,
+) -> CommandResult<BurialPrediction> {
+    predictor.burial(&sequence_of(&state, &id)?)
 }
 
 /// Save text the UI has rendered, to a file the user picks.

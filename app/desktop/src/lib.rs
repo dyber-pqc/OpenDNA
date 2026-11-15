@@ -42,6 +42,7 @@ pub fn run() {
             commands::predict_stability,
             commands::predict_solubility,
             commands::predict_disorder,
+            commands::predict_burial,
             commands::save_text_file,
         ])
         .run(tauri::generate_context!())

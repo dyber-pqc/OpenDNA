@@ -258,3 +258,7 @@ button.danger.armed { background: var(--danger); border-color: var(--danger); co
   list-style: disc;
 }
 .limitations li { margin-bottom: 2px; }
+
+/* A buried residue's bar is short, since the quantity is exposure; colour it
+   so the core reads as distinct from the surface rather than merely small. */
+.track .bar.buried { fill: var(--accent); }

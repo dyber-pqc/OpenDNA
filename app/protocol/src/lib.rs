@@ -28,6 +28,8 @@ pub mod command {
     pub const PREDICT_SOLUBILITY: &str = "predict_solubility";
     /// `{ id } -> DisorderPrediction`
     pub const PREDICT_DISORDER: &str = "predict_disorder";
+    /// Per-residue solvent accessibility.
+    pub const PREDICT_BURIAL: &str = "predict_burial";
     /// Save text the UI has rendered to a file the user chooses.
     pub const SAVE_TEXT_FILE: &str = "save_text_file";
 }
@@ -216,6 +218,23 @@ pub struct ModelStatus {
     pub solubility: HeadStatus,
     /// Per-residue disorder head.
     pub disorder: HeadStatus,
+    /// Per-residue solvent accessibility head.
+    pub burial: HeadStatus,
+}
+
+/// Per-residue solvent accessibility for one protein.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BurialPrediction {
+    /// Relative accessibility per residue, in sequence order: roughly 0 for a
+    /// residue in the core and roughly 1 for one fully exposed. Can exceed 1,
+    /// because the per-residue maxima it is divided by are theoretical.
+    pub accessibility: Vec<f64>,
+    /// Accessibility at or below which the interface calls a residue buried.
+    /// The convention, not a property of the model.
+    pub buried_at: f64,
+    /// Whether the sequence was longer than the embedding model's limit and
+    /// was covered by overlapping windows.
+    pub windowed: bool,
 }
 
 /// One substitution's predicted effect on folding stability.

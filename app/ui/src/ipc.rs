@@ -2,8 +2,8 @@
 //! `opendna_app_protocol::command` and protocol types for arguments and results.
 
 use opendna_app_protocol::{
-    command, CommandError, DisorderPrediction, ModelStatus, ProteinDetail, ProteinSummary, SequenceReport,
-    SolubilityPrediction, StabilityScan, StructureReport,
+    command, BurialPrediction, CommandError, DisorderPrediction, ModelStatus, ProteinDetail, ProteinSummary,
+    SequenceReport, SolubilityPrediction, StabilityScan, StructureReport,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use wasm_bindgen::prelude::*;
@@ -92,6 +92,10 @@ pub async fn predict_solubility(id: &str) -> Result<SolubilityPrediction, String
 
 pub async fn predict_disorder(id: &str) -> Result<DisorderPrediction, String> {
     call(command::PREDICT_DISORDER, &Id { id }).await
+}
+
+pub async fn predict_burial(id: &str) -> Result<BurialPrediction, String> {
+    call(command::PREDICT_BURIAL, &Id { id }).await
 }
 
 // Both fields are single words, so the key is the same whether Tauri looks

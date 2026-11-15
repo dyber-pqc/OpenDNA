@@ -9,8 +9,8 @@
 //! application is always the output of a trained model, or it is not shown.
 
 use opendna_app_protocol::{
-    CommandError, DisorderPrediction, HeadStatus, ModelStatus, SolubilityPrediction, StabilityScan,
-    SubstitutionScore,
+    BurialPrediction, CommandError, DisorderPrediction, HeadStatus, ModelStatus, SolubilityPrediction,
+    StabilityScan, SubstitutionScore,
 };
 use opendna_core::AminoAcid;
 use opendna_ml::esm2::{Esm2, ModelSize};
@@ -27,6 +27,11 @@ const EMBEDDER: ModelSize = ModelSize::Large150M;
 /// Probability at or above which a residue is reported as disordered. The
 /// trained head's card reports its metrics at this threshold.
 const DISORDER_THRESHOLD: f64 = 0.5;
+
+/// Relative accessibility at or below which the interface calls a residue
+/// buried. The Rost & Sander convention, matching the burial dataset's own
+/// `buried` column and the CLI, so all three agree.
+const BURIED_AT: f64 = 0.25;
 
 /// Where to look for trained heads.
 ///
@@ -86,6 +91,7 @@ impl Predictor {
             device: best_device()
                 .as_ref()
                 .map_or_else(|_| "CPU (no GPU available)".to_string(), device_description),
+            burial: head_status(&self.dir, "burial"),
             stability: head_status(&self.dir, "stability"),
             solubility: head_status(&self.dir, "solubility"),
             disorder: head_status(&self.dir, "disorder"),
@@ -215,6 +221,38 @@ impl Predictor {
                 .map(f64::from)
                 .collect();
             Ok(DisorderPrediction { probabilities, threshold: DISORDER_THRESHOLD, windowed })
+        })
+    }
+
+    /// Per-residue solvent accessibility.
+    ///
+    /// # Errors
+    /// [`CommandError`] if the head is absent, the embedding model cannot be
+    /// loaded, or inference fails.
+    pub fn burial(&self, sequence: &str) -> Result<BurialPrediction, CommandError> {
+        self.with_models(|esm2, heads| {
+            let head = heads.burial.as_ref().ok_or_else(|| missing("burial"))?;
+            // Windowed like disorder: accessibility is a local property, so a
+            // residue's own neighbourhood is what the head reads, and a
+            // window boundary costs less than refusing the sequence.
+            let windowed = sequence.chars().count() > esm2.max_residues();
+            let embedding = if windowed {
+                esm2.embed_windowed(sequence).map_err(describe)?
+            } else {
+                esm2.embed(&[sequence])
+                    .map_err(describe)?
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| fail("the embedding model returned nothing for this sequence"))?
+            };
+
+            let accessibility = head
+                .predict(&embedding.per_residue, embedding.length, esm2.device())
+                .map_err(fail)?
+                .into_iter()
+                .map(f64::from)
+                .collect();
+            Ok(BurialPrediction { accessibility, buried_at: BURIED_AT, windowed })
         })
     }
 }
@@ -394,8 +432,17 @@ mod end_to_end {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../models")
     }
 
-    fn predictor() -> Predictor {
-        Predictor::new(repo_models())
+    /// One predictor shared by every test here, as the application has one.
+    ///
+    /// Each test used to build its own, so four of them loaded the same
+    /// several-hundred-megabyte checkpoint at once and Windows refused the
+    /// concurrent opens — "the process cannot access the file because it is
+    /// being used by another process", which reads like a missing model and
+    /// is not. Sharing it also exercises the arrangement the app actually
+    /// uses: one `Predictor`, whose own lock serialises inference.
+    fn predictor() -> &'static Predictor {
+        static SHARED: std::sync::OnceLock<Predictor> = std::sync::OnceLock::new();
+        SHARED.get_or_init(|| Predictor::new(repo_models()))
     }
 
     #[test]
@@ -405,6 +452,7 @@ mod end_to_end {
         assert!(status.stability.is_ready(), "stability: {:?}", status.stability);
         assert!(status.solubility.is_ready(), "solubility: {:?}", status.solubility);
         assert!(status.disorder.is_ready(), "disorder: {:?}", status.disorder);
+        assert!(status.burial.is_ready(), "burial: {:?}", status.burial);
     }
 
     #[test]
@@ -429,6 +477,39 @@ mod end_to_end {
         for s in &scan.scores {
             assert!(s.ddg > -8.0 && s.ddg < 8.0, "{} gave an implausible ΔΔG {}", s.mutant, s.ddg);
         }
+    }
+
+    /// Ubiquitin's core is the check: I3, V5, I13, L15, V17, I23, V26, I30,
+    /// L43, L50, L56, I61, L67 and L69 pack the hydrophobic interior, while
+    /// K48 is the polyubiquitination site and must be on the surface to be
+    /// conjugated. A head wired to the wrong residues would still return
+    /// numbers on the right scale, so the scale alone proves nothing.
+    #[test]
+    #[ignore = "loads the 150M embedding model"]
+    fn burial_puts_ubiquitins_core_inside_and_its_lysines_out() {
+        let p = predictor();
+        let got = p.burial(UBIQUITIN).unwrap();
+        assert_eq!(got.accessibility.len(), UBIQUITIN.len(), "one value per residue");
+        assert!(!got.windowed, "ubiquitin fits in one window");
+        assert!(
+            got.accessibility.iter().all(|v| (0.0..=1.3).contains(v)),
+            "accessibility outside its physical range: {:?}",
+            got.accessibility.iter().copied().fold(f64::NAN, f64::max)
+        );
+
+        let at = |position: usize| got.accessibility[position - 1];
+        let core = [3, 5, 13, 15, 17, 23, 26, 30, 43, 50, 56, 61, 67, 69];
+        let core_mean = core.iter().map(|i| at(*i)).sum::<f64>() / core.len() as f64;
+        let surface = [6, 11, 27, 29, 48, 63, 72, 74];
+        let surface_mean = surface.iter().map(|i| at(*i)).sum::<f64>() / surface.len() as f64;
+
+        assert!(core_mean < 0.2, "the hydrophobic core should be buried, got {core_mean:.3}");
+        assert!(surface_mean > 0.3, "surface residues should be exposed, got {surface_mean:.3}");
+        assert!(
+            surface_mean > core_mean + 0.2,
+            "core {core_mean:.3} and surface {surface_mean:.3} are not distinguished"
+        );
+        assert!(at(48) > 0.25, "K48 is a conjugation site and must be exposed, got {:.3}", at(48));
     }
 
     #[test]

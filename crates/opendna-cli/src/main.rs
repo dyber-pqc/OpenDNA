@@ -43,6 +43,13 @@ const EMBEDDER: ModelSize = ModelSize::Large150M;
 /// threshold the disorder head was evaluated at.
 const DISORDER_THRESHOLD: f64 = 0.5;
 
+/// Relative accessibility at or below which a residue counts as buried.
+///
+/// 0.25 is the Rost & Sander convention and is what the burial dataset's own
+/// `buried` column uses, so the two agree. The accessibility column is the
+/// measurement; this is a convenience.
+const BURIED_AT: f64 = 0.25;
+
 #[derive(Parser)]
 #[command(
     name = "opendna",
@@ -100,12 +107,15 @@ enum Task {
     Solubility,
     /// Change in folding free energy for named substitutions.
     Stability,
+    /// Per-residue relative solvent accessibility.
+    Burial,
 }
 
 impl Task {
     fn name(self) -> &'static str {
         match self {
             Self::Disorder => "disorder",
+            Self::Burial => "burial",
             Self::Solubility => "solubility",
             Self::Stability => "stability",
         }
@@ -314,6 +324,7 @@ fn main() -> Result<()> {
 
             let table = match task {
                 Task::Disorder => disorder_table(&disorder(&proteins, &heads, &model, &device)?),
+                Task::Burial => burial(&proteins, &heads, &model, &device)?,
                 Task::Solubility => solubility(&proteins, &heads, &model, &device)?,
                 Task::Stability => {
                     let path = mutations.ok_or_else(|| {
@@ -334,7 +345,7 @@ fn main() -> Result<()> {
 fn models(dir: &Path) {
     println!("Looking in {}", dir.display());
     println!("Embedding model: {}", EMBEDDER.repo());
-    for task in [Task::Stability, Task::Solubility, Task::Disorder] {
+    for task in [Task::Stability, Task::Solubility, Task::Disorder, Task::Burial] {
         let files = HeadFiles::in_dir(dir, task.name());
         let state = if files.exist() {
             match read_metadata(&files, task.name(), EMBEDDER) {
@@ -381,6 +392,40 @@ fn disorder(
         out.push((name.clone(), scored));
     }
     Ok(out)
+}
+
+/// Per-residue solvent accessibility for every sequence.
+///
+/// Windowed for long sequences, like disorder: accessibility is a local
+/// property, so a residue's own neighbourhood is what the head reads and a
+/// window boundary costs less than refusing the sequence.
+fn burial(
+    proteins: &[(String, String)],
+    heads: &Heads,
+    model: &Esm2,
+    device: &candle_core::Device,
+) -> Result<Table> {
+    let head = heads.burial.as_ref().ok_or_else(|| anyhow!("the burial head did not load"))?;
+    let mut rows = Vec::new();
+    for (name, sequence) in proteins {
+        let residues: Vec<char> = sequence.chars().collect();
+        let embedding = if residues.len() > model.max_residues() {
+            model.embed_windowed(sequence)?
+        } else {
+            model.embed(&[sequence.as_str()])?.remove(0)
+        };
+        let values = head.predict(&embedding.per_residue, embedding.length, device)?;
+        for (index, accessibility) in values.iter().enumerate() {
+            rows.push(vec![
+                name.clone(),
+                (index + 1).to_string(),
+                residues.get(index).copied().unwrap_or('?').to_string(),
+                format!("{accessibility:.4}"),
+                u8::from(f64::from(*accessibility) <= BURIED_AT).to_string(),
+            ]);
+        }
+    }
+    Ok(Table { columns: vec!["name", "position", "residue", "accessibility", "buried"], rows })
 }
 
 /// The flat table form of a disorder run.

@@ -3,8 +3,9 @@
 Protein property prediction that runs on your own machine. No server, no
 account, no network: sequences stay where you opened them.
 
-Three trained models score candidate sequences for per-residue disorder,
-solubility, and the stability effect of a point mutation. Each is a small head
+Four trained models score candidate sequences for per-residue disorder,
+per-residue solvent accessibility, solubility, and the stability effect of a
+point mutation. Each is a small head
 on frozen [ESM-2](https://huggingface.co/facebook/esm2_t30_150M_UR50D)
 embeddings. When a model is missing the answer is an error saying so — there
 is no heuristic fallback anywhere, and no number in the interface comes from
@@ -70,6 +71,7 @@ a head stands relative to the field.
 | Head | In-domain test | External |
 |---|---|---|
 | **Disorder** | AUROC 0.883 | **AUROC 0.941** on CAID3 Disorder-PDB |
+| Accessibility | Spearman 0.737 | not benchmarked externally yet |
 | Stability (ΔΔG) | Spearman 0.674 | Spearman 0.442 over 4 ProteinGym assays |
 | Solubility | Spearman 0.701 | none exists under usable terms |
 

@@ -9,7 +9,7 @@ use crate::{app::Workspace, ipc};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use opendna_app_protocol::{
-    DisorderPrediction, HeadStatus, ModelStatus, SolubilityPrediction, StabilityScan,
+    BurialPrediction, DisorderPrediction, HeadStatus, ModelStatus, SolubilityPrediction, StabilityScan,
 };
 use std::fmt::Write as _;
 
@@ -22,6 +22,7 @@ pub fn PredictionPanel() -> impl IntoView {
     let status: RwSignal<Option<Result<ModelStatus, String>>> = RwSignal::new(None);
     let solubility: Pending<SolubilityPrediction> = RwSignal::new(None);
     let disorder: Pending<DisorderPrediction> = RwSignal::new(None);
+    let burial: Pending<BurialPrediction> = RwSignal::new(None);
     let stability: Pending<StabilityScan> = RwSignal::new(None);
     let running = RwSignal::new(false);
     let position = RwSignal::new(1usize);
@@ -36,6 +37,7 @@ pub fn PredictionPanel() -> impl IntoView {
         ws.selected.track();
         solubility.set(None);
         disorder.set(None);
+        burial.set(None);
         stability.set(None);
         position.set(1);
     });
@@ -47,7 +49,8 @@ pub fn PredictionPanel() -> impl IntoView {
                 None => view! { <p class="empty">"Checking for models…"</p> }.into_any(),
                 Some(Err(e)) => view! { <p class="note error">{e}</p> }.into_any(),
                 Some(Ok(s)) => view! { <Models status=s ws=ws solubility=solubility
-                    disorder=disorder stability=stability running=running position=position /> }
+                    disorder=disorder burial=burial stability=stability running=running
+                    position=position /> }
                     .into_any(),
             }}
         </section>
@@ -60,11 +63,15 @@ fn Models(
     ws: Workspace,
     solubility: Pending<SolubilityPrediction>,
     disorder: Pending<DisorderPrediction>,
+    burial: Pending<BurialPrediction>,
     stability: Pending<StabilityScan>,
     running: RwSignal<bool>,
     position: RwSignal<usize>,
 ) -> impl IntoView {
-    let any_ready = status.stability.is_ready() || status.solubility.is_ready() || status.disorder.is_ready();
+    let any_ready = status.stability.is_ready()
+        || status.solubility.is_ready()
+        || status.disorder.is_ready()
+        || status.burial.is_ready();
     let models_dir = status.models_dir.clone();
     let warn_download = !status.embedding_cached;
     let embedding_model = status.embedding_model.clone();
@@ -76,8 +83,8 @@ fn Models(
     // Exported tables are rendered from whatever is on screen, so a file can
     // never hold a different number than the panel showed. Each carries the
     // head version and the card's limitations.
-    let (sol_head, dis_head, stab_head) =
-        (status.solubility.clone(), status.disorder.clone(), status.stability.clone());
+    let (sol_head, dis_head, stab_head, bur_head) =
+        (status.solubility.clone(), status.disorder.clone(), status.stability.clone(), status.burial.clone());
     let name_of = move || ws.detail.get().map_or_else(|| "protein".to_string(), |d| d.summary.name.clone());
 
     let for_csv = status.clone();
@@ -116,6 +123,31 @@ fn Models(
     });
 
     let for_csv = status.clone();
+    let head = for_csv.burial.clone();
+    let bur_csv = Memo::new(move |_| {
+        let Some(Ok(p)) = burial.get() else { return String::new() };
+        let sequence = ws.detail.get().map(|d| d.sequence.clone()).unwrap_or_default();
+        let residues: Vec<char> = sequence.chars().collect();
+        let mut out = provenance("burial", &for_csv, &head);
+        let _ = writeln!(out, "# buried at or below: {}", p.buried_at);
+        if p.windowed {
+            out.push_str("# covered by overlapping windows: longer than the model's limit\n");
+        }
+        out.push_str("name,position,residue,accessibility,buried\n");
+        let who = field(&name_of());
+        for (i, value) in p.accessibility.iter().enumerate() {
+            let _ = writeln!(
+                out,
+                "{who},{},{},{value:.4},{}",
+                i + 1,
+                residues.get(i).copied().unwrap_or('?'),
+                u8::from(*value <= p.buried_at)
+            );
+        }
+        out
+    });
+
+    let for_csv = status.clone();
     let head = for_csv.stability.clone();
     let stab_csv = Memo::new(move |_| {
         let Some(Ok(s)) = stability.get() else { return String::new() };
@@ -142,6 +174,7 @@ fn Models(
             match kind {
                 Kind::Solubility => solubility.set(Some(ipc::predict_solubility(&id).await)),
                 Kind::Disorder => disorder.set(Some(ipc::predict_disorder(&id).await)),
+                Kind::Burial => burial.set(Some(ipc::predict_burial(&id).await)),
                 Kind::Stability => {
                     let at = position.get_untracked();
                     stability.set(Some(ipc::predict_stability(&id, at).await));
@@ -172,6 +205,7 @@ fn Models(
             <StatusRow label="Stability (ΔΔG)" status=status.stability.clone() />
             <StatusRow label="Solubility" status=status.solubility.clone() />
             <StatusRow label="Disorder" status=status.disorder.clone() />
+            <StatusRow label="Accessibility" status=status.burial.clone() />
 
             {status.solubility.is_ready().then(move || view! {
                 <div class="predict-block">
@@ -217,6 +251,24 @@ fn Models(
                 </div>
             })}
 
+            {status.burial.is_ready().then(move || view! {
+                <div class="predict-block">
+                    <button class="secondary"
+                        disabled=move || running.get() || selected().is_none()
+                        on:click=move |_| run(Kind::Burial)>
+                        "Predict solvent accessibility"
+                    </button>
+                    {move || burial.get().map(|r| match r {
+                        Err(e) => view! { <p class="note error">{e}</p> }.into_any(),
+                        Ok(p) => view! {
+                            <BurialTrack prediction=p />
+                            <ExportButton name="burial.csv".to_string() contents=bur_csv />
+                            <Limitations head=bur_head.clone() />
+                        }.into_any(),
+                    })}
+                </div>
+            })}
+
             {status.stability.is_ready().then(move || view! {
                 <div class="predict-block">
                     <label class="field">
@@ -256,6 +308,7 @@ enum Kind {
     Solubility,
     Disorder,
     Stability,
+    Burial,
 }
 
 #[component]
@@ -318,6 +371,64 @@ fn DisorderTrack(prediction: DisorderPrediction) -> impl IntoView {
             {prediction.windowed.then_some("This sequence is longer than the embedding model's limit and was covered by overlapping windows. ")}
             "Trained on DisProt, which records disorder that has been demonstrated: unannotated \
              residues count as ordered, so the negative class is not exhaustive."
+        </p>
+    }
+}
+
+/// Per-residue accessibility as a bar per residue, with the buried threshold
+/// drawn across it.
+///
+/// Drawn the opposite way round from the disorder track: a *short* bar is a
+/// buried residue, because the quantity is exposure. The threshold line is
+/// therefore near the bottom, and what sits under it is the core.
+#[component]
+fn BurialTrack(prediction: BurialPrediction) -> impl IntoView {
+    let (w, h) = (300.0_f64, 48.0_f64);
+    let n = prediction.accessibility.len();
+    let step = if n > 0 { w / n as f64 } else { 0.0 };
+    // Accessibility can exceed 1, so the track is scaled to whatever the
+    // tallest bar is rather than clipping it out of sight.
+    let ceiling = prediction.accessibility.iter().copied().fold(1.0_f64, f64::max);
+    let threshold_y = h - prediction.buried_at / ceiling * h;
+    let buried = prediction.accessibility.iter().filter(|v| **v <= prediction.buried_at).count();
+    let fraction = if n > 0 { buried as f64 / n as f64 * 100.0 } else { 0.0 };
+
+    let bars: Vec<_> = prediction
+        .accessibility
+        .iter()
+        .enumerate()
+        .map(|(i, value)| {
+            let height = value / ceiling * h;
+            view! {
+                <rect x=format!("{:.2}", i as f64 * step) y=format!("{:.2}", h - height)
+                    width=format!("{:.2}", step.max(0.5)) height=format!("{:.2}", height)
+                    class={if *value <= prediction.buried_at { "bar buried" } else { "bar" }} />
+            }
+        })
+        .collect();
+
+    view! {
+        <svg class="track" viewBox=format!("0 0 {w} {h}") preserveAspectRatio="none" role="img"
+            aria-label="Per-residue relative solvent accessibility">
+            {bars}
+            <line x1="0" x2=format!("{w}") y1=format!("{threshold_y:.2}") y2=format!("{threshold_y:.2}")
+                class="threshold" />
+        </svg>
+        <table class="kv">
+            <tbody>
+                <tr>
+                    <th>"Residues buried"</th>
+                    <td>{buried}" / "{n}<span class="unit">{format!("({fraction:.0}%)")}</span></td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="note">
+            "Relative accessibility: 0 is fully buried, 1 fully exposed. Buried at or below "
+            {format!("{:.2}", prediction.buried_at)}", the usual convention. "
+            {prediction.windowed.then_some("This sequence is longer than the embedding model's limit and was covered by overlapping windows. ")}
+            "Accessibility describes a folded structure, so read it beside the disorder track: \
+             for a region with no stable fold the number is still produced and still means \
+             nothing."
         </p>
     }
 }

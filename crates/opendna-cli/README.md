@@ -11,7 +11,14 @@ opendna models
 opendna predict --task disorder    -i candidates.fasta -o disorder.csv
 opendna predict --task solubility  -i candidates.fasta -o solubility.csv
 opendna predict --task stability   -i candidates.fasta --mutations muts.csv -o ddg.csv
+opendna predict --task burial      -i candidates.fasta -o accessibility.csv
 ```
+
+`burial` gives relative solvent accessibility per residue — roughly 0 for a
+residue in the core, roughly 1 for one fully exposed — which is what answers
+where a mutation is tolerable and where a linker can go. Read it beside
+`disorder`: accessibility describes a folded structure, so for a region with
+no stable fold the number is still produced and still means nothing.
 
 `--format` takes `csv`, `tsv`, `json`, or `caid` for a CAID submission — see
 [CAID.md](CAID.md). With no `-o`, the table goes to standard output and
