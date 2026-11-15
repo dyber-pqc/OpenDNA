@@ -1,5 +1,14 @@
 name: Release
 
+# Builds the Rust desktop application and attaches the installers to a tag.
+#
+# This replaces a workflow that built a Python wheel, a PyInstaller sidecar and
+# a React bundle, all of which have been removed. It has not been executed: it
+# only runs on a tag push, so the first real tag is also its first test. The
+# build steps mirror the `desktop-app` job in ci.yml, which does run on every
+# commit, so the Rust and Trunk parts are exercised there — the parts unique to
+# this file are `cargo tauri build` and the artifact collection.
+
 on:
   push:
     tags:
@@ -7,66 +16,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  python-package:
-    name: Build Python package
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install build tooling
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build hatchling
-
-      - name: Build sdist and wheel
-        run: python -m build
-
-      - name: Verify build outputs
-        run: ls -la dist/
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-package
-          path: dist/*
-
-  ui-bundle:
-    name: Build UI static bundle
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Install
-        working-directory: ui
-        run: npm ci
-
-      - name: Build
-        working-directory: ui
-        run: npm run build
-
-      - name: Tar dist
-        run: |
-          cd ui
-          tar -czf ../opendna-ui-${{ github.ref_name }}.tar.gz dist
-
-      - name: Upload UI bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui-bundle
-          path: opendna-ui-*.tar.gz
-
   desktop-build:
     name: Desktop installer (${{ matrix.platform }})
     strategy:
@@ -83,15 +32,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies (Ubuntu)
+      - name: System packages (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
             build-essential \
-            curl \
-            wget \
             file \
             libxdo-dev \
             libssl-dev \
@@ -99,54 +46,39 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          workspaces: ./ui/src-tauri -> target
+          targets: wasm32-unknown-unknown
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
+          workspaces: app
 
-      - name: Install UI dependencies
-        working-directory: ui
-        run: npm ci
-
-      - name: Build UI
-        working-directory: ui
-        run: npm run build
-
-      - name: Set up Python for sidecar build
-        uses: actions/setup-python@v5
+      - uses: jetli/trunk-action@v0.5.1
         with:
-          python-version: "3.12"
+          version: v0.22.1
 
-      - name: Build PyInstaller sidecar
-        shell: bash
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pyinstaller>=6.0
-          python -m pip install -e .
-          python scripts/build_sidecar.py
-          ls -la ui/src-tauri/binaries/
+      - name: Install the Tauri CLI
+        run: cargo install tauri-cli --locked --version "^2"
 
-      - name: Build Tauri desktop app
-        working-directory: ui
-        run: npx tauri build
+      # The structure viewer's assets are fetched rather than vendored, and
+      # the UI build expects them to be present.
+      - name: Fetch Mol* assets
+        working-directory: app
+        run: cargo run -p xtask -- fetch-molstar
 
-      - name: Collect installer artifacts
+      # tauri.conf.json runs `trunk build --release` in app/ui as its
+      # beforeBuildCommand, so the WebAssembly front end is built here too.
+      - name: Build the application
+        working-directory: app/desktop
+        run: cargo tauri build
+
+      - name: Collect installers
         if: always()
         shell: bash
         run: |
-          mkdir -p desktop-bundles
-          # Copy all installer types
-          find ui/src-tauri/target/release/bundle -type f \( \
+          mkdir -p installers
+          find app/target/release/bundle -type f \( \
             -name "*.dmg" -o \
             -name "*.app.tar.gz" -o \
             -name "*.deb" -o \
@@ -154,20 +86,20 @@ jobs:
             -name "*.AppImage" -o \
             -name "*.msi" -o \
             -name "*-setup.exe" \
-          \) -exec cp {} desktop-bundles/ \; 2>/dev/null || true
-          ls -la desktop-bundles/ || echo "No desktop bundles found"
+          \) -exec cp {} installers/ \;
+          ls -la installers/
 
-      - name: Upload desktop bundles
+      - name: Upload installers
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
-          path: desktop-bundles/*
-          if-no-files-found: warn
+          path: installers/*
+          if-no-files-found: error
 
   github-release:
-    name: Create unified GitHub Release
-    needs: [python-package, ui-bundle, desktop-build]
+    name: GitHub release
+    needs: [desktop-build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -175,269 +107,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: List collected artifacts
+      - name: Flatten
         run: |
-          echo "=== All artifacts ==="
-          find artifacts -type f -ls
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release/
 
-      - name: Create unified release
+      - name: Publish
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/python-package/*
-            artifacts/ui-bundle/*
-            artifacts/desktop-macos/*
-            artifacts/desktop-linux/*
-            artifacts/desktop-windows/*
+          files: release/*
+          draft: true
           generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          name: "OpenDNA ${{ github.ref_name }}"
           body: |
-            # OpenDNA ${{ github.ref_name }}
+            ## Installing
 
-            **The People's Protein Engineering Platform** — free, open-source protein structure prediction, sequence design, and analysis that runs on consumer hardware.
+            Download the installer for your platform below. There is no Python
+            or Node runtime to install, and the application does not open a
+            network port.
 
-            ---
+            | Platform | File |
+            |---|---|
+            | Windows | `*-setup.exe` or `*.msi` |
+            | macOS | `*.dmg` |
+            | Linux | `*.AppImage`, `*.deb` or `*.rpm` |
 
-            ## 📦 Choose your download
+            ## Predictions need the trained heads
 
-            ### 🖥️ Desktop installers (easiest — recommended for most users)
-
-            One-click installers that bundle the OpenDNA desktop app. You still need Python 3.10+ and `pip install opendna` for the backend.
-
-            | OS | File pattern | Notes |
-            |---|---|---|
-            | 🪟 **Windows** | `OpenDNA_*_x64_en-US.msi` | ⭐ Microsoft Installer (recommended) |
-            | 🪟 **Windows** | `OpenDNA_*-setup.exe` | NSIS installer (alternative) |
-            | 🍎 **macOS** | `OpenDNA_*_aarch64.dmg` | Apple Silicon |
-            | 🍎 **macOS** | `OpenDNA.app.tar.gz` | Pre-built app bundle |
-            | 🐧 **Linux** | `OpenDNA_*_amd64.AppImage` | ⭐ Single-file portable executable |
-            | 🐧 **Linux** | `OpenDNA_*_amd64.deb` | Debian/Ubuntu package |
-            | 🐧 **Linux** | `OpenDNA-*-1.x86_64.rpm` | Red Hat/Fedora package |
-
-            ⚠️ **These builds are unsigned.** On first launch:
-            - **Windows**: SmartScreen → "More info" → "Run anyway"
-            - **macOS**: Right-click → Open (don't double-click)
-            - **Linux AppImage**: `chmod +x OpenDNA_*.AppImage`
-
-            ### 🐍 Python package (for CLI, API server, and SDK use)
-
-            - `opendna-X.Y.Z.tar.gz` — source distribution
-            - `opendna-X.Y.Z-py3-none-any.whl` — pre-built wheel (Python 3.10+, all platforms)
-
-            Or install directly from PyPI:
-            ```bash
-            pip install opendna           # lightweight (no ML models)
-            pip install opendna[ml]       # with ESMFold + ESM-IF1
-            pip install opendna[all]      # everything (ML + MD + dev tooling)
-            ```
-
-            ### 🌐 Web UI bundle (for self-hosted deployments)
-
-            - `opendna-ui-${{ github.ref_name }}.tar.gz` — pre-built React + Vite static bundle
-            - Serve from any static file server, point at an OpenDNA API server
-
-            ---
-
-            ## 🚀 Quick start
-
-            ### Path A: Desktop app (easiest)
-
-            1. Download the installer for your OS from the assets above
-            2. Install Python 3.10+ if you don't have it
-            3. Open a terminal and run: `pip install opendna[ml]`
-            4. Launch the OpenDNA desktop app
-            5. Click **Tools → Score Protein** with sequence `MKTVRQERLKSIVRILER` for an instant test
-            6. Click **Import → ubiquitin** to load a real protein and fold it
-
-            ### Path B: Python only (server + SDK)
+            The application ships without model weights. Download them and
+            point `OPENDNA_MODELS` at the directory:
 
             ```bash
-            pip install opendna[ml]
-            opendna serve --port 8765
+            hf download dyber-pqc/opendna-stability --local-dir models
+            hf download dyber-pqc/opendna-solubility --local-dir models
+            hf download dyber-pqc/opendna-disorder --local-dir models
             ```
 
-            Then use the Python SDK from your scripts:
-            ```python
-            from opendna.sdk import Client
+            The first prediction also downloads the ESM-2 embedding model, a
+            few hundred megabytes, after which it works offline. Without a
+            head installed the application reports the prediction as
+            unavailable; it does not estimate the value some other way.
 
-            with Client("http://localhost:8765") as c:
-                # Score a sequence (instant, no model download)
-                result = c.evaluate("MKTVRQERLKSIVRILER")
-                print(f"Score: {result.overall:.2f}")
-
-                # Fold a protein (downloads ESMFold ~8 GB on first run)
-                fold = c.fold("MKTVRQERLK")
-                fold.save("output.pdb")
-
-                # Run the AI agent on a high-level goal
-                result = c.agent("Import ubiquitin and tell me about its properties")
-                print(result["final_answer"])
-            ```
-
-            ### Path C: Web UI + your own backend
-
-            ```bash
-            # Backend
-            pip install opendna[ml]
-            opendna serve --port 8765
-
-            # Frontend (in another terminal)
-            tar -xzf opendna-ui-${{ github.ref_name }}.tar.gz
-            cd dist
-            python -m http.server 5173
-            ```
-
-            Then open http://localhost:5173 in your browser.
-
-            ---
-
-            ## 🧪 What you can do with this release
-
-            ### Structure prediction & design
-            - **Predict 3D protein structures** with ESMFold (state-of-the-art, no MSA needed)
-            - **Design alternative sequences** with ESM-IF1 inverse folding
-            - **Run automated optimization loops** (fold → design → fold → keep best → repeat)
-            - **Predict mutation effects** (ΔΔG estimation)
-            - **Constrained design** (preserve active site residues)
-            - **Multi-objective Pareto optimization** across stability, solubility, immunogenicity, etc.
-            - **Multimer prediction** with Boltz (when installed)
-
-            ### ~50 sequence and structure analyses
-            - **Drug-likeness**: Lipinski Rule of Five
-            - **Hydrophobicity**: Kyte-Doolittle profile
-            - **Disorder**: IUPred-like prediction
-            - **Membrane**: TMHMM-style transmembrane helix prediction
-            - **Secretion**: SignalP-style signal peptide detection
-            - **Aggregation**: TANGO-style propensity
-            - **Phosphorylation**: kinase consensus motifs (PKA, PKC, CK2, CDK, GSK3, MAPK)
-            - **Glycosylation**: N- and O-linked sites
-            - **Properties**: MW, pI, GRAVY, instability index, half-life, extinction coefficient
-            - **Structure**: secondary structure, Ramachandran, radius of gyration, SASA
-            - **Bonds**: H-bonds, salt bridges, disulfides
-            - **Pockets**: binding site detection
-            - **pKa**: PROPKA-style ionizable residue prediction
-            - **Validation**: MolProbity-style structure quality check
-            - **Antibodies**: Kabat/Chothia CDR detection
-            - **Pharmacophore**: 3D feature extraction
-            - **Conservation**: ESM-2 perplexity-based scoring
-            - **QSAR**: 26 descriptors
-            - **Alignment**: Needleman-Wunsch with BLOSUM62
-
-            ### Real-world workflows
-            - **Import proteins** from UniProt, RCSB PDB, AlphaFold DB (15 famous proteins shortcut)
-            - **Compare structures** with Kabsch RMSD
-            - **Run molecular dynamics** with OpenMM (when installed) and explicit TIP3P solvent
-            - **Estimate synthesis cost** for Twist Bioscience, IDT, GenScript
-            - **Track carbon footprint** of computations
-            - **Save and share projects** as `.opendna` zip files
-            - **Run YAML workflows** for reproducible pipelines
-
-            ### AI agent
-            - **LLM tool calling** with Ollama (local), Anthropic, or OpenAI
-            - **Natural language workflows**: *"Import p53, score it, find its CDRs"*
-            - **Multi-step reasoning** with full execution trace
-            - **Heuristic fallback** when no LLM available
-
-            ### Validation
-            - **Self-benchmarking framework** comparing against AlphaFold DB references
-            - **48 unit tests** with reference data on real proteins
-            - **Cross-platform CI** (Win/Mac/Linux × Python 3.10/3.11/3.12)
-
-            ---
-
-            ## 📋 System requirements
-
-            ### Minimum (CPU mode, slow but works)
-            - Python 3.10 or later
-            - 8 GB RAM
-            - 20 GB free disk
-            - Any 64-bit OS (Windows 10+, macOS 11+, Ubuntu 20.04+)
-
-            ### Recommended (GPU mode, fast)
-            - 16 GB RAM
-            - NVIDIA RTX 3060+ (8 GB VRAM) **OR** Apple Silicon M1+
-            - 50 GB free disk
-            - CUDA-enabled PyTorch for NVIDIA: `pip install torch --index-url https://download.pytorch.org/whl/cu124`
-
-            ### Optimal (workstation)
-            - 32+ GB RAM
-            - NVIDIA RTX 4090 (24 GB VRAM) or A6000
-            - 200 GB free disk
-
-            ---
-
-            ## 📚 Documentation
-
-            - **[Getting Started](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/GETTING_STARTED.md)** — installation and first run
-            - **[User Guide](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/USER_GUIDE.md)** — every feature explained
-            - **[Tutorials](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/TUTORIALS.md)** — 10 step-by-step walkthroughs
-            - **[Cookbook](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/COOKBOOK.md)** — 20 copy-paste recipes
-            - **[API Reference](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/API_REFERENCE.md)** — every endpoint
-            - **[Architecture](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/ARCHITECTURE.md)** — how the system works
-            - **[Science](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/SCIENCE.md)** — what each algorithm does
-            - **[FAQ](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/FAQ.md)** — common questions
-            - **[Troubleshooting](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/TROUBLESHOOTING.md)** — when things break
-            - **[Roadmap](https://github.com/dyber-pqc/OpenDNA/blob/main/docs/ROADMAP.md)** — what's coming next
-            - **[Model Cards](https://github.com/dyber-pqc/OpenDNA/blob/main/MODEL_CARD.md)** — ML model details and limitations
-            - **[Preprint paper](https://github.com/dyber-pqc/OpenDNA/blob/main/paper/preprint.md)** — academic manuscript
-
-            ---
-
-            ## 🔬 For citation
-
-            If you use OpenDNA in published work, please cite:
-
-            ```
-            Kleckner, Z. (2026). OpenDNA: A Free, Open-Source Protein Engineering Platform
-            for Consumer Hardware. https://github.com/dyber-pqc/OpenDNA
-            ```
-
-            See [`CITATION.cff`](https://github.com/dyber-pqc/OpenDNA/blob/main/CITATION.cff) for full citation metadata.
-
-            ---
-
-            ## 🐛 Reporting issues
-
-            - **Bug reports**: [Open an issue](https://github.com/dyber-pqc/OpenDNA/issues/new?template=bug_report.md)
-            - **Feature requests**: [Open an issue](https://github.com/dyber-pqc/OpenDNA/issues/new?template=feature_request.md)
-            - **Questions**: [Open a discussion](https://github.com/dyber-pqc/OpenDNA/discussions)
-            - **Security**: see [SECURITY.md](https://github.com/dyber-pqc/OpenDNA/blob/main/SECURITY.md)
-
-            ---
-
-            ## 📜 License
-
-            **Apache 2.0 + Commons Clause** for the core platform.
-            **MIT** for community modules.
-            **CC-BY-4.0** for documentation.
-
-            See [LICENSE](https://github.com/dyber-pqc/OpenDNA/blob/main/LICENSE) for full terms.
-
-            ---
-
-            ## ⚠️ Status
-
-            OpenDNA is in **active development**. Use for research, education, and exploration. Always validate critical results experimentally and with established reference tools (AlphaFold2, Rosetta, Schrödinger). Do not use for clinical decisions without independent expert review.
-
-            ---
-
-            ## 💝 Support the project
-
-            - ⭐ Star the repo
-            - 🐛 Report bugs you find
-            - 📖 Improve the documentation
-            - 💻 Contribute code (see [CONTRIBUTING.md](https://github.com/dyber-pqc/OpenDNA/blob/main/CONTRIBUTING.md))
-            - 💬 Share your discoveries
-
-            ---
-
-            **Auto-generated changelog and full diff below ⬇**
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            Each head's accuracy, baseline and limitations are on its model
+            card. Read them before acting on a number.

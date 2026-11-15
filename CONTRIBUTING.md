@@ -18,29 +18,31 @@ Thanks for your interest! OpenDNA is community-driven. Here's how to help.
 git clone https://github.com/dyber-pqc/OpenDNA.git
 cd OpenDNA
 
-# Python deps
-pip install -e ".[dev]"
+# The libraries
+cargo test --workspace
 
-# UI deps
-cd ui && npm install && cd ..
-
-# Run tests
-python -m pytest tests/python/ -v
-cd ui && npx tsc --noEmit && cd ..
-
-# Run the server
-opendna serve
+# The desktop application
+cd app
+rustup target add wasm32-unknown-unknown
+cargo install trunk
+cargo run -p xtask -- fetch-molstar
+cd ui && trunk build --release && cd ..
+cargo run -p opendna-desktop
 ```
 
-See [docs/DEVELOPER.md](docs/DEVELOPER.md) for the full developer guide.
+There is no server to run and no Python or Node toolchain to install. See
+[DEVELOPMENT.md](DEVELOPMENT.md) for the workspace layout, the GPU build, and
+the ground rules a change is held to.
 
 ## Code conventions
 
-- **Python**: ruff for linting/formatting, type hints required, docstrings on public APIs
-- **TypeScript**: strict mode, functional components, hooks
-- **Rust**: rustfmt, no clippy warnings
-- **CSS**: use CSS variables from `App.css`, no inline styles
-- **Commit messages**: follow Conventional Commits — `feat:`, `fix:`, `docs:`, `refactor:`, etc.
+- **Rust**: `cargo fmt`; `clippy` at `pedantic` with warnings denied. An
+  `allow` carries a comment saying why.
+- **Errors**: `Result` everywhere. A missing model or tool is an error that
+  names what is missing — never a heuristic standing in for a prediction.
+- **CSS**: use the tokens in `app/ui/styles/tokens.css`, no inline styles.
+- **Commit messages**: say what changed and why it was wrong before. Not
+  Conventional Commits prefixes.
 
 ## Pull request process
 

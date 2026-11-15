@@ -1,314 +1,149 @@
-# OpenDNA v0.5.0-rc1 — The People's Protein Engineering Platform
+# OpenDNA
 
-[![Version](https://img.shields.io/badge/version-0.5.0--rc1-blue)](https://github.com/dyber-pqc/OpenDNA/releases)
-[![License](https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-green)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
-[![Platform](https://img.shields.io/badge/platform-Win%20%7C%20macOS%20%7C%20Linux-lightgrey)]()
-[![Desktop](https://img.shields.io/badge/desktop-Tauri%202-orange)]()
-[![PQC](https://img.shields.io/badge/crypto-ML--KEM%20%2B%20ML--DSA-purple)]()
-[![SBOM](https://img.shields.io/badge/SBOM-CycloneDX%201.5-informational)]()
-[![DOI](https://img.shields.io/badge/DOI-Zenodo%20ready-blue)]()
+A desktop application for protein engineering. It runs locally, in Rust, with
+no server and no network service: sequences stay on the machine they were
+opened on.
 
-> OpenDNA is a complete, open-source protein engineering workbench that runs on a gaming laptop, bundles 11 ML engines behind a one-click Component Manager, stores your work in per-user AES-256-GCM encrypted workspaces, talks post-quantum (ML-KEM + ML-DSA) to its own audit log, and ships as a signed desktop installer with no Python required — the features that cost $200,000+/year in commercial software, available for free, for everyone.
+Three trained models predict mutation effects on folding stability, protein
+solubility, and per-residue disorder. Each is a small head on frozen
+[ESM-2](https://huggingface.co/facebook/esm2_t30_150M_UR50D) embeddings. When
+a model is missing the application says the prediction is unavailable; there
+is no heuristic fallback anywhere, and no number shown in the interface comes
+from anything but a trained model.
 
----
+## Status
 
-## What's new in v0.5.0
+The project is being rewritten from a Python service with a React front end to
+a single Rust application. That rewrite is the current state of the repository:
+the Python backend and React UI have been removed, along with the REST API and
+the deployment and workflow integrations that targeted it.
 
-Nineteen phases, one release. Every phase is documented in [docs/CHANGELOG.md](docs/CHANGELOG.md).
+What works today:
 
-- **Phase 0** — Multi-rep 3D viewer (cartoon/stick/spacefill/surface) + click-residue popup with per-residue detail via Molstar
-- **Phase 1** — PyInstaller-bundled Python sidecar wired into Tauri `externalBin`, per-platform CI builds, no system Python required
-- **Phase 2** — **Component Manager**: Altium/Vivado-style catalog for 11 ML engines with live install progress and uninstall
-- **Phase 3** — Real heavy models: **DiffDock, RFdiffusion, Boltz-1, ColabFold, xTB, ANI-2x** with graceful fallback when a model is absent
-- **Phase 4** — **Post-quantum auth**: ML-KEM-768 key exchange + ML-DSA-65 signatures via liboqs, hash-chained tamper-evident audit log
-- **Phase 5** — **Per-user workspaces** with AES-256-GCM encryption-at-rest, scrypt-derived keys
-- **Phase 6** — Priority job queue (interactive/normal/batch) + WebSocket `/v1/ws/jobs/{id}` streaming + GPU pool with warm-model cache
-- **Phase 7** — Local-first crash reporter with secret redaction, `@retry` decorator, `SelfHealer` background thread
-- **Phase 8** — **Provenance DAG + time machine**: every step recorded, `diff_steps` / `blame_residue` / `bisect_regression`
-- **Phase 9** — **Visual workflow editor** in React Flow (10 node types, auto-records to provenance)
-- **Phase 10** — NCBI / PubMed / UniProt / AlphaFold DB / Twist / IDT / GenScript / Slack / Teams / Discord / generic webhooks
-- **Phase 11** — **R SDK + Jupyter magics + Galaxy / Snakemake / Nextflow plugins**
-- **Phase 12** — Lab notebook, **Zenodo DOI minting**, PNG/SVG figure export, GLTF/OBJ 3D export
-- **Phase 13** — **Real-time co-editing** via Yjs CRDT (y-websocket-compatible relay, rooms on `/v1/crdt/{room}`)
-- **Phase 14** — Academy Levels 4–7, 13 badges, 7 daily-challenge templates, 23-term glossary, SQLite leaderboard with streaks
-- **Phase 15** — **Ollama auto-install** + streaming chat + multi-turn session memory for the LLM agent
-- **Phase 16** — **CycloneDX 1.5 SBOM**, air-gap capability check, GDPR export/erasure, HIPAA checklist
-- **Phase 17** — **Dockerfile**, Homebrew formula, Playwright E2E suite, pytest smoke suite (11/11 passing)
-- **Phase 18** — 7-step onboarding tour, sequence ruler with AA coloring, global drag-and-drop FASTA/PDB, light-theme polish
-
----
-
-## At a glance
-
-| | Feature | What it does |
-|---|---|---|
-| 🧬 | **ESMFold** | Fast single-sequence structure prediction (Tier 1, Meta AI) |
-| 🔁 | **ESM-IF1** | Inverse folding / sequence design from a backbone |
-| 🎯 | **DiffDock** | Diffusion-based ligand docking, real integration (not heuristic) |
-| 🧪 | **RFdiffusion** | De novo backbone generation for novel folds |
-| 🔗 | **Boltz-1 multimer** | Protein complex prediction with graceful per-chain fallback |
-| ⚛️ | **xTB** | Semi-empirical quantum mechanics for small-molecule energetics |
-| 🌀 | **ANI-2x** | ML potential for ligand geometry refinement |
-| 💧 | **OpenMM MD** | Explicit TIP3P solvent, AMBER14, NVT equilibration, production MD |
-| 📊 | **MMGBSA** | Implicit-solvent binding free energy estimates |
-| 🔬 | **50+ analyses** | Lipinski, hydropathy, pI, Ramachandran, disorder, TM, signal, aggregation, PTMs, Δ ΔG, H-bonds, salt bridges, SS, pockets |
-| ♻️ | **Iterative design loop** | Automated fold → design → score → keep-best |
-| 🎛️ | **Multi-objective Pareto** | Balance stability vs binding vs solubility with Pareto front |
-| 🧩 | **Component Manager** | Altium/Vivado-style catalog for all 11 ML engines, one-click install |
-| 🎨 | **Visual workflow editor** | React Flow canvas, 10 node types, run-as-template |
-| 📜 | **Provenance DAG** | Every step recorded, diffable, blame-able, bisectable |
-| 👥 | **Real-time collab (CRDT)** | Yjs rooms via `/v1/crdt/{room}`, y-websocket compatible |
-| 🔐 | **PQC auth** | ML-KEM-768 + ML-DSA-65 via liboqs, quantum-safe tokens |
-| 🔒 | **Encryption at rest** | AES-256-GCM, scrypt-derived keys, per-user workspaces |
-| 📬 | **Priority job queue** | interactive / normal / batch tiers with persistence |
-| 📡 | **WebSocket streaming** | Live progress on `/v1/ws/jobs/{id}` |
-| 🎮 | **GPU pool** | Warm-model cache and fair scheduling |
-| 🤖 | **Ollama LLM agent** | Auto-install `llama3.2:3b`, streaming chat with session memory |
-| 🌐 | **Data fetchers** | NCBI, PubMed, UniProt, AlphaFold DB |
-| 📄 | **Zenodo DOI minting** | `/v1/zenodo/mint` for citable datasets |
-| 🧾 | **Synthesis quoting** | Twist Bioscience, IDT, GenScript live quotes |
-| 🔔 | **Integrations** | Slack, Teams, Discord, generic webhooks |
-| 📈 | **R SDK** | `opendna` R package for statisticians |
-| 📓 | **Jupyter magics** | `%opendna_fold`, `%opendna_design`, inline viewers |
-| 🛠 | **Galaxy / Snakemake / Nextflow** | First-class plugins for HPC workflow engines |
-| 📦 | **CycloneDX SBOM** | 1.5 spec, every dependency pinned |
-| ✈️ | **Air-gap bundle** | Offline capability check + portable mirror |
-| 🇪🇺 | **GDPR export/erasure** | `/v1/compliance/export_user_data` and erasure endpoints |
-| 🏥 | **HIPAA checklist** | Safeguard self-audit and policy templates |
-| 🐳 | **Docker** | Single-image deployment with non-root user |
-| 🍺 | **Homebrew** | `brew install opendna` formula |
-| 🧪 | **Playwright E2E** | Full UI regression coverage |
-| 🧭 | **Onboarding tour** | 7-step interactive walkthrough |
-| 📐 | **Ramachandran plot** | φ/ψ scatter with quadrant overlay |
-| 📏 | **Sequence ruler** | AA-colored strip with hover/click sync |
-| 📝 | **Lab notebook** | Per-project markdown journal with autosave |
-| 🎞 | **Trajectory GIF export** | MD or design-iteration reels |
-| 🧊 | **GLTF / OBJ 3D export** | Drop structures into Blender or three.js |
-| 🎓 | **Academy Levels 1–7** | Progressive curriculum from AA basics to drug design |
-| 🎲 | **Mini-games** | Match game, quiz, sequence reader, daily challenges |
-| 🏆 | **Leaderboard** | SQLite-backed streaks + 13 badges |
-
----
-
-## Install
-
-### Desktop installers (no Python required)
-
-Download the signed installer for your OS from the [latest release](https://github.com/dyber-pqc/OpenDNA/releases/latest):
-
-| OS | Installer |
+| | |
 |---|---|
-| Windows | `opendna-desktop_0.5.0-rc1_x64-setup.exe` or `.msi` |
-| macOS | `opendna-desktop_0.5.0-rc1_universal.dmg` |
-| Linux | `.AppImage`, `.deb`, `.rpm` |
+| Structure and sequence I/O | PDB, mmCIF, FASTA |
+| Structure analysis | geometry, contacts, secondary structure, SASA |
+| Embeddings | ESM-2 (8M–650M) in [candle](https://github.com/huggingface/candle), CPU, CUDA or Metal |
+| Predictions | ΔΔG of substitution, solubility, per-residue disorder |
+| Desktop application | Tauri 2 shell, Leptos UI, Mol\* structure viewer |
+| Dataset pipeline | four datasets built from pinned upstream sources |
 
-The desktop app bundles the Python sidecar via PyInstaller — nothing to `pip install`.
+What it does **not** do. Earlier versions of this README advertised these; none
+of them exists in the Rust application:
 
-### From pip
+- structure prediction (no ESMFold, no AlphaFold)
+- docking, molecular dynamics, or free-energy calculation
+- sequence or backbone design
+- antibody-specific modelling
+- any HTTP API, hosted service, or notebook integration
 
-```bash
-pip install opendna                 # core
-pip install "opendna[ml]"           # with torch / transformers / fair-esm
-pip install "opendna[pqc]"          # with liboqs bindings
-pip install "opendna[full]"         # everything
-```
+## Predictions, and how good they are
 
-### Docker
+Two kinds of number. **In-domain** is our own held-out test split: how the head
+does on data drawn the way its training data was drawn. **External** is a
+reference set that other published methods also report on, which is the only
+kind of number that says where the head stands relative to the field.
 
-```bash
-docker run -p 8765:8765 ghcr.io/dyber-pqc/opendna:0.5.0-rc1
-```
+| Head | In-domain test | External |
+|---|---|---|
+| Stability (ΔΔG) | Spearman 0.674 | Spearman 0.442 mean over 4 ProteinGym assays |
+| Solubility | Spearman 0.701 | none — see below |
+| Disorder | AUROC 0.883 | AUROC 0.941 on CAID3 Disorder-PDB |
 
-### Homebrew (macOS / Linux)
+The two columns disagree in both directions, and the reasons matter more than
+the numbers:
 
-```bash
-brew tap dyber-pqc/opendna
-brew install opendna
-```
+- **Stability falls from 0.674 to 0.442.** The head is trained on single
+  domains of 32–74 residues. The external assays are whole proteins of 164–403
+  residues measuring variant abundance and thermostability. The in-domain
+  figure overstates how well this generalises by roughly 0.23 Spearman, and
+  the external one is the honest estimate for a protein you care about. All
+  four assays correlate positively, so the ordering is right even where the
+  strength is modest.
+- **Disorder rises from 0.883 to 0.941.** Not an improvement: a different
+  target. Our split uses DisProt labels, where any unannotated residue counts
+  as ordered, so the negative class contains disordered residues nobody has
+  demonstrated yet. CAID masks the residues it did not assess and scores only
+  the rest. For context, published CAID3 Disorder-PDB figures include AIUPred
+  v3 at 0.925 and MUSE-IDR at 0.954. This is our reimplementation of the
+  protocol against the published reference file, not an official CAID3 entry.
+- **Solubility has no external number.** The benchmarks that exist for it come
+  from sources whose terms do not permit redistribution, or from services that
+  have been retired. Saying so is more useful than quoting the in-domain
+  figure as though it were comparable.
 
-### From source
+Reproduce either with `opendna-train bench`; see [training/](training). The
+benchmark data is never redistributed or built into a dataset — some of it
+carries no licence at all, which permits evaluation but not republication.
 
-```bash
-git clone https://github.com/dyber-pqc/OpenDNA.git
-cd OpenDNA
-pip install -e ".[full]"
-cd ui && npm install && cd ..
-```
+## Datasets and models
 
----
+Built by [datasets/](datasets) from pinned upstream sources, every file
+checksummed, with a licence review recorded per source — including the sources
+that were **excluded** because their terms forbid redistribution.
 
-## Quick start — 5 minute tour
+| Dataset | Rows | Source |
+|---|---:|---|
+| stability | 389,068 | Tsuboyama et al. 2023 |
+| solubility | 3,127 | eSOL, UniProtKB |
+| disorder | 3,186 | DisProt 2025_12 |
+| structures | 106,910 | CATH v4.4.0, wwPDB |
 
-Start the API:
+Splits are by 30% sequence-identity cluster, so no close homolog spans two
+splits. Validation chooses the epoch; the test split is scored once,
+afterwards. The published datasets and heads are listed in
+[models/README.md](models/README.md).
 
-```bash
-python -m opendna.api.server --port 8765
-```
+## Build
 
-Fold, design, and analyze a protein in Python:
-
-```python
-from opendna import fold, design, analyze
-
-# Fold ubiquitin
-result = fold("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG")
-print(result.plddt_mean, len(result.pdb))
-
-# Design 10 alternatives via ESM-IF1
-candidates = design(result.pdb, n=10, temperature=0.1)
-
-# Full 50-analysis suite
-report = analyze(result.pdb)
-print(report["lipinski"], report["ramachandran_outliers"])
-```
-
-Or from the CLI:
-
-```bash
-opendna fold "MQIFVKTLTGKTITLEVEPSDTIENVK..." --out ubi.pdb
-opendna design ubi.pdb --n 10 --out candidates.fasta
-opendna analyze ubi.pdb --format json
-opendna serve --port 8765
-```
-
-Open the UI at <http://localhost:5173> (dev) or launch the desktop app. Press **Ctrl+K** to open the command palette, type **import ubiquitin**, then click **Predict Structure**.
-
----
-
-## Screenshots
-
-<!-- TODO: screenshot — main 3D viewer with multi-rep toggle and click-residue popup -->
-<!-- TODO: screenshot — Component Manager catalog with install progress -->
-<!-- TODO: screenshot — Visual workflow editor with a 6-node pipeline -->
-<!-- TODO: screenshot — Provenance DAG time machine with diff view -->
-<!-- TODO: screenshot — Lab notebook overlay with embedded plots -->
-<!-- TODO: screenshot — Real-time collaboration overlay with two cursors -->
-<!-- TODO: screenshot — Academy Level 5 (Drug Design 101) in progress -->
-<!-- TODO: screenshot — Onboarding tour step 3 -->
-<!-- TODO: screenshot — Ramachandran plot + sequence ruler -->
-<!-- TODO: screenshot — Dashboard with hardware, GPU pool, queue -->
-
----
-
-## Documentation
-
-Everything under [docs/](docs/):
-
-- [GETTING_STARTED.md](docs/GETTING_STARTED.md) — install & first run
-- [USER_GUIDE.md](docs/USER_GUIDE.md) — every feature, with screenshots
-- [TUTORIALS.md](docs/TUTORIALS.md) — 10 end-to-end walkthroughs
-- [COOKBOOK.md](docs/COOKBOOK.md) — 20 recipes
-- [API_REFERENCE.md](docs/API_REFERENCE.md) — REST + WebSocket endpoints
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the system fits together
-- [SCIENCE.md](docs/SCIENCE.md) — what every algorithm does and why
-- [FAQ.md](docs/FAQ.md) — common questions
-- [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — when things break
-- [DEVELOPER.md](docs/DEVELOPER.md) — contributing and extending
-- [ROADMAP.md](docs/ROADMAP.md) — what's next
-- [CHANGELOG.md](docs/CHANGELOG.md) — every release
-- [MODEL_CARD.md](MODEL_CARD.md) — legacy Mitchell-et-al. cards for ESMFold / ESM-IF1 / ESM-2
-- [docs/MODEL_CARDS.md](docs/MODEL_CARDS.md) — v0.5.0 full model cards for every registry component
-- [docs/BENCHMARKS.md](docs/BENCHMARKS.md) — CASP15 benchmark suite and leaderboard
-- [paper/preprint_v050.md](paper/preprint_v050.md) — v0.5.0 preprint manuscript
-- [paper/references.bib](paper/references.bib) — machine-readable bibliography
-- [paper/preprint.md](paper/preprint.md) — earlier bioRxiv-ready writeup
-- [paper/BENCHMARKS.md](paper/BENCHMARKS.md) — reproducibility methodology
-
----
-
-## Architecture
-
-OpenDNA is a three-layer stack: a **Rust core** (data models, PDB/FASTA parsing, version control, SQLite storage) exposed to Python via PyO3; a **Python engine layer** wrapping ESMFold, ESM-IF1, DiffDock, RFdiffusion, Boltz-1, OpenMM, xTB, ANI-2x and 50+ analyses behind a FastAPI server with priority job queue, WebSocket streaming, and a warm-model GPU pool; and a **TypeScript/React frontend** rendered in Molstar and React Flow, packaged as a Tauri 2 desktop app with a PyInstaller sidecar. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams and data flow.
-
----
-
-## Post-quantum cryptography
-
-Harvest-now-decrypt-later is a real threat for biology data that stays sensitive for decades. OpenDNA ships quantum-safe primitives out of the box:
-
-- **ML-KEM-768** (Kyber, NIST FIPS 203) for key exchange on auth tokens and workspace unlock
-- **ML-DSA-65** (Dilithium, NIST FIPS 204) for signing provenance entries and the hash-chained audit log
-- Implemented via **liboqs** through the `opendna[pqc]` extra
-- Hybrid mode available — PQC primitive wrapped around classical X25519/Ed25519 so compromise of either leaves the other standing
-
-Enable it:
+Rust 1.95 or newer. `unsafe` is forbidden across the workspace.
 
 ```bash
-pip install "opendna[pqc]"
-export OPENDNA_AUTH_REQUIRED=1
-export OPENDNA_PQC=1
-python -m opendna.api.server
+cargo test --workspace
 ```
 
-Details in [docs/ARCHITECTURE.md#post-quantum](docs/ARCHITECTURE.md).
+The desktop application is a separate workspace:
 
----
+```bash
+cd app
+rustup target add wasm32-unknown-unknown
+cargo install trunk
+cargo run -p xtask -- fetch-molstar
+cd ui && trunk build --release && cd ..
+cargo run -p opendna-desktop
+```
 
-## For corporations
+Predictions need the trained heads. Download them into a directory and point
+`OPENDNA_MODELS` at it:
 
-OpenDNA is built for regulated environments as well as hobbyists:
+```bash
+hf download dyber-pqc/opendna-stability --local-dir models
+```
 
-- **CycloneDX 1.5 SBOM** generated on every release
-- **Air-gap bundle** and capability check — run fully offline
-- **GDPR export & erasure** endpoints (`/v1/compliance/export_user_data`, `/v1/compliance/erase_user`)
-- **HIPAA safeguard checklist** under [docs/](docs/) and an in-app self-audit
-- **Post-quantum auth** and hash-chained tamper-evident audit log
-- **Per-user workspaces** with AES-256-GCM encryption-at-rest
-- **Team workspaces** with owner/editor/viewer permissions
+GPU builds need a `cuda` feature and a toolkit candle supports; on Windows use
+`scripts/cargo-cuda.ps1`, which loads nvcc and MSVC and explains the version
+bounds.
 
-Commercial licensing contact: see [LICENSE](LICENSE).
+## Layout
 
----
+| Directory | Workspace | Contents |
+|---|---|---|
+| [crates/](crates) | root | core types, I/O, analysis, storage, ESM-2 and the heads |
+| [app/](app) | `app` | Tauri desktop shell, Leptos UI, IPC protocol |
+| [datasets/](datasets) | `datasets` | the dataset builder |
+| [training/](training) | `training` | embedding cache, training, model cards, benchmarks |
+| [models/](models) | — | trained heads and their cards; weights are not committed |
 
-## For researchers
-
-- **Provenance DAG**: every fold, design, analysis, and parameter is recorded as a node in a directed acyclic graph
-- **Time machine**: step backward and forward through any project
-- **diff / blame / bisect**: `diff_steps(a, b)`, `blame_residue(n)`, `bisect_regression(metric)`
-- **Zenodo DOI minting** via `/v1/zenodo/mint` for citable datasets
-- **Lab notebook** per project, markdown, auto-saved
-- **R SDK** and **Jupyter magics** for statisticians and notebook users
-
----
-
-## For educators
-
-- **Academy Levels 1–7**: from amino acids to drug design
-- **Mini-games**: Match, Quiz, Sequence Reader, plus 7 daily-challenge templates
-- **23-term glossary** with hover tooltips everywhere
-- **SQLite leaderboard** with streaks and 13 badges
-- **Onboarding tour** for first-time users (7 steps)
-
----
-
-## Contributing
-
-We love contributions — code, docs, tutorials, bug reports, or just stars. See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/DEVELOPER.md](docs/DEVELOPER.md).
-
----
+Each workspace is built, linted with `clippy -D warnings`, and tested in CI.
 
 ## License
 
-OpenDNA Core: **Apache 2.0 + Commons Clause** (free for non-commercial; contact us for commercial licenses).
-OpenDNA Community Modules: **MIT**.
-OpenDNA Documentation: **CC-BY-4.0**.
+[Apache-2.0](LICENSE), which is what the `LICENSE` file and every crate's
+metadata say. An earlier README claimed "Apache 2.0 + Commons Clause", a
+different and more restrictive grant that appears nowhere in the repository;
+that claim has been removed rather than acted on.
 
----
-
-## Citation
-
-If you use OpenDNA in published research, please cite:
-
-```bibtex
-@software{opendna2026,
-  title        = {OpenDNA: The People's Protein Engineering Platform},
-  author       = {{The OpenDNA Contributors}},
-  year         = {2026},
-  version      = {0.5.0-rc1},
-  url          = {https://github.com/dyber-pqc/OpenDNA},
-  doi          = {10.5281/zenodo.OPENDNA},
-  license      = {Apache-2.0 with Commons Clause}
-}
-```
+Datasets and model weights carry the licences their training data requires,
+which are not all the same — the solubility head is share-alike because eSOL
+is. Each card states its own.

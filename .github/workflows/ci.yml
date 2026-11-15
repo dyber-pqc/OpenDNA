@@ -7,38 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  python-tests:
-    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12"]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-
-      - name: Install OpenDNA core (no heavy ML dependencies)
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-
-      - name: Run lightweight tests
-        run: python -m pytest tests/python/ -v --tb=short -m "not heavy"
-
-      - name: Lint with ruff (non-blocking)
-        run: |
-          python -m pip install ruff
-          ruff check python/ || true
-        continue-on-error: true
-
   rust:
     name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -151,30 +119,3 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
-
-  # Legacy jobs below cover the Python backend and React UI until the Rust
-  # rewrite reaches parity; they are removed at cutover.
-  ui-build:
-    name: UI build & type check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Install UI dependencies
-        working-directory: ui
-        run: npm ci
-
-      - name: TypeScript check
-        working-directory: ui
-        run: npx tsc --noEmit
-
-      - name: Production build
-        working-directory: ui
-        run: npm run build

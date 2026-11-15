@@ -8,7 +8,8 @@ members = [
     "crates/opendna-ml",
     "crates/opendna-hal",
 ]
-exclude = ["ui/src-tauri"]
+# No excludes: each other workspace (app, datasets, training) sits in its own
+# directory and is not a member here.
 
 [workspace.package]
 version = "0.6.0-dev"

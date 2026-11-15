@@ -1,5 +1,5 @@
 site_name: OpenDNA
-site_description: The People's Protein Engineering Platform
+site_description: A local-first protein engineering desktop application
 site_url: https://dyber-pqc.github.io/OpenDNA/
 repo_url: https://github.com/dyber-pqc/OpenDNA
 repo_name: dyber-pqc/OpenDNA
@@ -40,19 +40,6 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting Started:
-      - Installation: GETTING_STARTED.md
-      - Tutorials: TUTORIALS.md
-      - Cookbook: COOKBOOK.md
-  - User Guide:
-      - Overview: USER_GUIDE.md
-      - FAQ: FAQ.md
-      - Troubleshooting: TROUBLESHOOTING.md
-  - Developer:
-      - API Reference: API_REFERENCE.md
-      - Architecture: ARCHITECTURE.md
-      - Contributing: DEVELOPER.md
-  - Science: SCIENCE.md
   - Roadmap: ROADMAP.md
   - Changelog: CHANGELOG.md
 
