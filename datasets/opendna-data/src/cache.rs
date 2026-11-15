@@ -153,6 +153,46 @@ impl Cache {
         Ok(path)
     }
 
+    /// Fetch one file of a bulk collection, returning its path and SHA-256.
+    ///
+    /// The lockfile pins the handful of catalogue files a dataset is built
+    /// from — a Zenodo archive, a DisProt release — and that is the right
+    /// granularity for them: a change upstream should stop the build. It is
+    /// the wrong granularity for the thousands of individual coordinate files
+    /// the burial dataset reads, which would turn `sources.lock` into a
+    /// register of PDB entries and bury the sources that actually define the
+    /// build.
+    ///
+    /// So these are pinned in the dataset's own manifest instead: the caller
+    /// collects the digests this returns and writes them beside the data, so
+    /// a build is still reproducible file by file. What stops silent drift is
+    /// that the *catalogue* which chose these entries — the CATH release —
+    /// is lockfile-pinned, so the set cannot change without the build
+    /// stopping.
+    ///
+    /// # Errors
+    /// If the download fails, or the file is absent and `--offline` was given.
+    pub fn fetch_bulk(&mut self, group: &str, name: &str, url: &str) -> Result<(PathBuf, String)> {
+        let path = self.root.join(group).join(name);
+        if path.exists() {
+            let (sha, _) = hash_file(&path)?;
+            return Ok((path, sha));
+        }
+        if self.offline {
+            bail!("{name} is not cached at {} and --offline was given", path.display());
+        }
+        fs::create_dir_all(path.parent().expect("cache path has a parent"))?;
+        let part = path.with_file_name(format!("{name}.part"));
+        let (sha, _) = download(url, &part)?;
+        fs::rename(&part, &path)?;
+        Ok((path, sha))
+    }
+
+    /// Whether the cache may reach the network.
+    pub fn is_offline(&self) -> bool {
+        self.offline
+    }
+
     fn reconcile(&mut self, src: &Source, path: &Path, sha: String, bytes: u64) -> Result<()> {
         match check_against_lock(&self.lock, src, &sha) {
             LockCheck::Matches => Ok(()),

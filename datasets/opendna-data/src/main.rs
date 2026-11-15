@@ -59,6 +59,11 @@ enum Cmd {
         /// Threads passed to MMseqs2.
         #[arg(long, default_value_t = default_threads())]
         threads: usize,
+        /// Cap the domains the burial dataset samples, for a quick check
+        /// against a handful of real structures before fetching thousands.
+        /// Ignored by the other datasets.
+        #[arg(long)]
+        max_domains: Option<usize>,
     },
 }
 
@@ -120,9 +125,9 @@ fn run(cli: Cli) -> Result<()> {
                 anyhow::bail!("{bad} cached file(s) do not match the lockfile");
             }
         }
-        Cmd::Build { dataset, mmseqs, seed, threads } => {
+        Cmd::Build { dataset, mmseqs, seed, threads, max_domains } => {
             let cache = Cache::open(&cli.cache_dir, &cli.lockfile, cli.update_lock, cli.offline)?;
-            let mut ctx = BuildContext { cache, out_root: cli.out_dir, mmseqs, seed, threads };
+            let mut ctx = BuildContext { cache, out_root: cli.out_dir, mmseqs, seed, threads, max_domains };
             for name in selected(&dataset) {
                 datasets::build(name, &mut ctx)?;
             }

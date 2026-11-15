@@ -12,7 +12,8 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use arrow::array::{
-    ArrayRef, BooleanArray, Float64Array, Int32Array, Int64Array, Int8Builder, ListBuilder, StringArray,
+    ArrayRef, BooleanArray, Float32Builder, Float64Array, Int32Array, Int64Array, Int8Builder, ListBuilder,
+    StringArray,
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
@@ -33,6 +34,10 @@ pub enum ColumnData {
     OptFloat64(Vec<Option<f64>>),
     Bool(Vec<bool>),
     ListInt8(Vec<Vec<i8>>),
+    /// Per-residue floats. f32 rather than f64: these are measured
+    /// quantities with a few significant figures, and halving the file costs
+    /// nothing real.
+    ListFloat32(Vec<Vec<f32>>),
 }
 
 impl ColumnData {
@@ -46,6 +51,7 @@ impl ColumnData {
             ColumnData::OptFloat64(v) => v.len(),
             ColumnData::Bool(v) => v.len(),
             ColumnData::ListInt8(v) => v.len(),
+            ColumnData::ListFloat32(v) => v.len(),
         }
     }
 
@@ -57,6 +63,9 @@ impl ColumnData {
             ColumnData::Float64(_) | ColumnData::OptFloat64(_) => DataType::Float64,
             ColumnData::Bool(_) => DataType::Boolean,
             ColumnData::ListInt8(_) => DataType::List(Arc::new(Field::new("item", DataType::Int8, true))),
+            ColumnData::ListFloat32(_) => {
+                DataType::List(Arc::new(Field::new("item", DataType::Float32, true)))
+            }
         }
     }
 
@@ -75,6 +84,7 @@ impl ColumnData {
             ColumnData::OptFloat64(_) => "float64 (nullable)",
             ColumnData::Bool(_) => "bool",
             ColumnData::ListInt8(_) => "list<int8>",
+            ColumnData::ListFloat32(_) => "list<float32>",
         }
     }
 
@@ -89,6 +99,14 @@ impl ColumnData {
             ColumnData::Bool(v) => Arc::new(BooleanArray::from(v.clone())),
             ColumnData::ListInt8(v) => {
                 let mut b = ListBuilder::new(Int8Builder::new());
+                for row in v {
+                    b.values().append_slice(row);
+                    b.append(true);
+                }
+                Arc::new(b.finish())
+            }
+            ColumnData::ListFloat32(v) => {
+                let mut b = ListBuilder::new(Float32Builder::new());
                 for row in v {
                     b.values().append_slice(row);
                     b.append(true);

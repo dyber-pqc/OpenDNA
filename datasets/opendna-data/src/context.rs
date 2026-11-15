@@ -19,6 +19,8 @@ pub struct BuildContext {
     pub mmseqs: Option<PathBuf>,
     pub seed: u64,
     pub threads: usize,
+    /// Cap on domains sampled by the burial dataset, for smoke tests.
+    pub max_domains: Option<usize>,
 }
 
 impl BuildContext {
