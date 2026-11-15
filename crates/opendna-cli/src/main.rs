@@ -45,8 +45,13 @@ use std::path::{Path, PathBuf};
 /// error. Retraining on a different embedder is a `training/` concern.
 const EMBEDDER: ModelSize = ModelSize::Large150M;
 
-/// Probability at or above which a residue is called disordered, matching the
-/// threshold the disorder head was evaluated at.
+/// Fallback probability at or above which a residue is called disordered.
+///
+/// Used only for a head that records no threshold of its own. It is a
+/// convention rather than a measurement, and for the head measured here it is
+/// the wrong number twice over: on the raw scale that head's own optimum is
+/// 0.73, and on its calibrated scale 0.34. A head that has been calibrated
+/// carries the threshold measured with it, which is what gets used.
 const DISORDER_THRESHOLD: f64 = 0.5;
 
 /// Relative accessibility at or below which a residue counts as buried.
@@ -512,7 +517,7 @@ struct Prepared {
     description: String,
     /// What goes in the output's comments.
     prov: Provenance,
-    /// The head's recorded identity.
+    /// The head's recorded identity, including any calibration.
     metadata: opendna_ml::heads::HeadMetadata,
     /// Where the head's files are.
     files: HeadFiles,
@@ -645,9 +650,10 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
     }
 
     let table = match task {
-        Task::Disorder => {
-            disorder_table(&disorder(&proteins, heads, model, device, budget).blame(Fault::Input)?)
-        }
+        Task::Disorder => disorder_table(
+            &disorder(&proteins, heads, model, device, budget, disorder_threshold(metadata))
+                .blame(Fault::Input)?,
+        ),
         Task::Burial => burial(&proteins, heads, model, device, budget).blame(Fault::Input)?,
         Task::Solubility => solubility(&proteins, heads, model, device, budget).blame(Fault::Input)?,
         Task::Stability => {
@@ -723,13 +729,14 @@ fn write_caid(
     budget: usize,
     output: Option<&Path>,
 ) -> Result<(String, usize), Failure> {
-    let Prepared { heads, model, device, prov, .. } = ready;
-    let predictions = disorder(proteins, heads, model, device, budget).blame(Fault::Input)?;
+    let Prepared { heads, model, device, prov, metadata, .. } = ready;
+    let threshold = disorder_threshold(metadata);
+    let predictions = disorder(proteins, heads, model, device, budget, threshold).blame(Fault::Input)?;
     let targets: Vec<(String, Vec<caid::Residue>)> = predictions
         .into_iter()
         .map(|(header, residues)| (caid::accession(&header).to_string(), residues))
         .collect();
-    let rendered = caid::render(&targets, DISORDER_THRESHOLD)?;
+    let rendered = caid::render(&targets, threshold)?;
     write_output(output, &rendered)?;
     // The format cannot carry comments, so the provenance that every other
     // output embeds goes beside the file instead.
@@ -794,12 +801,18 @@ fn embed_all(
 ///
 /// Both the table and the CAID file are derived from this, so the two cannot
 /// contain different numbers for the same residue.
+/// The threshold this head says to use, or the fallback.
+fn disorder_threshold(metadata: &opendna_ml::heads::HeadMetadata) -> f64 {
+    metadata.calibration.as_ref().map_or(DISORDER_THRESHOLD, |c| c.threshold)
+}
+
 fn disorder(
     proteins: &[(String, String)],
     heads: &Heads,
     model: &Esm2,
     device: &candle_core::Device,
     budget: usize,
+    threshold: f64,
 ) -> Result<Vec<(String, Vec<caid::Residue>)>> {
     let head = heads.disorder.as_ref().ok_or_else(|| anyhow!("the disorder head did not load"))?;
     let embeddings = embed_all(model, proteins, budget)?;
@@ -814,7 +827,7 @@ fn disorder(
                 position: index + 1,
                 code: residues.get(index).copied().unwrap_or('?'),
                 score: f64::from(*probability),
-                disordered: f64::from(*probability) >= DISORDER_THRESHOLD,
+                disordered: f64::from(*probability) >= threshold,
             })
             .collect();
         out.push((name.clone(), scored));

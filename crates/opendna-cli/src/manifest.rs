@@ -217,6 +217,7 @@ mod tests {
             build: Some("adbdc038cbd171ff".into()),
             weights_sha256: Some("ff".repeat(32)),
             with_burial: false,
+            calibration: None,
         }
     }
 

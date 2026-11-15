@@ -18,6 +18,9 @@ pub struct DisorderHead {
     project: Mlp,
     conv: Conv1d,
     output: Mlp,
+    /// Fitted map from logit to calibrated probability, when one has been
+    /// measured for these weights. `None` leaves the plain sigmoid.
+    calibration: Option<crate::heads::Calibration>,
 }
 
 impl DisorderHead {
@@ -31,6 +34,7 @@ impl DisorderHead {
             project: Mlp::new(&[embedding_dim, CHANNELS], vb.pp("project"))?,
             conv: conv1d(CHANNELS, CHANNELS, KERNEL, cfg, vb.pp("conv"))?,
             output: Mlp::new(&[CHANNELS, 64, 1], vb.pp("output"))?,
+            calibration: None,
         })
     }
 
@@ -49,11 +53,26 @@ impl DisorderHead {
         self.output.forward(&per_residue)?.squeeze(1)
     }
 
+    #[must_use]
+    /// Attach a calibration map, which [`Self::predict`] will then apply.
+    ///
+    /// Taken at load time from the metadata beside the weights, so a head and
+    /// its calibration cannot be separated by accident.
+    pub fn with_calibration(mut self, calibration: Option<crate::heads::Calibration>) -> Self {
+        self.calibration = calibration;
+        self
+    }
+
     /// Per-residue disorder **probabilities** for one sequence.
     ///
     /// `per_residue` is [`crate::esm2::Embedding::per_residue`], row-major
     /// `length x embedding_dim`. The sigmoid is applied here so that callers
     /// cannot forget it and read raw logits as probabilities.
+    ///
+    /// When the head carries a calibration map, it is applied in place of the
+    /// plain sigmoid. The map is monotonic, so it changes the probabilities
+    /// without changing their order, and every rank statistic -- AUROC
+    /// included -- is unaffected.
     ///
     /// # Errors
     /// Propagates tensor errors, or reports a length that does not divide the
@@ -76,6 +95,9 @@ impl DisorderHead {
         let width = per_residue.len() / length;
         let tensor = Tensor::from_vec(per_residue.to_vec(), (length, width), device)?;
         let logits = self.forward(&tensor)?.to_vec1::<f32>()?;
-        Ok(logits.into_iter().map(|l| 1.0 / (1.0 + (-l).exp())).collect())
+        Ok(match &self.calibration {
+            Some(map) => logits.into_iter().map(|l| map.apply(l)).collect(),
+            None => logits.into_iter().map(|l| 1.0 / (1.0 + (-l).exp())).collect(),
+        })
     }
 }

@@ -294,7 +294,11 @@ impl Heads {
                 .map(|(vb, m)| StabilityHead::new_with(dim, m.with_burial, vb))
                 .transpose()?,
             solubility: load_one("solubility")?.map(|(vb, _)| SolubilityHead::new(dim, vb)).transpose()?,
-            disorder: load_one("disorder")?.map(|(vb, _)| DisorderHead::new(dim, vb)).transpose()?,
+            // The calibration travels with the weights: a head loaded without
+            // its recorded map would quietly emit the uncalibrated numbers.
+            disorder: load_one("disorder")?
+                .map(|(vb, m)| DisorderHead::new(dim, vb).map(|h| h.with_calibration(m.calibration)))
+                .transpose()?,
             burial: load_one("burial")?.map(|(vb, _)| BurialHead::new(dim, vb)).transpose()?,
         })
     }

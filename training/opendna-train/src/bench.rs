@@ -361,9 +361,15 @@ pub fn disorder(
                 reference.len()
             ),
             format!(
-                "The threshold for MCC, F1 and balanced accuracy is {threshold}, carried over \
-                 from training rather than tuned on this set. Tuning it here would make the \
-                 number incomparable to a published one and would be fitting to the test set."
+                "The threshold for MCC, F1 and balanced accuracy is {threshold}, taken from \
+                 the head rather than tuned on this set: tuning it here would make the \
+                 number incomparable to a published one and would be fitting to the test \
+                 set. It therefore comes from a different distribution than this one -- a \
+                 calibrated head's threshold is fitted on its own validation split, whose \
+                 class balance and definition of disorder are not this reference set's -- so \
+                 a threshold chosen here would score better. The rank metrics above are \
+                 unaffected by any of this, which is why AUROC and AUPRC are the figures to \
+                 compare."
             ),
             "CAID3 rankings are computed by the organisers' own code on a server-side \
              ground truth. This is our reimplementation of the protocol against the published \

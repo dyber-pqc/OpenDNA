@@ -1,7 +1,7 @@
 {
   "suite": "caid3-disorder-pdb",
   "embedding_model": "facebook/esm2_t30_150M_UR50D",
-  "head_version": "0.6.0-dev",
+  "head_version": "1.1.0",
   "proteins": 319,
   "residues_scored": 99239,
   "residues_masked": 61183,
@@ -10,31 +10,31 @@
   "pooled": [
     [
       "auroc",
-      0.9409615545549702
+      0.9409615517383082
     ],
     [
       "auprc",
-      0.8996219225894834
+      0.8996219425083848
     ],
     [
       "mcc",
-      0.7292047379830837
+      0.7096451714792457
     ],
     [
       "f1",
-      0.8181938930621762
+      0.7787790697674418
     ],
     [
       "balanced_accuracy",
-      0.8777208352936245
+      0.824996322918165
     ]
   ],
-  "per_protein_auroc": 0.9252098060401901,
+  "per_protein_auroc": 0.9252098085477654,
   "per_protein_undefined": 86,
   "caveats": [
     "Residues the reference did not assess ('-') are excluded, which is the CAID protocol. 61183 of 160422 residues were excluded.",
     "34 of 319 proteins are longer than the embedding model's 1024-residue limit and were covered by overlapping windows. No published CAID3 entrant uses this windowing, so those proteins are not scored the way another method would score them.",
-    "The threshold for MCC, F1 and balanced accuracy is 0.5, carried over from training rather than tuned on this set. Tuning it here would make the number incomparable to a published one and would be fitting to the test set.",
+    "The threshold for MCC, F1 and balanced accuracy is 0.34, taken from the head rather than tuned on this set: tuning it here would make the number incomparable to a published one and would be fitting to the test set. It therefore comes from a different distribution than this one -- a calibrated head's threshold is fitted on its own validation split, whose class balance and definition of disorder are not this reference set's -- so a threshold chosen here would score better. The rank metrics above are unaffected by any of this, which is why AUROC and AUPRC are the figures to compare.",
     "CAID3 rankings are computed by the organisers' own code on a server-side ground truth. This is our reimplementation of the protocol against the published reference file, so a small difference from an official number is expected and this figure should not be presented as an official CAID3 result."
   ]
 }

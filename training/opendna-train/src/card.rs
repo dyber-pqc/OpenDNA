@@ -157,7 +157,7 @@ fn prose(task: Task) -> Prose {
                                    Cite the dataset.",
             inputs: "Per-residue ESM-2 embeddings. Sequences longer than the embedding model's \
                      limit are covered by overlapping windows.",
-            outputs: "One probability per residue. The reported threshold is 0.5.",
+            outputs: "One calibrated probability per residue. The threshold for a disorder \n                      call is recorded in the head's metadata and stated under Calibration \n                      below, because it is a property of the trained head rather than a \n                      convention.",
             baseline: "Labelling every residue disordered.",
             limitations: &[
                 "DisProt records disorder that has been experimentally demonstrated. Residues \
@@ -365,13 +365,87 @@ pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport
 ///
 /// # Errors
 /// If the file cannot be written.
+/// What the card says about calibration.
+///
+/// Three states, and they are different claims: a correction was fitted and
+/// applied, the question was measured and no correction was warranted, or
+/// nobody has looked. An absent section would collapse the last two.
+fn calibration_section(task: Task, calibration: Option<&opendna_ml::heads::Calibration>) -> String {
+    if task != Task::Disorder {
+        // The regressors emit quantities, not probabilities. Saying nothing
+        // about calibration is correct for them; claiming it was checked
+        // would not be.
+        return String::new();
+    }
+    let Some(c) = calibration else {
+        return "\n## Calibration\n\nNot measured. The probabilities this head reports have not \
+                been checked against observed frequencies, so a reported 0.7 should be read as a \
+                score for ranking rather than as a seven-in-ten chance.\n"
+            .to_string();
+    };
+    if c.method == "none" {
+        return format!(
+            "\n## Calibration\n\nMeasured and left alone. Expected calibration error on the \
+             held-out split is {:.4}, and no fitted correction improved on that by more than the \
+             width of its own bootstrap interval, so none is applied. Residues are called \
+             disordered at {:.2}.\n",
+            c.test_ece_before, c.threshold
+        );
+    }
+    format!(
+        "\n## Calibration\n\nThe probabilities are corrected before they are reported. This head \
+         is trained with weighted cross-entropy so that it does not predict \"ordered\" \
+         everywhere, which helps the ranking and inflates the probabilities; a {} map fitted on \
+         the validation split removes the inflation.\n\n\
+         | | |\n|---|---|\n\
+         | Map | `p = sigmoid({:.4} * logit + {:.4})` |\n\
+         | Expected calibration error, held-out split | {:.4} before, {:.4} after |\n\
+         | Threshold for a disorder call | {:.2} |\n\
+         | Matthews correlation at that threshold, held-out split | {:.4} |\n\n\
+         The map is monotonic, so it changes no ranking and no rank statistic: AUROC is \
+         identical before and after. What it changes is the meaning of the number, and therefore \
+         where the decision threshold belongs -- which is why the threshold is recorded here \
+         rather than left at the conventional 0.5. The threshold was chosen on the validation \
+         split, so the correlation above is an honest estimate rather than the best figure \
+         findable with the held-out labels in hand.\n\n\
+         Calibration is against the labels. DisProt records disorder that has been demonstrated \
+         experimentally and unannotated residues are treated as ordered, so these probabilities \
+         are calibrated against the annotation rather than against nature. If the annotation \
+         under-reports disorder, and it does by an unknown amount, the calibrated probabilities \
+         inherit that.\n\n\
+         The threshold is a property of a distribution, not of the head. It was chosen on the \
+         validation split of this dataset, and it does not suit every set: on the CAID3 \
+         reference above, MCC, F1 and balanced accuracy are lower at this threshold than they \
+         were at the conventional 0.5, because {:.2} calibrated is about 0.78 raw and that set \
+         prefers a lower cut. The rank metrics are identical either way. If you threshold \
+         these probabilities for a decision of your own, the right cut depends on your class \
+         balance and on what a false positive costs you; the calibration is what makes it \
+         possible to reason about that at all.\n",
+        c.method,
+        c.slope,
+        c.intercept,
+        c.test_ece_before,
+        c.test_ece_after,
+        c.threshold,
+        c.test_mcc,
+        c.threshold
+    )
+}
+
 pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> Result<()> {
     // Benchmark reports are matched on the embedding model, so a card can
     // never quote a figure measured on a different one than it documents.
     let external = crate::bench::load_reports(benchmarks, task.name(), &report.embedding_model)?;
     let path = out_dir.join(format!("{}.README.md", task.name()));
-    std::fs::write(&path, render(task, report, &external))
-        .with_context(|| format!("writing {}", path.display()))?;
+    // Read from the metadata beside the weights, so the card cannot describe
+    // a calibration the head is not carrying.
+    let files = opendna_ml::heads::HeadFiles::in_dir(out_dir, task.name());
+    let calibration = std::fs::read_to_string(&files.metadata)
+        .ok()
+        .and_then(|t| serde_json::from_str::<opendna_ml::heads::HeadMetadata>(&t).ok())
+        .and_then(|m| m.calibration);
+    let body = render(task, report, &external) + &calibration_section(task, calibration.as_ref());
+    std::fs::write(&path, body).with_context(|| format!("writing {}", path.display()))?;
     println!(
         "Wrote {} ({} external benchmark{})",
         path.display(),

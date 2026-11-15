@@ -14,6 +14,7 @@
 
 mod bench;
 mod cache;
+mod calibrate;
 mod card;
 mod data;
 mod embed;
@@ -165,6 +166,27 @@ enum Command {
         #[arg(long, default_value = "../models")]
         out: PathBuf,
     },
+    /// Measure whether a head's probabilities mean what they say, and fit a
+    /// correction if they do not.
+    ///
+    /// Reads the validation split to fit and the test split to report, once.
+    /// Only the disorder head emits probabilities; the others are regressors
+    /// and calibration of this kind does not apply to them.
+    Calibrate {
+        /// Which head. Only `disorder` is calibratable.
+        #[arg(long, value_enum, default_value_t = Task::Disorder)]
+        task: Task,
+        /// Directory holding the head.
+        #[arg(long, default_value = "../models")]
+        out: PathBuf,
+        /// Write the fitted mapping into the head's metadata.
+        ///
+        /// Off by default: the measurement should be read before it is
+        /// applied, and a correction that does not beat its own noise should
+        /// not be applied at all.
+        #[arg(long)]
+        apply: bool,
+    },
     /// Score a head against an external reference set, so its numbers can be
     /// compared with published ones.
     ///
@@ -248,6 +270,9 @@ fn main() -> Result<()> {
             let report: train::Report =
                 serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
             train::stamp(task, &out, model, &report, &cli.datasets)?;
+        }
+        Command::Calibrate { task, out, apply } => {
+            train::calibrate(task, &cli.datasets, &cli.cache, &out, model, apply)?;
         }
         Command::Bench { suite, reference, assays, models, out, threshold } => {
             let report = match suite {

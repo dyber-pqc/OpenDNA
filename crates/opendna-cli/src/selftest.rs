@@ -83,30 +83,36 @@ struct Pinned {
 ///
 /// The positions are chosen rather than sampled. Disorder and burial are the
 /// same architecture differing only in the squash on the output, so at some
-/// positions one head's number is within a hundredth of the other's and a pin
-/// there would survive the two being swapped. These are positions where the
-/// two disagree by more than a quarter, which is the case a pinned value has
-/// to catch and a file checksum cannot.
+/// positions one head's number is close enough to the other's that a pin there
+/// would survive the two being swapped. These are positions where the two
+/// disagree most, which is the case a pinned value has to catch and a file
+/// checksum cannot.
+///
+/// They had to be chosen again when the disorder head was calibrated.
+/// Calibration compresses the probabilities toward zero, which shrinks every
+/// such gap: position 15's margin fell from over 0.25 to 0.027, and position 5
+/// took its place at 0.129. A fixture's discriminating power is a property of
+/// the model it was measured against, not of the fixture.
 const PINNED: [Pinned; 9] = [
     Pinned {
         task: "disorder",
-        build: "adbdc038cbd171ff",
+        build: "f7d99273e4b9b961",
         what: "disorder probability at 3",
-        expected: 0.4669,
+        expected: 0.1594,
         tolerance: 0.01,
     },
     Pinned {
         task: "disorder",
-        build: "adbdc038cbd171ff",
-        what: "disorder probability at 15",
-        expected: 0.1153,
+        build: "f7d99273e4b9b961",
+        what: "disorder probability at 5",
+        expected: 0.1383,
         tolerance: 0.01,
     },
     Pinned {
         task: "disorder",
-        build: "adbdc038cbd171ff",
+        build: "f7d99273e4b9b961",
         what: "disorder probability at 47",
-        expected: 0.1978,
+        expected: 0.0705,
         tolerance: 0.01,
     },
     Pinned {
@@ -200,6 +206,8 @@ struct Numbers {
     ddg: Vec<f64>,
     /// Disorder from a second, identical run.
     repeated: Vec<f64>,
+    /// The threshold the head says to call a residue disordered at.
+    threshold: f64,
 }
 
 /// Every measurement the run produced, labelled the way `PINNED` names them.
@@ -303,6 +311,17 @@ fn invariants(n: &Numbers) -> Vec<Check> {
         format!("core {core:.3}, surface lysines {surface:.3}"),
     ));
 
+    // Biology. Ubiquitin is the textbook folded protein: a compact beta-grasp
+    // domain with no intrinsic disorder. A head that calls a substantial part
+    // of it disordered has stopped predicting disorder, and no tolerance on
+    // three individual positions would notice.
+    let called = n.probabilities.iter().filter(|p| **p >= n.threshold).count();
+    checks.push(Check::holds(
+        "almost none of ubiquitin is called disordered",
+        called <= residues / 10,
+        format!("{called} of {residues} residues called at threshold {:.2}", n.threshold),
+    ));
+
     // Chemistry. A proline in the middle of ubiquitin's first beta strand
     // breaks the backbone hydrogen bonding; L8M is conservative. Any head
     // worth running puts them in this order.
@@ -328,7 +347,7 @@ fn pinned(n: &Numbers, build_of: &impl Fn(&str) -> Option<String>) -> Vec<Check>
     let measured = Measured {
         values: vec![
             ("disorder", "disorder probability at 3".into(), at(&n.probabilities, 3)),
-            ("disorder", "disorder probability at 15".into(), at(&n.probabilities, 15)),
+            ("disorder", "disorder probability at 5".into(), at(&n.probabilities, 5)),
             ("disorder", "disorder probability at 47".into(), at(&n.probabilities, 47)),
             ("burial", "accessibility at 5".into(), at(&n.accessibility, 5)),
             ("burial", "accessibility at 47".into(), at(&n.accessibility, 47)),
@@ -405,6 +424,13 @@ pub fn run(
             ),
         });
     }
+    let metadata_of = |task: &str| -> Option<opendna_ml::heads::HeadMetadata> {
+        found.iter().find(|h| h.task == task).and_then(|h| h.metadata.clone())
+    };
+    let threshold = metadata_of("disorder")
+        .and_then(|m| m.calibration.map(|c| c.threshold))
+        .unwrap_or(crate::DISORDER_THRESHOLD);
+
     let build_of = |task: &str| -> Option<String> {
         found.iter().find(|h| h.task == task).and_then(|h| h.metadata.as_ref()).and_then(|m| m.build.clone())
     };
@@ -432,7 +458,8 @@ pub fn run(
     let resolved = crate::resolve_mutations(&proteins, &mutations).blame(Install)?;
 
     // The same calls `predict` makes, in the same order.
-    let disorder_runs = crate::disorder(&proteins, &heads, &model, &device, budget).blame(Install)?;
+    let disorder_runs =
+        crate::disorder(&proteins, &heads, &model, &device, budget, threshold).blame(Install)?;
     let disorder_table = crate::disorder_table(&disorder_runs);
     let burial_table = crate::burial(&proteins, &heads, &model, &device, budget).blame(Install)?;
     let solubility_table = crate::solubility(&proteins, &heads, &model, &device, budget).blame(Install)?;
@@ -443,13 +470,16 @@ pub fn run(
             // Nothing here is sampled, so a second run on this machine has to
             // agree with the first. Run it before anything is compared, so the
             // determinism check cannot be skipped by an earlier failure.
-            let again = crate::disorder_table(&crate::disorder(&proteins, &heads, &model, &device, budget)?);
+            let again = crate::disorder_table(&crate::disorder(
+                &proteins, &heads, &model, &device, budget, threshold,
+            )?);
             column(&again, "probability")?
         },
         probabilities: column(&disorder_table, "probability")?,
         accessibility: column(&burial_table, "accessibility")?,
         percent: at(&column(&solubility_table, "solubility_percent")?, 1),
         ddg: column(&stability_table, "ddg_kcal_per_mol")?,
+        threshold,
     };
 
     let mut checks = invariants(&numbers);

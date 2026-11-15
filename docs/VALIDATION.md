@@ -129,6 +129,66 @@ CLI is serial, which is why.
 **Checked:** byte-identical repeat runs on both CPU and an RTX 2000 Ada. All
 seventeen self-test checks pass on both, with values pinned on CPU.
 
+## Do the probabilities mean anything?
+
+For the disorder head, now yes, and the correction was substantial.
+
+The head is trained with weighted cross-entropy so that it does not predict
+"ordered" everywhere. That helps the ranking and inflates the probabilities,
+and the inflation was never measured. It is large:
+
+| the head said | actually disordered |
+|---|---|
+| 0.95 | 65% |
+| 0.85 | 50% |
+| 0.75 | 32% |
+| 0.55 | **13%** |
+
+Expected calibration error on the held-out split was 0.217. A Platt map
+(`p = sigmoid(0.7237·logit − 1.5665)`) fitted on the validation split brings it
+to 0.032, and the Brier score from 0.168 to 0.099. The map is monotonic, so
+AUROC is identical before and after — 0.8833 on the internal test split either
+way, which is the check that nothing was traded away.
+
+**It also moved the decision threshold**, which matters more than the
+probabilities for anyone thresholding them. 0.5 was a convention and was never
+right for this head: on the raw scale its own optimum is 0.73. On the
+calibrated scale the threshold chosen on validation is 0.34, and it scores MCC
+0.5213 on test against 0.4934 for the old raw-0.5 default — close to the 0.5284
+upper bound that could only be found by looking at the test labels. Both the
+map and the threshold are recorded in the head's metadata, and the CLI and the
+desktop application both read them from there rather than compiling in a
+number.
+
+Because the head now reports different numbers from the same weights, it is a
+different model: its version went to 1.1.0 and its build id changed, so a
+lockfile taken before the calibration correctly fails against it.
+
+**The threshold is a property of a distribution, not of the head, and this one
+does not suit every set.** On the CAID3 reference set, MCC falls from 0.7292 to
+0.7096, F1 from 0.8182 to 0.7788 and balanced accuracy from 0.8777 to 0.8250 at
+the new threshold — because 0.34 calibrated is about 0.78 raw, and that set
+wants a lower cut than ours does. The reason is measurable rather than
+hand-waved: 31.6% of CAID's assessed residues are disordered against 17.9% of
+our internal test split's, so it is nearly twice as positive a set, with a
+PDB-derived definition of disorder rather than DisProt's. AUROC and AUPRC are identical
+(0.9410 and 0.8996), which is why those are the figures to compare against
+published work. If you threshold these probabilities for a decision of your
+own, the right cut depends on your class balance and on what a false positive
+costs you. Calibration is what makes that reasoning possible; it does not make
+the choice for you.
+
+**What this is calibrated against is the annotation, not nature.** DisProt
+records disorder demonstrated experimentally and unannotated residues are
+treated as ordered in training. If that under-reports disorder — and it does,
+by an unknown amount — these probabilities inherit it. A calibrated 0.3 means
+"three in ten of residues like this are annotated disordered in DisProt",
+which is a weaker statement than it looks.
+
+Intervals on every figure above are bootstrapped over **proteins**, not
+residues. Neighbouring residues almost always share a label, so resampling
+residues would report an interval several times too narrow.
+
 ## Can I run it without a network?
 
 ```bash
@@ -242,10 +302,13 @@ marketing.
   others' were not.
 - **No signed installers.** Binaries are unsigned, so operating systems will
   warn. Code-signing certificates have not been obtained.
-- **Calibration is unmeasured.** Nothing here establishes that a disorder
-  probability of 0.7 corresponds to a 70% chance of disorder, and no head
-  abstains on inputs unlike its training data. Treat the outputs as scores for
-  ranking, not as probabilities to threshold against a cost model.
+- **Calibration is measured for the disorder head only.** See the section
+  above. The three regressors have no equivalent: nothing establishes how
+  often a predicted ddG of 1.2 kcal/mol lands within any stated distance of
+  the truth, so those outputs remain scores for ranking.
+- **No head abstains.** Nothing refuses to predict on an input unlike its
+  training data. A sequence from a family the head never saw gets a confident
+  number with no indication that it is out of domain.
 
 ## Reproducing the checks
 

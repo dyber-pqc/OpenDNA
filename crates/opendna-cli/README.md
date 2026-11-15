@@ -136,6 +136,27 @@ The tolerances are a judgement, not a measurement — the recorded values come
 from one machine, on CPU. A failure that lands just outside one is worth
 reporting rather than assuming the bound is too tight.
 
+## Disorder probabilities are calibrated
+
+The disorder head's probabilities are corrected before they are reported, and
+the threshold for a call comes from the head rather than from a constant.
+
+Measured on the held-out split: expected calibration error 0.217 before the
+correction, 0.032 after. Where the raw head said 0.55, 13% of those residues
+were actually annotated disordered. The correction is monotonic, so AUROC is
+unchanged; what changes is the meaning of the number.
+
+That moves the threshold. The conventional 0.5 was never right for this head —
+on its raw scale the best threshold is 0.73 — and on the calibrated scale it is
+0.34, chosen on the validation split. Both the map and the threshold live in
+`disorder.metadata.json`, so `predict`, the desktop application and the CAID
+output all use the same ones, and recalibrating the head changes the call
+without changing any code.
+
+A head carrying no recorded calibration falls back to 0.5 and its card says
+calibration was not measured. "Measured and left alone" and "never measured"
+are different states and the card distinguishes them.
+
 ## Stability needs to be told which mutations
 
 The head scores named substitutions rather than scanning everything, so it

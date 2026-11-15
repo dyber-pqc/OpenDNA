@@ -20,7 +20,10 @@ This is a small head trained on **frozen** [facebook/esm2_t30_150M_UR50D](https:
 
 **Input.** Per-residue ESM-2 embeddings. Sequences longer than the embedding model's limit are covered by overlapping windows.
 
-**Output.** One probability per residue. The reported threshold is 0.5.
+**Output.** One calibrated probability per residue. The threshold for a disorder 
+                      call is recorded in the head's metadata and stated under Calibration 
+                      below, because it is a property of the trained head rather than a 
+                      convention.
 
 ## Results
 
@@ -46,14 +49,14 @@ Validation chose the epoch that was kept (epoch 5 of 15 run). The test split was
 |---|---:|
 | auroc | 0.9410 |
 | auprc | 0.8996 |
-| mcc | 0.7292 |
-| f1 | 0.8182 |
-| balanced_accuracy | 0.8777 |
+| mcc | 0.7096 |
+| f1 | 0.7788 |
+| balanced_accuracy | 0.8250 |
 | auroc (mean over proteins) | 0.9252 |
 
 - Residues the reference did not assess ('-') are excluded, which is the CAID protocol. 61183 of 160422 residues were excluded.
 - 34 of 319 proteins are longer than the embedding model's 1024-residue limit and were covered by overlapping windows. No published CAID3 entrant uses this windowing, so those proteins are not scored the way another method would score them.
-- The threshold for MCC, F1 and balanced accuracy is 0.5, carried over from training rather than tuned on this set. Tuning it here would make the number incomparable to a published one and would be fitting to the test set.
+- The threshold for MCC, F1 and balanced accuracy is 0.34, taken from the head rather than tuned on this set: tuning it here would make the number incomparable to a published one and would be fitting to the test set. It therefore comes from a different distribution than this one -- a calibrated head's threshold is fitted on its own validation split, whose class balance and definition of disorder are not this reference set's -- so a threshold chosen here would score better. The rank metrics above are unaffected by any of this, which is why AUROC and AUPRC are the figures to compare.
 - CAID3 rankings are computed by the organisers' own code on a server-side ground truth. This is our reimplementation of the protocol against the published reference file, so a small difference from an official number is expected and this figure should not be presented as an official CAID3 result.
 
 ## Training
@@ -103,3 +106,20 @@ The training data comes from:
 > Aspromonte, M. C. et al. DisProt in 2024: improving function annotation of intrinsically disordered proteins. Nucleic Acids Research 52, D434-D441 (2024).
 
 Please cite that work as well as this model.
+
+## Calibration
+
+The probabilities are corrected before they are reported. This head is trained with weighted cross-entropy so that it does not predict "ordered" everywhere, which helps the ranking and inflates the probabilities; a Platt map fitted on the validation split removes the inflation.
+
+| | |
+|---|---|
+| Map | `p = sigmoid(0.7237 * logit + -1.5665)` |
+| Expected calibration error, held-out split | 0.2167 before, 0.0321 after |
+| Threshold for a disorder call | 0.34 |
+| Matthews correlation at that threshold, held-out split | 0.5213 |
+
+The map is monotonic, so it changes no ranking and no rank statistic: AUROC is identical before and after. What it changes is the meaning of the number, and therefore where the decision threshold belongs -- which is why the threshold is recorded here rather than left at the conventional 0.5. The threshold was chosen on the validation split, so the correlation above is an honest estimate rather than the best figure findable with the held-out labels in hand.
+
+Calibration is against the labels. DisProt records disorder that has been demonstrated experimentally and unannotated residues are treated as ordered, so these probabilities are calibrated against the annotation rather than against nature. If the annotation under-reports disorder, and it does by an unknown amount, the calibrated probabilities inherit that.
+
+The threshold is a property of a distribution, not of the head. It was chosen on the validation split of this dataset, and it does not suit every set: on the CAID3 reference above, MCC, F1 and balanced accuracy are lower at this threshold than they were at the conventional 0.5, because 0.34 calibrated is about 0.78 raw and that set prefers a lower cut. The rank metrics are identical either way. If you threshold these probabilities for a decision of your own, the right cut depends on your class balance and on what a false positive costs you; the calibration is what makes it possible to reason about that at all.

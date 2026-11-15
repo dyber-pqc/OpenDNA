@@ -24,14 +24,31 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 /// each head's recorded metadata.
 const EMBEDDER: ModelSize = ModelSize::Large150M;
 
-/// Probability at or above which a residue is reported as disordered. The
-/// trained head's card reports its metrics at this threshold.
+/// Fallback probability at or above which a residue is reported as
+/// disordered, for a head that records no threshold of its own.
+///
+/// A convention rather than a measurement. A calibrated head carries the
+/// threshold that was measured with it, and that is what gets used: the
+/// application and the CLI have to agree about which residues are disordered,
+/// and they can only do that by both asking the head.
 const DISORDER_THRESHOLD: f64 = 0.5;
 
 /// Relative accessibility at or below which the interface calls a residue
 /// buried. The Rost & Sander convention, matching the burial dataset's own
 /// `buried` column and the CLI, so all three agree.
 const BURIED_AT: f64 = 0.25;
+
+/// The disorder threshold the installed head says to use.
+///
+/// Read from the metadata beside the weights rather than compiled in, so a
+/// recalibrated head changes the call without changing the application.
+fn disorder_threshold(dir: &std::path::Path) -> f64 {
+    let files = opendna_ml::heads::HeadFiles::in_dir(dir, "disorder");
+    opendna_ml::heads::read_metadata(&files, "disorder", EMBEDDER)
+        .ok()
+        .and_then(|m| m.calibration.map(|c| c.threshold))
+        .unwrap_or(DISORDER_THRESHOLD)
+}
 
 /// Where to look for trained heads.
 ///
@@ -220,7 +237,7 @@ impl Predictor {
                 .into_iter()
                 .map(f64::from)
                 .collect();
-            Ok(DisorderPrediction { probabilities, threshold: DISORDER_THRESHOLD, windowed })
+            Ok(DisorderPrediction { probabilities, threshold: disorder_threshold(&self.dir), windowed })
         })
     }
 

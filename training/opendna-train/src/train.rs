@@ -163,7 +163,10 @@ fn head_version(task: Task) -> &'static str {
     match task {
         Task::Stability => "1.0.0",
         Task::Solubility => "1.0.0",
-        Task::Disorder => "1.0.0",
+        // 1.1.0: the same weights, now carrying a calibration map and a
+        // measured decision threshold. The probabilities it reports are
+        // different numbers from 1.0.0's, so it is not 1.0.0.
+        Task::Disorder => "1.1.0",
         Task::Burial => "0.1.0",
     }
 }
@@ -175,6 +178,22 @@ fn head_version(task: Task) -> &'static str {
 /// model and the training code's version, so a retrain that forgets to bump
 /// the semantic version is still distinguishable.
 fn build_id(task: Task, model_size: ModelSize, report: &Report, datasets_root: &Path) -> String {
+    build_id_with(task, model_size, report, datasets_root, None)
+}
+
+/// As [`build_id`], folding in a calibration when one is recorded.
+///
+/// A calibrated head produces different numbers from the same weights, so it
+/// is a different model and must not share an identity with the uncalibrated
+/// one. Without this, applying a calibration would leave `models --check`
+/// passing against a lockfile taken before it.
+fn build_id_with(
+    task: Task,
+    model_size: ModelSize,
+    report: &Report,
+    datasets_root: &Path,
+    calibration: Option<&opendna_ml::heads::Calibration>,
+) -> String {
     use sha2::{Digest, Sha256};
     let mut h = Sha256::new();
     h.update(task.name().as_bytes());
@@ -196,6 +215,15 @@ fn build_id(task: Task, model_size: ModelSize, report: &Report, datasets_root: &
         // A build id that cannot see the data says so rather than silently
         // describing less than it claims to.
         Err(_) => h.update(b"dataset-manifest-unavailable"),
+    }
+    if let Some(c) = calibration {
+        h.update(
+            format!(
+                "calibration={} slope={:.9} intercept={:.9} threshold={:.9}",
+                c.method, c.slope, c.intercept, c.threshold
+            )
+            .as_bytes(),
+        );
     }
     format!("{:x}", h.finalize())[..16].to_string()
 }
@@ -228,9 +256,12 @@ pub fn stamp(
         embedding_model: model_size.repo().to_string(),
         embedding_dim: existing.embedding_dim,
         version: head_version(task).to_string(),
-        build: Some(build_id(task, model_size, report, datasets_root)),
+        build: Some(build_id_with(task, model_size, report, datasets_root, existing.calibration.as_ref())),
         weights_sha256: Some(opendna_ml::heads::sha256_file(&files.weights)?),
         with_burial: existing.with_burial,
+        // Stamping restates an identity without retraining, so the weights
+        // are the ones the calibration was fitted against and it still holds.
+        calibration: existing.calibration,
     };
     std::fs::write(&files.metadata, serde_json::to_string_pretty(&metadata)?)
         .with_context(|| format!("writing {}", files.metadata.display()))?;
@@ -275,6 +306,11 @@ fn save(varmap: &VarMap, s: &Saved<'_>) -> Result<()> {
         // Recorded so loading reconstructs the right input width rather than
         // inferring it from the weight shapes.
         with_burial,
+        // Deliberately none. A calibration is fitted against particular
+        // weights, and these are new ones -- carrying the old map over would
+        // apply a correction measured for a different model. `calibrate`
+        // measures it again.
+        calibration: None,
     };
     std::fs::write(
         out_dir.join(format!("{}.metadata.json", task.name())),
@@ -752,6 +788,140 @@ pub fn solubility(
 ///
 /// # Errors
 /// If the datasets or caches cannot be read, or training fails.
+/// Measure a head's calibration and, with `apply`, record the correction.
+///
+/// The validation split fits, the test split reports, and the test split is
+/// read once. Choosing the form of the correction by its test score would turn
+/// the test number into a training score, so the choice is made on validation.
+///
+/// Only the disorder head is in scope. The other three are regressors: asking
+/// whether a predicted ddG of 1.2 kcal/mol "means" anything probabilistic is a
+/// different question with a different answer, and conflating the two would be
+/// the sort of thing this project exists not to do.
+///
+/// # Errors
+/// If the head is not installed, if its embedding cache is missing, or if the
+/// metadata cannot be rewritten.
+pub fn calibrate(
+    task: Task,
+    datasets_root: &Path,
+    cache_dir: &Path,
+    out_dir: &Path,
+    model_size: ModelSize,
+    apply: bool,
+) -> Result<()> {
+    if task != Task::Disorder {
+        bail!(
+            "only the disorder head emits probabilities, so only it can be calibrated this way. \
+             {} is a regressor: what it needs is a prediction interval, which is a different \
+             measurement.",
+            task.name()
+        );
+    }
+
+    let device = opendna_ml::best_device()?;
+    let hidden = model_size.hidden_size();
+    let heads = opendna_ml::heads::Heads::load(out_dir, model_size, &device)?;
+    let head = heads
+        .disorder
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no disorder head in {}; train it first", out_dir.display()))?;
+
+    let cache = MatrixCache::open(
+        cache_dir,
+        &crate::embed::embedding_cache_name(Task::Disorder, model_size),
+        model_size.repo(),
+        hidden,
+    )?;
+
+    // The same splits the training run used, so "validation" and "test" mean
+    // here exactly what they meant there.
+    let read = |split: Split| -> Result<Vec<crate::calibrate::Protein>> {
+        let rows = data::disorder(datasets_root, split)?;
+        let mut out = Vec::with_capacity(rows.len());
+        for row in &rows {
+            let (values, residues) = cache.get(&row.sequence)?;
+            if residues != row.disorder.len() {
+                bail!(
+                    "cached embedding has {residues} residues but the label array has {}",
+                    row.disorder.len()
+                );
+            }
+            let x = Tensor::from_vec(values, (residues, hidden), &device)?;
+            // Logits, not probabilities: the correction is fitted in logit
+            // space, and recovering a logit from a rounded probability loses
+            // precision exactly where the model is most confident.
+            let logits = head.forward(&x)?.to_vec1::<f32>()?;
+            out.push(crate::calibrate::Protein {
+                logits: logits.into_iter().map(f64::from).collect(),
+                labels: row.disorder.clone(),
+            });
+        }
+        Ok(out)
+    };
+
+    let validation = read(Split::Validation)?;
+    let test = read(Split::Test)?;
+    let residues: usize = validation.iter().chain(&test).map(|p| p.logits.len()).sum();
+    println!(
+        "{} validation and {} test proteins, {residues} assessed residues\n",
+        validation.len(),
+        test.len()
+    );
+
+    let report = crate::calibrate::run(&validation, &test, 20_260_101);
+    print!("{}", report.summary());
+
+    if !apply {
+        println!("\nNothing written. Re-run with --apply to record this in the head's metadata.");
+        return Ok(());
+    }
+    // Recorded either way. A correction that does not beat its own noise is
+    // stored as the identity map, which changes no number but records that
+    // the question was asked and answered. "Measured and unnecessary" and
+    // "never measured" are different states, and a model card has to be able
+    // to tell a reader which one it is looking at.
+    let worth = report.worth_applying();
+    let mapping = if worth { report.mapping } else { crate::calibrate::Mapping::default() };
+
+    let files = opendna_ml::heads::HeadFiles::in_dir(out_dir, task.name());
+    let mut metadata = opendna_ml::heads::read_metadata(&files, task.name(), model_size)?;
+    metadata.calibration = Some(opendna_ml::heads::Calibration {
+        slope: mapping.slope,
+        intercept: mapping.intercept,
+        method: if worth { report.form.name().to_string() } else { "none".to_string() },
+        test_ece_before: report.test.0.point,
+        test_ece_after: if worth { report.test.1.point } else { report.test.0.point },
+        threshold: report.recommended.0.threshold,
+        test_mcc: report.recommended.1.mcc,
+    });
+    // The head now reports different numbers from the same weights, so it is a
+    // different model and needs a different build id. Recomputed here rather
+    // than left for a later `stamp`, because a calibrated head carrying the
+    // uncalibrated one's identity would pass a lockfile check it should fail.
+    let metrics_path = out_dir.join(format!("{}.metrics.json", task.name()));
+    if let Ok(text) = std::fs::read_to_string(&metrics_path) {
+        if let Ok(metrics) = serde_json::from_str::<Report>(&text) {
+            metadata.version = head_version(task).to_string();
+            metadata.build =
+                Some(build_id_with(task, model_size, &metrics, datasets_root, metadata.calibration.as_ref()));
+        }
+    }
+    let json = serde_json::to_string_pretty(&metadata)?;
+    std::fs::write(&files.metadata, json + "\n")
+        .with_context(|| format!("writing {}", files.metadata.display()))?;
+    println!("\nRecorded in {}.", files.metadata.display());
+    if worth {
+        println!("The head's predictions will now pass through this mapping.");
+    } else {
+        println!(
+            "Recorded as the identity, so no prediction changes. What is recorded is that \
+             calibration was measured on these weights and found not worth correcting."
+        );
+    }
+    Ok(())
+}
+
 pub fn disorder(
     datasets_root: &Path,
     cache_dir: &Path,
