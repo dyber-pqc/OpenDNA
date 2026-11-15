@@ -20,6 +20,10 @@ where a mutation is tolerable and where a linker can go. Read it beside
 `disorder`: accessibility describes a folded structure, so for a region with
 no stable fold the number is still produced and still means nothing.
 
+`--device cpu` forces the CPU on a build with GPU support compiled in, which
+is what you want when the GPU is busy with someone else's job and what makes
+it possible to check the two agree.
+
 `--format` takes `csv`, `tsv`, `json`, or `caid` for a CAID submission — see
 [CAID.md](CAID.md). With no `-o`, the table goes to standard output and
 progress goes to standard error, so a pipe stays clean.
@@ -203,6 +207,71 @@ checked is not.
 `--no-manifest` turns it off, for the case where something downstream cannot
 tolerate a second file appearing.
 
+## Speed, and what it costs
+
+Sequences are embedded in batches rather than one at a time. Every member of a
+batch is padded to the longest, so the grouping sorts by length first and then
+fills each batch to `--batch-tokens` padded tokens — which is also what bounds
+the memory a batch needs.
+
+Measured on 200 sequences and 35,033 residues, interleaving the settings across
+rounds on an otherwise idle machine:
+
+| device | `--batch-tokens 0` | `--batch-tokens 8192` |
+|---|---|---|
+| CPU | 60.8 s (59.1–63.8) | **54.5 s** (51.7–55.5) |
+| RTX 2000 Ada | **6.4 s** (6.3–6.4) | 6.8 s (6.8–6.8) |
+
+Batching helps the CPU by about a tenth and costs the GPU about a sixteenth,
+which was the opposite of what we expected on the GPU: its arithmetic is
+already wide enough that the padded work costs more than the per-call overhead
+it saves. So one number cannot be right for both, and left unset
+`--batch-tokens` follows the device. Your GPU may differ — the flag is there so
+you can measure yours rather than inherit ours.
+
+If you benchmark this, interleave the settings and report the spread. Two
+earlier attempts here ran one setting after the other while a compile competed
+for the cores, and produced first an overstated gain and then no detectable
+one. A third, cleaner run of the same comparison put the CPU gain nearer a
+sixth where this one says a tenth, so treat the size as approximate and the
+direction as settled.
+
+Sequences longer than the embedding model's limit cannot be batched — a
+windowed embedding is assembled from several passes over the same sequence — so
+they run one at a time and the progress line says so.
+
+## How reproducible the numbers are
+
+Exactly as reproducible as this, and no more:
+
+| | |
+|---|---|
+| Same input, same device, same `--batch-tokens` | **byte-identical**, verified on both CPU and GPU |
+| Same input, same device, different `--batch-tokens` | differs in the last digit of ~0.2% of values |
+| Same input, CPU vs GPU | differs in the last digit of ~0.3% of values |
+
+Across devices, 102 of 35,033 disorder probabilities differed, by at most
+0.0001 and by 0.0000003 on average — the f32 rounding floor, not a disagreement
+about biology. Nothing in those runs changes which residues are called
+disordered at any sensible threshold. But it does mean a result file from the
+GPU and one from the CPU are not the same bytes, so do not diff them and do not
+compare their checksums.
+
+Batch size and device are both recorded in every run manifest, which is what
+makes this checkable rather than a claim: two manifests that agree on input
+digest, head build, device and batch size should have produced the same output
+digest, and if they did not, something is wrong that is worth finding.
+
+`opendna selftest` is the tool for this. Its pinned values were recorded on
+CPU; running it on a GPU checks that the GPU reproduces them inside the
+fixture's tolerances, and on the hardware here all seventeen checks pass on
+both.
+
+The one thing to avoid: driving one model from several threads at once on
+CUDA changes the low bits, because cuBLAS picks differently shaped reductions
+under concurrent load. The CLI is serial, so this does not arise here, but it
+is why it is serial.
+
 ## What the exit status means
 
 A pipeline cannot read an error message. It reads a number, and what it needs
@@ -241,6 +310,27 @@ The contract is exercised against the compiled binary in
 [tests/exit_codes.rs](tests/exit_codes.rs). It needs the heads installed and
 skips with a message when they are not, because a test that fails on every
 machine without them gets disabled and then checks nothing at all.
+
+## Licences travel with the weights
+
+Three heads are Apache-2.0. The solubility head is not: it is trained on eSOL,
+which is CC BY-SA 2.1 JP, and because that licence is share-alike — and
+because whether trained weights are a derivative work of their training data
+is an open legal question this project will not answer in its own favour — the
+weights carry the same terms.
+
+That matters when you pass a staged bundle on, which is a redistribution.
+`opendna stage` writes a `LICENSES.md` grouping the heads by licence and saying
+plainly when redistribution carries obligations, and each head's model card
+travels beside its weights with the attribution its licence requires. The run
+manifest records the licence of the head behind each result, so a number does
+not outlive the knowledge that passing it on has conditions.
+
+All of it is read out of the cards rather than written into the program, so the
+notice cannot claim terms the file beside the weights does not. A head whose
+card declares no licence is reported as `unstated` and treated as possibly
+obliging — defaulting it to the permissive licence the others use would be a
+false statement about a file somebody is about to redistribute.
 
 ## What it will not do
 

@@ -56,29 +56,43 @@ const DISORDER_THRESHOLD: f64 = 0.5;
 /// measurement; this is a convenience.
 const BURIED_AT: f64 = 0.25;
 
-/// Padded tokens per embedding batch, by default.
+/// Padded tokens per embedding batch on the CPU.
 ///
-/// Measured rather than guessed, and it took three attempts to measure
-/// honestly. On 200 sequences and 35,033 residues, interleaving the two
-/// settings across four rounds on an otherwise idle machine:
+/// Measured rather than guessed, and it took several attempts to measure
+/// honestly. On 200 sequences and 35,033 residues, interleaving the settings
+/// across rounds on an otherwise idle machine:
 ///
 /// ```text
-/// batch-tokens     0: median 66.6s  range 64.5-68.7s
-/// batch-tokens  8192: median 55.4s  range 55.1-56.8s
+/// CPU, batch-tokens     0: median 60.8s  range 59.1-63.8s
+/// CPU, batch-tokens  8192: median 54.5s  range 51.7-55.5s
 /// ```
 ///
-/// 11.2 s apart with 7.7 s of clear air between the ranges, so the gain is
-/// real and worth about 17%. The first two attempts at this measured one
-/// setting after the other while a compile was running, and produced first an
-/// overstated gain and then no detectable one; neither was true.
+/// About a tenth faster, with the ranges clear of each other. An earlier
+/// session of the same measurement put it nearer a sixth, so treat the size of
+/// the gain as "roughly ten per cent" rather than a figure; the direction is
+/// not in doubt. Two attempts before that -- one setting after the other,
+/// while a compile was competing for the cores -- gave first an overstated
+/// gain and then no detectable one. Neither was true.
+const CPU_BATCH_TOKENS: usize = 8192;
+
+/// Padded tokens per embedding batch on a GPU: none.
 ///
-/// It is not free. Padding changes the order of floating-point sums, so a run
-/// at one budget differs from a run at another in the last digit of about 50
-/// values in 35,000 -- 1e-4 on a probability. Two runs at the *same* budget
-/// are byte-identical, which is the property that matters, and the budget is
-/// recorded in the run manifest so a result can always be placed. Set 0 for
-/// one sequence per batch, which pads nothing.
-pub const BATCH_TOKENS: usize = 8192;
+/// Batching was expected to pay more here, not less. It does not:
+///
+/// ```text
+/// GPU, batch-tokens     0: median  6.4s  range  6.3- 6.4s
+/// GPU, batch-tokens  8192: median  6.8s  range  6.8- 6.8s
+/// ```
+///
+/// Measured on an RTX 2000 Ada, which is 9.5x the CPU's throughput on the same
+/// file either way. The arithmetic is already wide enough that the padded work
+/// costs more than the per-call overhead it saves, and the variance is small
+/// enough -- 6.3-6.4 against 6.8-6.8 -- to leave no doubt about the sign.
+///
+/// One number cannot be right for both devices, so the default follows the
+/// device. Another GPU may well behave differently; `--batch-tokens` is there
+/// so somebody can measure theirs rather than inherit this one.
+const GPU_BATCH_TOKENS: usize = 0;
 
 #[derive(Parser)]
 #[command(
@@ -121,15 +135,23 @@ struct Cli {
     /// Padded tokens per embedding batch. 0 embeds one sequence at a time.
     ///
     /// Sequences are sorted by length and grouped until this many padded
-    /// tokens, which is what bounds the memory a batch needs. The default was
-    /// about 17% faster than one-at-a-time on the CPU it was measured on.
+    /// tokens, which is what bounds the memory a batch needs. Left unset it
+    /// follows the device: batching is about a tenth faster on the CPU
+    /// measured here and slightly slower on the GPU measured here.
     ///
-    /// Two runs at the same value are byte-identical. Two runs at different
-    /// values are not: padding changes the order of floating-point sums, so a
-    /// few values in ten thousand differ in their last digit. The value used
-    /// is recorded in the run manifest.
-    #[arg(long, global = true, default_value_t = BATCH_TOKENS)]
-    batch_tokens: usize,
+    /// Two runs at the same value are byte-identical on the same device. Two
+    /// runs at different values are not: padding changes the order of
+    /// floating-point sums, so a few values in ten thousand differ in their
+    /// last digit. The value used is recorded in the run manifest.
+    #[arg(long, global = true)]
+    batch_tokens: Option<usize>,
+    /// Which device to run on.
+    ///
+    /// `auto` takes the fastest this build can use. `cpu` forces the CPU,
+    /// which is what you want when the GPU is busy with someone else's work,
+    /// and what makes it possible to check that the two devices agree.
+    #[arg(long, global = true, value_enum, default_value_t = Which::Auto)]
+    device: Which,
     #[command(subcommand)]
     command: Command,
 }
@@ -162,8 +184,24 @@ struct Global {
     offline: bool,
     /// Write a manifest beside each output file.
     manifest: bool,
-    /// Padded tokens per embedding batch.
-    batch_tokens: usize,
+    /// Padded tokens per embedding batch, or `None` to let the device decide.
+    batch_tokens: Option<usize>,
+    /// Which device to run on.
+    device: Which,
+}
+
+impl Global {
+    /// The batch budget to use on `device`.
+    ///
+    /// An explicit `--batch-tokens` wins. Otherwise the default follows the
+    /// device, because the measurement says the right answer differs between
+    /// them and a single number would be wrong for one of the two.
+    fn budget(self, device: &candle_core::Device) -> usize {
+        self.batch_tokens.unwrap_or(match device {
+            candle_core::Device::Cpu => CPU_BATCH_TOKENS,
+            candle_core::Device::Cuda(_) | candle_core::Device::Metal(_) => GPU_BATCH_TOKENS,
+        })
+    }
 }
 
 #[derive(Subcommand)]
@@ -192,6 +230,28 @@ enum Command {
         #[arg(long)]
         to: PathBuf,
     },
+}
+
+/// Which device to run on.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum Which {
+    /// The fastest device this build can use.
+    Auto,
+    /// The CPU, even where a GPU is available.
+    Cpu,
+}
+
+impl Which {
+    /// Open the device.
+    ///
+    /// # Errors
+    /// If a GPU is compiled in, selected, and cannot be opened.
+    fn open(self) -> Result<candle_core::Device, candle_core::Error> {
+        match self {
+            Self::Auto => opendna_ml::best_device(),
+            Self::Cpu => Ok(candle_core::Device::Cpu),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -392,7 +452,12 @@ fn main() -> std::process::ExitCode {
 fn run() -> Result<(), Failure> {
     let cli = Cli::parse();
     let dir = models_dir(cli.models);
-    let global = Global { offline: cli.offline, manifest: !cli.no_manifest, batch_tokens: cli.batch_tokens };
+    let global = Global {
+        offline: cli.offline,
+        manifest: !cli.no_manifest,
+        batch_tokens: cli.batch_tokens,
+        device: cli.device,
+    };
 
     match cli.command {
         // Everything these two can fail at is a property of the install.
@@ -400,7 +465,11 @@ fn run() -> Result<(), Failure> {
             models(&dir, lock.as_deref(), check.as_deref()).blame(Fault::Install)
         }
         Command::Stage { to } => staging::stage(&dir, &to, EMBEDDER).blame(Fault::Install),
-        Command::Selftest => selftest::run(&dir, EMBEDDER, global.offline),
+        Command::Selftest => {
+            let device = global.device.open()?;
+            let budget = global.budget(&device);
+            selftest::run(&dir, EMBEDDER, global.offline, device, budget)
+        }
         Command::Predict(args) => predict(&dir, global, args),
     }
 }
@@ -471,7 +540,7 @@ fn prepare(dir: &Path, global: Global, task: Task) -> Result<Prepared, Failure> 
         });
     }
 
-    let device = opendna_ml::best_device()?;
+    let device = global.device.open()?;
     let description = opendna_ml::device_description(&device);
     let Loaded { prov, metadata, files } = head_provenance(dir, task, &description).blame(Fault::Install)?;
     eprintln!("Running {} on {description}", task.name());
@@ -528,6 +597,7 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
 
     let ready = prepare(dir, global, task)?;
     let Prepared { heads, model, device, description, prov, metadata, files } = &ready;
+    let budget = global.budget(device);
 
     // One manifest writer for every format, so no output can end up described
     // differently from another.
@@ -543,7 +613,7 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
                 device: description,
                 started: started_utc,
                 elapsed: started.elapsed(),
-                batch_tokens: global.batch_tokens,
+                batch_tokens: budget,
                 input: manifest::Input {
                     label: &label,
                     bytes: text.as_bytes(),
@@ -567,7 +637,7 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
     };
 
     if format == Format::Caid {
-        let (rendered, rows) = write_caid(&ready, &proteins, global.batch_tokens, output.as_deref())?;
+        let (rendered, rows) = write_caid(&ready, &proteins, budget, output.as_deref())?;
         if let Some(path) = output.as_deref() {
             record(path, &rendered, rows, None)?;
         }
@@ -575,13 +645,11 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
     }
 
     let table = match task {
-        Task::Disorder => disorder_table(
-            &disorder(&proteins, heads, model, device, global.batch_tokens).blame(Fault::Input)?,
-        ),
-        Task::Burial => burial(&proteins, heads, model, device, global.batch_tokens).blame(Fault::Input)?,
-        Task::Solubility => {
-            solubility(&proteins, heads, model, device, global.batch_tokens).blame(Fault::Input)?
+        Task::Disorder => {
+            disorder_table(&disorder(&proteins, heads, model, device, budget).blame(Fault::Input)?)
         }
+        Task::Burial => burial(&proteins, heads, model, device, budget).blame(Fault::Input)?,
+        Task::Solubility => solubility(&proteins, heads, model, device, budget).blame(Fault::Input)?,
         Task::Stability => {
             let resolved = resolved.as_deref().unwrap_or_default();
             stability(&proteins, resolved, heads, model, device).blame(Fault::Input)?

@@ -375,7 +375,23 @@ fn pinned(n: &Numbers, build_of: &impl Fn(&str) -> Option<String>) -> Vec<Check>
 ///
 /// With `offline` set it will not reach the network, so on a staged bundle it
 /// tests the same files the predictions will use.
-pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<(), crate::exit::Failure> {
+///
+/// `device` is passed in rather than chosen here, so the same checks can be
+/// run on the CPU and on a GPU and the two compared. A head that reproduces
+/// its recorded numbers on one device and not the other is worth knowing
+/// about, and nothing else would report it.
+///
+/// `budget` comes in for the same reason, though the fixture is a single
+/// sequence and so has nothing to be batched with: passing it means the
+/// self-test exercises whatever a real run on this machine would use rather
+/// than a path of its own.
+pub fn run(
+    dir: &Path,
+    embedder: ModelSize,
+    offline: bool,
+    device: candle_core::Device,
+    budget: usize,
+) -> Result<(), crate::exit::Failure> {
     let found = crate::inventory::scan(dir, embedder);
     let unusable: Vec<String> =
         found.iter().filter(|h| !h.ready()).map(|h| format!("  {:11} {}", h.task, h.describe())).collect();
@@ -393,7 +409,6 @@ pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<(), crate::
         found.iter().find(|h| h.task == task).and_then(|h| h.metadata.as_ref()).and_then(|m| m.build.clone())
     };
 
-    let device = opendna_ml::best_device().blame(Install)?;
     let description = opendna_ml::device_description(&device);
     println!("Self-test on {description}");
     println!("Fixture: {NAME}, {} residues", SEQUENCE.len());
@@ -417,13 +432,10 @@ pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<(), crate::
     let resolved = crate::resolve_mutations(&proteins, &mutations).blame(Install)?;
 
     // The same calls `predict` makes, in the same order.
-    let disorder_runs =
-        crate::disorder(&proteins, &heads, &model, &device, crate::BATCH_TOKENS).blame(Install)?;
+    let disorder_runs = crate::disorder(&proteins, &heads, &model, &device, budget).blame(Install)?;
     let disorder_table = crate::disorder_table(&disorder_runs);
-    let burial_table =
-        crate::burial(&proteins, &heads, &model, &device, crate::BATCH_TOKENS).blame(Install)?;
-    let solubility_table =
-        crate::solubility(&proteins, &heads, &model, &device, crate::BATCH_TOKENS).blame(Install)?;
+    let burial_table = crate::burial(&proteins, &heads, &model, &device, budget).blame(Install)?;
+    let solubility_table = crate::solubility(&proteins, &heads, &model, &device, budget).blame(Install)?;
     let stability_table = crate::stability(&proteins, &resolved, &heads, &model, &device).blame(Install)?;
 
     let numbers = Numbers {
@@ -431,13 +443,7 @@ pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<(), crate::
             // Nothing here is sampled, so a second run on this machine has to
             // agree with the first. Run it before anything is compared, so the
             // determinism check cannot be skipped by an earlier failure.
-            let again = crate::disorder_table(&crate::disorder(
-                &proteins,
-                &heads,
-                &model,
-                &device,
-                crate::BATCH_TOKENS,
-            )?);
+            let again = crate::disorder_table(&crate::disorder(&proteins, &heads, &model, &device, budget)?);
             column(&again, "probability")?
         },
         probabilities: column(&disorder_table, "probability")?,
