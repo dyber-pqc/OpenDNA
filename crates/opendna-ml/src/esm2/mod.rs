@@ -79,6 +79,43 @@ impl Embedding {
     }
 }
 
+/// Group sequence indices into batches that stay inside a token budget.
+///
+/// A batch costs `members x longest member` padded tokens, so the grouping has
+/// to consider length and not just count: a 60-residue sequence batched with a
+/// 1000-residue one is computed as though it were 1000 long. Sorting by length
+/// first puts similar lengths together, which is what keeps the waste small.
+///
+/// Ties are broken by index so the plan is deterministic, which matters
+/// because padding changes floating-point summation order and therefore the
+/// last few bits of the result. Given the same lengths and budget this returns
+/// the same plan on every machine.
+///
+/// A sequence larger than the whole budget gets a batch to itself rather than
+/// being refused: the budget is advice about memory, not a limit on what can
+/// be embedded.
+fn plan_batches(lengths: &[usize], token_budget: usize) -> Vec<Vec<usize>> {
+    let mut order: Vec<usize> = (0..lengths.len()).collect();
+    order.sort_by_key(|&i| (lengths[i], i));
+
+    let mut plan: Vec<Vec<usize>> = Vec::new();
+    let mut batch: Vec<usize> = Vec::new();
+    let mut widest = 0usize;
+    for &index in &order {
+        let widened = widest.max(lengths[index]);
+        if !batch.is_empty() && (batch.len() + 1) * widened > token_budget {
+            plan.push(std::mem::take(&mut batch));
+            widest = 0;
+        }
+        widest = widest.max(lengths[index]);
+        batch.push(index);
+    }
+    if !batch.is_empty() {
+        plan.push(batch);
+    }
+    plan
+}
+
 /// A loaded ESM-2 model.
 ///
 /// # Concurrency
@@ -191,6 +228,38 @@ impl Esm2 {
             out.push(Embedding { pooled, per_residue: residues, length });
         }
         Ok(out)
+    }
+
+    /// Embed many sequences, batching them to bound the padded work.
+    ///
+    /// Every member of a batch is padded to the longest, so a batch chosen by
+    /// count alone can waste almost all of its work: a 60-residue sequence
+    /// sharing a batch with a 1000-residue one is computed as though it were
+    /// 1000 long. So sequences are sorted by length and each batch is filled
+    /// until `token_budget` padded tokens, which keeps the padding small and
+    /// bounds the activation memory a batch needs — the quantity that has to
+    /// be bounded, since it is what runs a device out of memory.
+    ///
+    /// Results come back in the order given, not in length order.
+    ///
+    /// A budget smaller than one sequence still embeds that sequence alone:
+    /// refusing would be choosing not to do work the model can do.
+    ///
+    /// # Errors
+    /// [`MlError::EmptySequence`], [`MlError::SequenceTooLong`] for a sequence
+    /// past the checkpoint's limit, or a tensor error. Use
+    /// [`Self::embed_windowed`] for longer sequences.
+    pub fn embed_many(&self, sequences: &[&str], token_budget: usize) -> Result<Vec<Embedding>, MlError> {
+        let lengths: Vec<usize> =
+            sequences.iter().map(|s| s.chars().filter(|c| !c.is_whitespace()).count()).collect();
+        let mut out: Vec<Option<Embedding>> = vec![None; sequences.len()];
+        for batch in plan_batches(&lengths, token_budget) {
+            let group: Vec<&str> = batch.iter().map(|&i| sequences[i]).collect();
+            for (&index, embedding) in batch.iter().zip(self.embed(&group)?) {
+                out[index] = Some(embedding);
+            }
+        }
+        out.into_iter().enumerate().map(|(index, e)| e.ok_or(MlError::EmptySequence { index })).collect()
     }
 
     /// Per-residue embeddings for a sequence of any length.
@@ -337,3 +406,73 @@ impl Esm2 {
 }
 
 use candle_core::IndexOp;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The budget exists to bound memory, and a batch's cost is members times
+    /// the longest member. If the plan ignores that, a long sequence joining a
+    /// batch of short ones silently multiplies the activation size.
+    #[test]
+    fn no_batch_exceeds_the_token_budget_unless_one_sequence_already_does() {
+        let lengths = [60, 300, 75, 1000, 80, 62, 290];
+        for budget in [0, 1, 100, 512, 8192, 100_000] {
+            let plan = plan_batches(&lengths, budget);
+            for batch in &plan {
+                let widest = batch.iter().map(|&i| lengths[i]).max().unwrap_or(0);
+                let cost = batch.len() * widest;
+                assert!(
+                    cost <= budget || batch.len() == 1,
+                    "budget {budget}: a batch of {} costs {cost}",
+                    batch.len()
+                );
+            }
+        }
+    }
+
+    /// Every sequence must be embedded exactly once. A planner that drops one
+    /// produces a table quietly missing rows, and one that duplicates it
+    /// produces rows nobody asked for.
+    #[test]
+    fn every_sequence_appears_exactly_once() {
+        let lengths = [60, 300, 75, 1000, 80, 62, 290];
+        for budget in [0, 1, 100, 512, 8192, 100_000] {
+            let mut seen: Vec<usize> = plan_batches(&lengths, budget).concat();
+            seen.sort_unstable();
+            assert_eq!(seen, (0..lengths.len()).collect::<Vec<_>>(), "budget {budget}");
+        }
+    }
+
+    /// Padding changes floating-point summation order, so a plan that varied
+    /// between runs would make results irreproducible for no reason.
+    #[test]
+    fn the_plan_is_deterministic_and_groups_similar_lengths() {
+        let lengths = [300, 60, 301, 61, 302, 62];
+        let first = plan_batches(&lengths, 700);
+        assert_eq!(first, plan_batches(&lengths, 700), "the same input must give the same plan");
+
+        // The three short sequences should not be sharing a batch with the
+        // three long ones, which is the whole point of sorting by length.
+        let shorts: Vec<&Vec<usize>> = first.iter().filter(|b| b.iter().any(|&i| lengths[i] < 100)).collect();
+        assert!(
+            shorts.iter().all(|b| b.iter().all(|&i| lengths[i] < 100)),
+            "a batch mixes short and long: {first:?}"
+        );
+    }
+
+    /// A budget of zero means one sequence per batch, which pads nothing and
+    /// therefore reproduces the unbatched numbers exactly. That is the default
+    /// the CLI uses, so it has to hold.
+    #[test]
+    fn a_zero_budget_puts_every_sequence_in_its_own_batch() {
+        let plan = plan_batches(&[60, 300, 75], 0);
+        assert_eq!(plan.len(), 3, "{plan:?}");
+        assert!(plan.iter().all(|b| b.len() == 1), "{plan:?}");
+    }
+
+    #[test]
+    fn an_empty_input_plans_nothing() {
+        assert!(plan_batches(&[], 8192).is_empty());
+    }
+}

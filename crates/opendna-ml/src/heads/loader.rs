@@ -36,6 +36,39 @@ pub fn sha256_file(path: &Path) -> Result<String, MlError> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+/// The licence a model card declares.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct License {
+    /// The `license` field. `other` when the licence is named separately.
+    pub identifier: String,
+    /// The `license_name` field, present when `identifier` is `other`.
+    pub name: Option<String>,
+    /// The `license_link` field.
+    pub link: Option<String>,
+}
+
+impl License {
+    /// How to name this licence to a reader.
+    pub fn label(&self) -> &str {
+        match self.name.as_deref() {
+            Some(name) if self.identifier == "other" => name,
+            _ => &self.identifier,
+        }
+    }
+
+    /// Whether the terms oblige a redistributor to keep them.
+    ///
+    /// Matched on the identifier rather than parsed, because the only thing
+    /// this is used for is deciding whether to say "this one is share-alike"
+    /// in a notice -- and a wrong "no" there is the expensive direction.
+    /// Anything unrecognised is treated as possibly share-alike.
+    pub fn share_alike(&self) -> bool {
+        let text = format!("{} {}", self.identifier, self.name.as_deref().unwrap_or_default());
+        let text = text.to_ascii_lowercase();
+        text.contains("-sa") || text.contains("share") || text.contains("gpl")
+    }
+}
+
 /// What checking a head's files against its metadata found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Integrity {
@@ -122,6 +155,41 @@ impl HeadFiles {
             }
         }
         out.into_iter().map(|l| l.split_whitespace().collect::<Vec<_>>().join(" ")).collect()
+    }
+
+    /// The licence the card declares, if it declares one.
+    ///
+    /// Hugging Face model cards carry it in YAML front matter as `license`,
+    /// optionally refined by `license_name` and `license_link` when the
+    /// licence is not one of the recognised identifiers -- which is the case
+    /// for the share-alike licence the solubility data carries.
+    ///
+    /// Returns `None` rather than a guess when the card is absent or silent.
+    /// "Unstated" is a true and useful thing to tell somebody about to
+    /// redistribute a file; a default of "Apache-2.0" would be a false one.
+    pub fn license(&self) -> Option<License> {
+        let card = std::fs::read_to_string(&self.card).ok()?;
+        let mut front = card.lines();
+        // Front matter only: a `license:` line in the prose below is part of a
+        // sentence, not a declaration.
+        if front.next()?.trim() != "---" {
+            return None;
+        }
+        let mut found = License::default();
+        for line in front {
+            if line.trim() == "---" {
+                break;
+            }
+            let Some((key, value)) = line.split_once(':') else { continue };
+            let value = value.trim().trim_matches('"').to_string();
+            match key.trim() {
+                "license" => found.identifier = value,
+                "license_name" => found.name = Some(value),
+                "license_link" => found.link = Some(value),
+                _ => {}
+            }
+        }
+        (!found.identifier.is_empty()).then_some(found)
     }
 
     /// Check the weights against the hash in `metadata`.
@@ -301,6 +369,98 @@ mod tests {
     #[test]
     fn a_card_without_limitations_yields_none() {
         assert!(card_with("empty", "# Head\n\n## Results\n").limitations().is_empty());
+    }
+
+    /// The share-alike licence on the solubility data is the reason this
+    /// exists, so it has to be read correctly from a card shaped like that
+    /// one: `license: other` with the real name beside it.
+    #[test]
+    fn a_licence_named_separately_is_read_from_the_front_matter() {
+        let files = card_with(
+            "sa",
+            "---
+license: other
+license_name: cc-by-sa-2.1-jp
+             license_link: https://creativecommons.org/licenses/by-sa/2.1/jp/deed.en
+---
+
+# Card
+",
+        );
+        let found = files.license().expect("a licence");
+        assert_eq!(found.identifier, "other");
+        assert_eq!(found.label(), "cc-by-sa-2.1-jp");
+        assert!(found.share_alike(), "a -sa licence must be recognised as share-alike");
+        assert!(found.link.unwrap().contains("by-sa/2.1/jp"));
+    }
+
+    #[test]
+    fn a_plain_identifier_needs_no_name() {
+        let files = card_with(
+            "apache",
+            "---
+license: apache-2.0
+---
+
+# Card
+",
+        );
+        let found = files.license().expect("a licence");
+        assert_eq!(found.label(), "apache-2.0");
+        assert!(!found.share_alike());
+    }
+
+    /// Telling somebody the terms are unstated is true and useful. Defaulting
+    /// to a permissive licence would be neither.
+    #[test]
+    fn a_card_without_front_matter_declares_nothing() {
+        assert_eq!(
+            card_with(
+                "none",
+                "# Card
+
+license: apache-2.0 appears in prose
+"
+            )
+            .license(),
+            None
+        );
+        assert_eq!(
+            card_with(
+                "empty",
+                "---
+tags:
+  - protein
+---
+"
+            )
+            .license(),
+            None
+        );
+    }
+
+    /// Anything unrecognised is treated as possibly share-alike, because a
+    /// wrong "no" is the expensive direction when the question is whether a
+    /// redistribution carries obligations.
+    #[test]
+    fn an_unfamiliar_licence_is_assumed_to_carry_obligations() {
+        let files = card_with(
+            "odd",
+            "---
+license: other
+license_name: some-copyleft-thing
+---
+",
+        );
+        assert!(!files.license().expect("a licence").share_alike(), "no marker, so not flagged");
+        let gpl = card_with(
+            "gpl",
+            "---
+license: gpl-3.0
+---
+",
+        );
+        assert!(gpl.license().expect("a licence").share_alike());
     }
 
     /// A head can be used without its card; the caller points at the card

@@ -417,10 +417,13 @@ pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<(), crate::
     let resolved = crate::resolve_mutations(&proteins, &mutations).blame(Install)?;
 
     // The same calls `predict` makes, in the same order.
-    let disorder_runs = crate::disorder(&proteins, &heads, &model, &device).blame(Install)?;
+    let disorder_runs =
+        crate::disorder(&proteins, &heads, &model, &device, crate::BATCH_TOKENS).blame(Install)?;
     let disorder_table = crate::disorder_table(&disorder_runs);
-    let burial_table = crate::burial(&proteins, &heads, &model, &device).blame(Install)?;
-    let solubility_table = crate::solubility(&proteins, &heads, &model, &device).blame(Install)?;
+    let burial_table =
+        crate::burial(&proteins, &heads, &model, &device, crate::BATCH_TOKENS).blame(Install)?;
+    let solubility_table =
+        crate::solubility(&proteins, &heads, &model, &device, crate::BATCH_TOKENS).blame(Install)?;
     let stability_table = crate::stability(&proteins, &resolved, &heads, &model, &device).blame(Install)?;
 
     let numbers = Numbers {
@@ -428,7 +431,13 @@ pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<(), crate::
             // Nothing here is sampled, so a second run on this machine has to
             // agree with the first. Run it before anything is compared, so the
             // determinism check cannot be skipped by an earlier failure.
-            let again = crate::disorder_table(&crate::disorder(&proteins, &heads, &model, &device)?);
+            let again = crate::disorder_table(&crate::disorder(
+                &proteins,
+                &heads,
+                &model,
+                &device,
+                crate::BATCH_TOKENS,
+            )?);
             column(&again, "probability")?
         },
         probabilities: column(&disorder_table, "probability")?,

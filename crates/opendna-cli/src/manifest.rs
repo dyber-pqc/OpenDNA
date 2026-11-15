@@ -96,6 +96,14 @@ pub struct Run<'a> {
     pub started: chrono::DateTime<chrono::Utc>,
     /// How long it took, wall clock.
     pub elapsed: std::time::Duration,
+    /// Padded tokens per embedding batch.
+    ///
+    /// Recorded because it changes the results: padding alters the order of
+    /// floating-point sums, so two runs of the same input at different
+    /// settings produce files that differ in the last digit of a few values.
+    /// Without this the manifest would claim to identify a run it could not
+    /// distinguish from a slightly different one.
+    pub batch_tokens: usize,
     /// The input.
     pub input: Input<'a>,
     /// Where the table was written, if anywhere.
@@ -115,6 +123,13 @@ pub struct Run<'a> {
     /// The card's limitations, carried so the manifest alone is enough to
     /// state what the numbers do not cover.
     pub limitations: &'a [String],
+    /// The head's licence, as its card declares it.
+    ///
+    /// Part of what a methods section has to say about a number: one of these
+    /// heads is trained on share-alike data and released on the same terms,
+    /// and a result travelling without that is a result somebody may
+    /// redistribute without knowing they have an obligation.
+    pub license: Option<opendna_ml::heads::License>,
 }
 
 /// Render the manifest.
@@ -127,6 +142,7 @@ pub fn render(run: &Run<'_>) -> String {
             "started_utc": run.started.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
             "seconds": (run.elapsed.as_millis() as f64) / 1000.0,
             "device": run.device,
+            "batch_tokens": run.batch_tokens,
             // The arguments as given, so the run can be repeated verbatim.
             // Not the resolved paths: what was typed is what a reader needs to
             // recognise, and the resolved values are recorded separately.
@@ -153,6 +169,11 @@ pub fn render(run: &Run<'_>) -> String {
             "weights_sha256": run.head.weights_sha256,
             "weights_path": shown(&run.files.weights),
             "with_burial": run.head.with_burial,
+            "license": run.license.as_ref().map(|l| json!({
+                "name": l.label(),
+                "link": l.link,
+                "share_alike": l.share_alike(),
+            })),
         },
         "embedding_model": {
             "repo": run.embedder.repo,
@@ -220,6 +241,7 @@ mod tests {
             device: "CPU",
             started: chrono::DateTime::from_timestamp(1_763_000_000, 0).unwrap(),
             elapsed: std::time::Duration::from_millis(2500),
+            batch_tokens: 0,
             input: Input { label: "seqs.fasta", bytes: b">a\nMQIF\n", sequences: 1, residues: 4 },
             output,
             rendered: "name,position\na,1\n",
@@ -229,6 +251,11 @@ mod tests {
             files: &files,
             embedder: &emb,
             limitations: &limitations,
+            license: Some(opendna_ml::heads::License {
+                identifier: "other".into(),
+                name: Some("cc-by-sa-2.1-jp".into()),
+                link: None,
+            }),
         });
         serde_json::from_str(&text).unwrap()
     }
@@ -273,6 +300,7 @@ mod tests {
             device: "CPU",
             started: chrono::Utc::now(),
             elapsed: std::time::Duration::from_secs(1),
+            batch_tokens: 8192,
             input: Input { label: "-", bytes: b">a\nM\n", sequences: 1, residues: 1 },
             output: None,
             rendered: "",
@@ -282,6 +310,7 @@ mod tests {
             files: &files,
             embedder: &emb,
             limitations: &[],
+            license: None,
         });
         let m: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert!(m["embedding_model"]["sha256"].is_null());
@@ -315,6 +344,23 @@ mod tests {
         // A name with no extension still gets one rather than overwriting the
         // output it describes.
         assert_eq!(path_for(Path::new("results")), PathBuf::from("results.manifest.json"));
+    }
+
+    /// A run is not identified unless everything that changed its numbers is
+    /// written down, and the batch size changes them.
+    /// A share-alike licence that does not reach the manifest is one the
+    /// reader of a result file has no way to discover.
+    #[test]
+    fn a_share_alike_licence_is_recorded_and_flagged() {
+        let m = manifest(Some(Path::new("out.csv")));
+        assert_eq!(m["head"]["license"]["name"], "cc-by-sa-2.1-jp");
+        assert_eq!(m["head"]["license"]["share_alike"], true);
+    }
+
+    #[test]
+    fn the_batch_size_is_recorded() {
+        let m = manifest(Some(Path::new("out.csv")));
+        assert_eq!(m["run"]["batch_tokens"], 0);
     }
 
     #[test]

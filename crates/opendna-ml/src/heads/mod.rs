@@ -19,7 +19,7 @@ mod stability;
 
 pub use burial::BurialHead;
 pub use disorder::DisorderHead;
-pub use loader::{read_metadata, sha256_file, HeadFiles, Heads, Integrity};
+pub use loader::{read_metadata, sha256_file, HeadFiles, Heads, Integrity, License};
 pub use mlp::Mlp;
 pub use solubility::SolubilityHead;
 pub use stability::{StabilityFeatures, StabilityHead};

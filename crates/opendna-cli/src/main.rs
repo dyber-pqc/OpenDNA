@@ -56,6 +56,30 @@ const DISORDER_THRESHOLD: f64 = 0.5;
 /// measurement; this is a convenience.
 const BURIED_AT: f64 = 0.25;
 
+/// Padded tokens per embedding batch, by default.
+///
+/// Measured rather than guessed, and it took three attempts to measure
+/// honestly. On 200 sequences and 35,033 residues, interleaving the two
+/// settings across four rounds on an otherwise idle machine:
+///
+/// ```text
+/// batch-tokens     0: median 66.6s  range 64.5-68.7s
+/// batch-tokens  8192: median 55.4s  range 55.1-56.8s
+/// ```
+///
+/// 11.2 s apart with 7.7 s of clear air between the ranges, so the gain is
+/// real and worth about 17%. The first two attempts at this measured one
+/// setting after the other while a compile was running, and produced first an
+/// overstated gain and then no detectable one; neither was true.
+///
+/// It is not free. Padding changes the order of floating-point sums, so a run
+/// at one budget differs from a run at another in the last digit of about 50
+/// values in 35,000 -- 1e-4 on a probability. Two runs at the *same* budget
+/// are byte-identical, which is the property that matters, and the budget is
+/// recorded in the run manifest so a result can always be placed. Set 0 for
+/// one sequence per batch, which pads nothing.
+pub const BATCH_TOKENS: usize = 8192;
+
 #[derive(Parser)]
 #[command(
     name = "opendna",
@@ -94,6 +118,18 @@ struct Cli {
     /// cannot tolerate a second file appearing.
     #[arg(long, global = true)]
     no_manifest: bool,
+    /// Padded tokens per embedding batch. 0 embeds one sequence at a time.
+    ///
+    /// Sequences are sorted by length and grouped until this many padded
+    /// tokens, which is what bounds the memory a batch needs. The default was
+    /// about 17% faster than one-at-a-time on the CPU it was measured on.
+    ///
+    /// Two runs at the same value are byte-identical. Two runs at different
+    /// values are not: padding changes the order of floating-point sums, so a
+    /// few values in ten thousand differ in their last digit. The value used
+    /// is recorded in the run manifest.
+    #[arg(long, global = true, default_value_t = BATCH_TOKENS)]
+    batch_tokens: usize,
     #[command(subcommand)]
     command: Command,
 }
@@ -126,6 +162,8 @@ struct Global {
     offline: bool,
     /// Write a manifest beside each output file.
     manifest: bool,
+    /// Padded tokens per embedding batch.
+    batch_tokens: usize,
 }
 
 #[derive(Subcommand)]
@@ -354,7 +392,7 @@ fn main() -> std::process::ExitCode {
 fn run() -> Result<(), Failure> {
     let cli = Cli::parse();
     let dir = models_dir(cli.models);
-    let global = Global { offline: cli.offline, manifest: !cli.no_manifest };
+    let global = Global { offline: cli.offline, manifest: !cli.no_manifest, batch_tokens: cli.batch_tokens };
 
     match cli.command {
         // Everything these two can fail at is a property of the install.
@@ -380,7 +418,9 @@ struct Request {
 /// # Errors
 /// If it cannot be read, or is not FASTA.
 fn read_request(input: &Path) -> Result<Request, Failure> {
-    let text = read_input(input)?;
+    // A path that is not there is the request being wrong, not the machine:
+    // a typo in a filename should not report as an unanticipated failure.
+    let text = read_input(input).blame(Fault::Input)?;
     // Read as written: real files contain selenocysteine and the ambiguity
     // codes, ESM-2 has tokens for them, and collapsing them to X would feed
     // the model a residue the file does not specify.
@@ -486,7 +526,8 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
         Task::Disorder | Task::Burial | Task::Solubility => None,
     };
 
-    let Prepared { heads, model, device, description, prov, metadata, files } = prepare(dir, global, task)?;
+    let ready = prepare(dir, global, task)?;
+    let Prepared { heads, model, device, description, prov, metadata, files } = &ready;
 
     // One manifest writer for every format, so no output can end up described
     // differently from another.
@@ -499,9 +540,10 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
         let wrote = manifest::write(
             &manifest::Run {
                 task: task.name(),
-                device: &description,
+                device: description,
                 started: started_utc,
                 elapsed: started.elapsed(),
+                batch_tokens: global.batch_tokens,
                 input: manifest::Input {
                     label: &label,
                     bytes: text.as_bytes(),
@@ -512,10 +554,11 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
                 rendered,
                 rows,
                 mutations: muts,
-                head: &metadata,
-                files: &files,
+                head: metadata,
+                files,
                 embedder: &staging::describe_embedder(dir, EMBEDDER),
                 limitations: &prov.limitations,
+                license: files.license(),
             },
             path,
         )?;
@@ -524,36 +567,27 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
     };
 
     if format == Format::Caid {
-        let predictions = disorder(&proteins, &heads, &model, &device)?;
-        let targets: Vec<(String, Vec<caid::Residue>)> = predictions
-            .into_iter()
-            .map(|(header, residues)| (caid::accession(&header).to_string(), residues))
-            .collect();
-        let rendered = caid::render(&targets, DISORDER_THRESHOLD)?;
-        write_output(output.as_deref(), &rendered)?;
-        // The format cannot carry comments, so the provenance that every
-        // other output embeds goes beside the file instead.
-        eprint!("{}", prov.comment_block());
+        let (rendered, rows) = write_caid(&ready, &proteins, global.batch_tokens, output.as_deref())?;
         if let Some(path) = output.as_deref() {
-            let sidecar = path.with_extension("provenance.txt");
-            std::fs::write(&sidecar, prov.comment_block())
-                .with_context(|| format!("writing {}", sidecar.display()))?;
-            eprintln!("Wrote {}", sidecar.display());
-            record(path, &rendered, targets.iter().map(|(_, r)| r.len()).sum(), None)?;
+            record(path, &rendered, rows, None)?;
         }
         return Ok(());
     }
 
     let table = match task {
-        Task::Disorder => disorder_table(&disorder(&proteins, &heads, &model, &device).blame(Fault::Input)?),
-        Task::Burial => burial(&proteins, &heads, &model, &device).blame(Fault::Input)?,
-        Task::Solubility => solubility(&proteins, &heads, &model, &device).blame(Fault::Input)?,
+        Task::Disorder => disorder_table(
+            &disorder(&proteins, heads, model, device, global.batch_tokens).blame(Fault::Input)?,
+        ),
+        Task::Burial => burial(&proteins, heads, model, device, global.batch_tokens).blame(Fault::Input)?,
+        Task::Solubility => {
+            solubility(&proteins, heads, model, device, global.batch_tokens).blame(Fault::Input)?
+        }
         Task::Stability => {
             let resolved = resolved.as_deref().unwrap_or_default();
-            stability(&proteins, resolved, &heads, &model, &device).blame(Fault::Input)?
+            stability(&proteins, resolved, heads, model, device).blame(Fault::Input)?
         }
     };
-    let rendered = table.render(format, &prov)?;
+    let rendered = table.render(format, prov)?;
     write_output(output.as_deref(), &rendered)?;
     if let Some(path) = output.as_deref() {
         record(path, &rendered, table.rows.len(), mutations.as_deref())?;
@@ -607,6 +641,87 @@ The installed heads match {}.",
     Ok(())
 }
 
+/// Write the CAID submission format.
+///
+/// Separate from the table formats because it is a different file with its own
+/// rules: no comment lines are permitted, so the provenance every other output
+/// embeds has to travel beside it instead.
+///
+/// # Errors
+/// If the run or any write fails.
+fn write_caid(
+    ready: &Prepared,
+    proteins: &[(String, String)],
+    budget: usize,
+    output: Option<&Path>,
+) -> Result<(String, usize), Failure> {
+    let Prepared { heads, model, device, prov, .. } = ready;
+    let predictions = disorder(proteins, heads, model, device, budget).blame(Fault::Input)?;
+    let targets: Vec<(String, Vec<caid::Residue>)> = predictions
+        .into_iter()
+        .map(|(header, residues)| (caid::accession(&header).to_string(), residues))
+        .collect();
+    let rendered = caid::render(&targets, DISORDER_THRESHOLD)?;
+    write_output(output, &rendered)?;
+    // The format cannot carry comments, so the provenance that every other
+    // output embeds goes beside the file instead.
+    eprint!("{}", prov.comment_block());
+    if let Some(path) = output {
+        let sidecar = path.with_extension("provenance.txt");
+        std::fs::write(&sidecar, prov.comment_block())
+            .with_context(|| format!("writing {}", sidecar.display()))?;
+        eprintln!("Wrote {}", sidecar.display());
+    }
+    let rows = targets.iter().map(|(_, r)| r.len()).sum();
+    Ok((rendered, rows))
+}
+
+/// Embed every sequence, batching the ones that fit in one pass.
+///
+/// Sequences within the checkpoint's limit go through [`Esm2::embed_many`],
+/// which sorts by length and fills batches to a token budget. Longer ones are
+/// windowed one at a time, because a windowed embedding is assembled from
+/// several passes over the same sequence and has no batched equivalent.
+///
+/// Progress goes to standard error, counted in sequences rather than batches:
+/// a batch is an implementation detail and "47 of 200" is what somebody
+/// watching a long run wants to know.
+///
+/// # Errors
+/// If any sequence cannot be embedded.
+fn embed_all(
+    model: &Esm2,
+    proteins: &[(String, String)],
+    budget: usize,
+) -> Result<Vec<opendna_ml::esm2::Embedding>> {
+    let limit = model.max_residues();
+    let fits: Vec<usize> = (0..proteins.len()).filter(|&i| proteins[i].1.chars().count() <= limit).collect();
+    let long: Vec<usize> = (0..proteins.len()).filter(|&i| proteins[i].1.chars().count() > limit).collect();
+
+    let mut out: Vec<Option<opendna_ml::esm2::Embedding>> = vec![None; proteins.len()];
+    if !fits.is_empty() {
+        let batch: Vec<&str> = fits.iter().map(|&i| proteins[i].1.as_str()).collect();
+        eprintln!("Embedding {} sequences", batch.len());
+        for (&index, embedding) in fits.iter().zip(model.embed_many(&batch, budget)?) {
+            out[index] = Some(embedding);
+        }
+    }
+    for (done, &index) in long.iter().enumerate() {
+        eprintln!(
+            "Windowing {} ({} residues, {} of {})",
+            proteins[index].0,
+            proteins[index].1.chars().count(),
+            done + 1,
+            long.len()
+        );
+        out[index] = Some(model.embed_windowed(&proteins[index].1)?);
+    }
+    out.into_iter()
+        .enumerate()
+        .map(|(i, e)| e.ok_or_else(|| anyhow!("{}: no embedding was produced", proteins[i].0)))
+        .collect()
+}
+
 /// Per-residue disorder for every sequence, keyed by its FASTA header.
 ///
 /// Both the table and the CAID file are derived from this, so the two cannot
@@ -616,16 +731,13 @@ fn disorder(
     heads: &Heads,
     model: &Esm2,
     device: &candle_core::Device,
+    budget: usize,
 ) -> Result<Vec<(String, Vec<caid::Residue>)>> {
     let head = heads.disorder.as_ref().ok_or_else(|| anyhow!("the disorder head did not load"))?;
+    let embeddings = embed_all(model, proteins, budget)?;
     let mut out = Vec::with_capacity(proteins.len());
-    for (name, sequence) in proteins {
+    for ((name, sequence), embedding) in proteins.iter().zip(&embeddings) {
         let residues: Vec<char> = sequence.chars().collect();
-        let embedding = if residues.len() > model.max_residues() {
-            model.embed_windowed(sequence)?
-        } else {
-            model.embed(&[sequence.as_str()])?.remove(0)
-        };
         let probabilities = head.predict(&embedding.per_residue, embedding.length, device)?;
         let scored = probabilities
             .iter()
@@ -652,16 +764,13 @@ fn burial(
     heads: &Heads,
     model: &Esm2,
     device: &candle_core::Device,
+    budget: usize,
 ) -> Result<Table> {
     let head = heads.burial.as_ref().ok_or_else(|| anyhow!("the burial head did not load"))?;
+    let embeddings = embed_all(model, proteins, budget)?;
     let mut rows = Vec::new();
-    for (name, sequence) in proteins {
+    for ((name, sequence), embedding) in proteins.iter().zip(&embeddings) {
         let residues: Vec<char> = sequence.chars().collect();
-        let embedding = if residues.len() > model.max_residues() {
-            model.embed_windowed(sequence)?
-        } else {
-            model.embed(&[sequence.as_str()])?.remove(0)
-        };
         let values = head.predict(&embedding.per_residue, embedding.length, device)?;
         for (index, accessibility) in values.iter().enumerate() {
             rows.push(vec![
@@ -698,9 +807,12 @@ fn solubility(
     heads: &Heads,
     model: &Esm2,
     device: &candle_core::Device,
+    budget: usize,
 ) -> Result<Table> {
     let head = heads.solubility.as_ref().ok_or_else(|| anyhow!("the solubility head did not load"))?;
     let mut rows = Vec::new();
+    // Refused before embedding anything: a file with one over-long sequence
+    // would otherwise spend the whole run before failing.
     for (name, sequence) in proteins {
         if sequence.chars().count() > model.max_residues() {
             // The head was trained on a mean over a single pass. Pooling
@@ -715,7 +827,10 @@ fn solubility(
                 model.max_residues()
             );
         }
-        let embedding = model.embed(&[sequence.as_str()])?.remove(0);
+    }
+    let batch: Vec<&str> = proteins.iter().map(|(_, s)| s.as_str()).collect();
+    eprintln!("Embedding {} sequences", batch.len());
+    for ((name, sequence), embedding) in proteins.iter().zip(model.embed_many(&batch, budget)?) {
         let percent = head.predict(&embedding.pooled, device)?;
         rows.push(vec![name.clone(), sequence.chars().count().to_string(), format!("{percent:.1}")]);
     }
