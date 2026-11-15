@@ -7,6 +7,7 @@ members = [
     "crates/opendna-store",
     "crates/opendna-ml",
     "crates/opendna-hal",
+    "crates/opendna-cli",
 ]
 # No excludes: each other workspace (app, datasets, training) sits in its own
 # directory and is not a member here.
