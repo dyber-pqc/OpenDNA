@@ -17,6 +17,18 @@
     failure even when cargo exited 0. Let it write to the console, or capture
     it from outside PowerShell.
 
+    Prefer long flags for the program being run (`--input`, not `-i`). This
+    script has CmdletBinding, so PowerShell tries to bind a dash argument to
+    its own common parameters before forwarding it, and anything that is a
+    unique prefix of one is swallowed: `-i` fails with "the parameter name
+    'i' is ambiguous" against -InformationAction and -InformationVariable.
+    Letters matching no common parameter, such as cargo's `-j`, pass through
+    unharmed, which is why the first example below works.
+
+    Quote the `--` separator as '--'. Bare, PowerShell consumes it as its own
+    end-of-parameters token and cargo never sees it, so the program's first
+    flag is read as one of cargo's and rejected.
+
     Compiling the CUDA kernels starts one nvcc per core and each is a heavy
     C++ compile; on a machine with many cores and limited RAM that can
     exhaust memory and lock up the desktop. Pass `-j 4` (or lower) for the
@@ -26,7 +38,7 @@
     ./scripts/cargo-cuda.ps1 build -j 4 -p opendna-ml --features cuda --release
 
 .EXAMPLE
-    ./scripts/cargo-cuda.ps1 run -p opendna-train --features cuda -- embed --dataset disorder
+    ./scripts/cargo-cuda.ps1 run -p opendna-train --features cuda '--' embed --task disorder
 #>
 [CmdletBinding()]
 param(

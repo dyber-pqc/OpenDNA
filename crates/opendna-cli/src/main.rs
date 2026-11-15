@@ -19,6 +19,7 @@
 // Backticking them would make the rendered help and docs wrong.
 #![allow(clippy::doc_markdown)]
 
+mod caid;
 mod provenance;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -119,12 +120,16 @@ enum Format {
     Tsv,
     /// One JSON object, with provenance as a field.
     Json,
+    /// The CAID prediction format, for submitting the disorder head to the
+    /// Critical Assessment of Intrinsic Disorder. Disorder only, and it
+    /// carries no provenance comments — see `caid.rs` for why.
+    Caid,
 }
 
 impl Format {
     fn separator(self) -> char {
         match self {
-            Self::Tsv => '\t',
+            Self::Tsv | Self::Caid => '\t',
             Self::Csv | Self::Json => ',',
         }
     }
@@ -266,7 +271,10 @@ fn main() -> Result<()> {
         }
         Command::Predict { task, input, output, format, mutations } => {
             let text = read_input(&input)?;
-            let proteins = opendna_io::fasta::read(&text)
+            // Read as written: real files contain selenocysteine and the
+            // ambiguity codes, ESM-2 has tokens for them, and collapsing them
+            // to X would feed the model a residue the file does not specify.
+            let proteins = opendna_io::fasta::read_raw(&text)
                 .with_context(|| format!("parsing {} as FASTA", input.display()))?;
             eprintln!("{} sequences from {}", proteins.len(), input.display());
 
@@ -278,8 +286,34 @@ fn main() -> Result<()> {
             let heads = Heads::load(&dir, EMBEDDER, &device)?;
             let model = Esm2::from_pretrained(EMBEDDER, &device)?;
 
+            if format == Format::Caid {
+                if task != Task::Disorder {
+                    bail!(
+                        "--format caid is the CAID disorder prediction format and only applies to \
+                         --task disorder"
+                    );
+                }
+                let predictions = disorder(&proteins, &heads, &model, &device)?;
+                let targets: Vec<(String, Vec<caid::Residue>)> = predictions
+                    .into_iter()
+                    .map(|(header, residues)| (caid::accession(&header).to_string(), residues))
+                    .collect();
+                let rendered = caid::render(&targets, DISORDER_THRESHOLD)?;
+                write_output(output.as_deref(), &rendered)?;
+                // The format cannot carry comments, so the provenance that
+                // every other output embeds goes beside the file instead.
+                eprint!("{}", prov.comment_block());
+                if let Some(path) = output.as_deref() {
+                    let sidecar = path.with_extension("provenance.txt");
+                    std::fs::write(&sidecar, prov.comment_block())
+                        .with_context(|| format!("writing {}", sidecar.display()))?;
+                    eprintln!("Wrote {}", sidecar.display());
+                }
+                return Ok(());
+            }
+
             let table = match task {
-                Task::Disorder => disorder(&proteins, &heads, &model, &device)?,
+                Task::Disorder => disorder_table(&disorder(&proteins, &heads, &model, &device)?),
                 Task::Solubility => solubility(&proteins, &heads, &model, &device)?,
                 Task::Stability => {
                     let path = mutations.ok_or_else(|| {
@@ -314,46 +348,67 @@ fn models(dir: &Path) {
     }
 }
 
+/// Per-residue disorder for every sequence, keyed by its FASTA header.
+///
+/// Both the table and the CAID file are derived from this, so the two cannot
+/// contain different numbers for the same residue.
 fn disorder(
-    proteins: &[opendna_core::Protein],
+    proteins: &[(String, String)],
     heads: &Heads,
     model: &Esm2,
     device: &candle_core::Device,
-) -> Result<Table> {
+) -> Result<Vec<(String, Vec<caid::Residue>)>> {
     let head = heads.disorder.as_ref().ok_or_else(|| anyhow!("the disorder head did not load"))?;
-    let mut rows = Vec::new();
-    for protein in proteins {
-        let sequence = protein.sequence.to_string();
+    let mut out = Vec::with_capacity(proteins.len());
+    for (name, sequence) in proteins {
         let residues: Vec<char> = sequence.chars().collect();
         let embedding = if residues.len() > model.max_residues() {
-            model.embed_windowed(&sequence)?
+            model.embed_windowed(sequence)?
         } else {
             model.embed(&[sequence.as_str()])?.remove(0)
         };
         let probabilities = head.predict(&embedding.per_residue, embedding.length, device)?;
-        for (index, probability) in probabilities.iter().enumerate() {
+        let scored = probabilities
+            .iter()
+            .enumerate()
+            .map(|(index, probability)| caid::Residue {
+                position: index + 1,
+                code: residues.get(index).copied().unwrap_or('?'),
+                score: f64::from(*probability),
+                disordered: f64::from(*probability) >= DISORDER_THRESHOLD,
+            })
+            .collect();
+        out.push((name.clone(), scored));
+    }
+    Ok(out)
+}
+
+/// The flat table form of a disorder run.
+fn disorder_table(predictions: &[(String, Vec<caid::Residue>)]) -> Table {
+    let mut rows = Vec::new();
+    for (name, residues) in predictions {
+        for r in residues {
             rows.push(vec![
-                protein.name.clone(),
-                (index + 1).to_string(),
-                residues.get(index).copied().unwrap_or('?').to_string(),
-                format!("{probability:.4}"),
-                u8::from(f64::from(*probability) >= DISORDER_THRESHOLD).to_string(),
+                name.clone(),
+                r.position.to_string(),
+                r.code.to_string(),
+                format!("{:.4}", r.score),
+                u8::from(r.disordered).to_string(),
             ]);
         }
     }
-    Ok(Table { columns: vec!["name", "position", "residue", "probability", "disordered"], rows })
+    Table { columns: vec!["name", "position", "residue", "probability", "disordered"], rows }
 }
 
 fn solubility(
-    proteins: &[opendna_core::Protein],
+    proteins: &[(String, String)],
     heads: &Heads,
     model: &Esm2,
     device: &candle_core::Device,
 ) -> Result<Table> {
     let head = heads.solubility.as_ref().ok_or_else(|| anyhow!("the solubility head did not load"))?;
     let mut rows = Vec::new();
-    for protein in proteins {
-        let sequence = protein.sequence.to_string();
+    for (name, sequence) in proteins {
         if sequence.chars().count() > model.max_residues() {
             // The head was trained on a mean over a single pass. Pooling
             // across windows is a different quantity, so refuse rather than
@@ -362,14 +417,14 @@ fn solubility(
                 "{}: {} residues exceeds the embedding model's {} limit. The solubility head \
                  pools over one pass and has no windowed equivalent, so this sequence cannot be \
                  scored.",
-                protein.name,
+                name,
                 sequence.chars().count(),
                 model.max_residues()
             );
         }
         let embedding = model.embed(&[sequence.as_str()])?.remove(0);
         let percent = head.predict(&embedding.pooled, device)?;
-        rows.push(vec![protein.name.clone(), sequence.chars().count().to_string(), format!("{percent:.1}")]);
+        rows.push(vec![name.clone(), sequence.chars().count().to_string(), format!("{percent:.1}")]);
     }
     Ok(Table { columns: vec!["name", "length", "solubility_percent"], rows })
 }
@@ -435,7 +490,7 @@ fn parse_mutation(label: &str, residues: &[char], name: &str) -> Result<(char, u
 }
 
 fn stability(
-    proteins: &[opendna_core::Protein],
+    proteins: &[(String, String)],
     mutations: &Path,
     heads: &Heads,
     model: &Esm2,
@@ -446,17 +501,16 @@ fn stability(
     let standard = AminoAcid::STANDARD;
     let mut rows = Vec::new();
 
-    for protein in proteins {
-        let mine: Vec<&String> = wanted.iter().filter(|(n, _)| *n == protein.name).map(|(_, m)| m).collect();
+    for (name, sequence) in proteins {
+        let mine: Vec<&String> = wanted.iter().filter(|(n, _)| n == name).map(|(_, m)| m).collect();
         if mine.is_empty() {
             continue;
         }
-        let sequence = protein.sequence.to_string();
         let residues: Vec<char> = sequence.chars().collect();
         if residues.len() > model.max_residues() {
             bail!(
                 "{}: {} residues exceeds the embedding model's {} limit",
-                protein.name,
+                name,
                 residues.len(),
                 model.max_residues()
             );
@@ -464,14 +518,14 @@ fn stability(
 
         let parsed: Vec<(char, usize, char, &String)> = mine
             .iter()
-            .map(|label| parse_mutation(label, &residues, &protein.name).map(|(w, i, m)| (w, i, m, *label)))
+            .map(|label| parse_mutation(label, &residues, name).map(|(w, i, m)| (w, i, m, *label)))
             .collect::<Result<_>>()?;
 
         let embedding = model.embed(&[sequence.as_str()])?.remove(0);
         let mut positions: Vec<usize> = parsed.iter().map(|(_, i, _, _)| *i).collect();
         positions.sort_unstable();
         positions.dedup();
-        let log_probs = model.masked_log_probs(&sequence, &positions)?;
+        let log_probs = model.masked_log_probs(sequence, &positions)?;
         let index_of: std::collections::HashMap<usize, usize> =
             positions.iter().enumerate().map(|(n, p)| (*p, n)).collect();
 
@@ -483,27 +537,19 @@ fn stability(
                 standard.iter().position(|a| a.one_letter() == *mutant),
             ) else {
                 bail!(
-                    "{}: {label} involves a residue the head was not trained on; only the 20 \
-                     standard amino acids are encoded",
-                    protein.name
+                    "{name}: {label} involves a residue the head was not trained on; only the 20 \
+                     standard amino acids are encoded"
                 );
             };
             let lp = &log_probs[index_of[index]];
             let logp = |letter: char| -> f32 { lp[opendna_ml::esm2::alphabet::token_id(letter) as usize] };
-            let site = embedding
-                .residue(*index)
-                .ok_or_else(|| anyhow!("{}: no embedding at {index}", protein.name))?;
+            let site = embedding.residue(*index).ok_or_else(|| anyhow!("{name}: no embedding at {index}"))?;
             features.push(StabilityHead::features(site, wt, mt, logp(*mutant) - logp(*wild)));
             kept.push((label, logp(*mutant) - logp(*wild)));
         }
         let predicted = head.predict(&features, model.hidden_size(), device)?;
         for ((label, log_odds), ddg) in kept.into_iter().zip(predicted) {
-            rows.push(vec![
-                protein.name.clone(),
-                (*label).clone(),
-                format!("{ddg:+.3}"),
-                format!("{log_odds:+.3}"),
-            ]);
+            rows.push(vec![name.clone(), (*label).clone(), format!("{ddg:+.3}"), format!("{log_odds:+.3}")]);
         }
     }
 

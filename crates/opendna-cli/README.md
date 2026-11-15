@@ -13,8 +13,15 @@ opendna predict --task solubility  -i candidates.fasta -o solubility.csv
 opendna predict --task stability   -i candidates.fasta --mutations muts.csv -o ddg.csv
 ```
 
-`--format` takes `csv`, `tsv` or `json`. With no `-o`, the table goes to
-standard output and progress goes to standard error, so a pipe stays clean.
+`--format` takes `csv`, `tsv`, `json`, or `caid` for a CAID submission — see
+[CAID.md](CAID.md). With no `-o`, the table goes to standard output and
+progress goes to standard error, so a pipe stays clean.
+
+Sequences are read as written rather than validated against the twenty
+standard amino acids. Real target files contain selenocysteine, pyrrolysine
+and the ambiguity codes — CAID's own `DP03745` has a `U` at position 48 — and
+ESM-2 has distinct tokens for all of them, so collapsing them to `X` would
+feed the model a residue the file does not specify.
 
 Heads are found via `--models`, then `$OPENDNA_MODELS`, then `./models`:
 
