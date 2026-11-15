@@ -1,0 +1,13 @@
+{"data": [
+  {"disprot_id": "DP00002", "acc": "P00002", "sequence": "MKVLAAGG", "length": 8,
+   "organism": "Homo sapiens", "ncbi_taxon_id": 9606,
+   "regions": [{"term_id": "IDPO:0000002", "start": 5, "end": 8}]},
+  {"disprot_id": "DP00001", "acc": "P00001", "sequence": "MSEEKKPA", "length": 8,
+   "organism": "Mus musculus", "ncbi_taxon_id": 10090,
+   "regions": [{"term_id": "IDPO:0000002", "start": 1, "end": 3},
+               {"term_id": "GO:0005515", "start": 1, "end": 8}]},
+  {"disprot_id": "DP00003", "acc": "P00003", "sequence": "MXKV", "length": 4,
+   "regions": [{"term_id": "IDPO:0000002", "start": 1, "end": 2}]},
+  {"disprot_id": "DP00004", "acc": "P00004", "sequence": "MKVL", "length": 5,
+   "regions": []}
+], "size": 4}
