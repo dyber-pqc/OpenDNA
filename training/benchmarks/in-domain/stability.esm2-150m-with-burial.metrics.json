@@ -1,0 +1,30 @@
+{
+  "task": "stability",
+  "embedding_model": "facebook/esm2_t30_150M_UR50D",
+  "embedding_dim": 640,
+  "best_epoch": 7,
+  "epochs_run": 17,
+  "learning_rate": 0.001,
+  "batch_size": 512,
+  "seed": 20260101,
+  "seed_applied": true,
+  "validation": {
+    "n": 37983,
+    "mae": 0.631452,
+    "pearson": 0.669111,
+    "rmse": 0.854263,
+    "spearman": 0.684744
+  },
+  "test": {
+    "n": 36369,
+    "mae": 0.554033,
+    "pearson": 0.699014,
+    "rmse": 0.750736,
+    "spearman": 0.669737
+  },
+  "baseline": {
+    "n": 36369,
+    "pearson": 0.497197,
+    "spearman": 0.444832
+  }
+}

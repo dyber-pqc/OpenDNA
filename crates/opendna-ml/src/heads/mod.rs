@@ -38,4 +38,12 @@ pub struct HeadMetadata {
     pub embedding_dim: usize,
     /// Version of the trained head.
     pub version: String,
+    /// Whether the head takes predicted solvent accessibility at the mutated
+    /// position as an extra feature. Stability only.
+    ///
+    /// Defaults to false so metadata written before this existed still
+    /// parses, and so a head that does not say otherwise is the plain
+    /// variant — which is the one that was published.
+    #[serde(default)]
+    pub with_burial: bool,
 }

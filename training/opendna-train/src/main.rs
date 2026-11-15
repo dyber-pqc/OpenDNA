@@ -129,6 +129,10 @@ enum Command {
         /// Seed for shuffling and initialisation.
         #[arg(long, default_value_t = 20_260_101)]
         seed: u64,
+        /// Give the stability head predicted solvent accessibility at the
+        /// mutated position, from the burial head in `--out`. Stability only.
+        #[arg(long)]
+        with_burial: bool,
     },
     /// Re-render a model card from a run's saved `<task>.metrics.json`.
     ///
@@ -199,8 +203,9 @@ fn main() -> Result<()> {
             embed::run(task, model, &cli.datasets, &cli.cache)
                 .with_context(|| format!("embedding the {} dataset", task.name()))?;
         }
-        Command::Train { task, out, epochs, batch_size, learning_rate, patience, seed } => {
-            let config = train::TrainConfig { epochs, batch_size, learning_rate, patience, seed };
+        Command::Train { task, out, epochs, batch_size, learning_rate, patience, seed, with_burial } => {
+            let config =
+                train::TrainConfig { epochs, batch_size, learning_rate, patience, seed, with_burial };
             let report = match task {
                 Task::Stability => train::stability(&cli.datasets, &cli.cache, &out, model, &config),
                 Task::Solubility => train::solubility(&cli.datasets, &cli.cache, &out, model, &config),

@@ -39,11 +39,21 @@ pub struct TrainConfig {
     pub patience: usize,
     /// Seed for shuffling and weight initialisation.
     pub seed: u64,
+    /// Give the stability head predicted solvent accessibility at the mutated
+    /// position. Ignored by the other tasks.
+    pub with_burial: bool,
 }
 
 impl Default for TrainConfig {
     fn default() -> Self {
-        Self { epochs: 100, batch_size: 256, learning_rate: 1e-3, patience: 10, seed: 20_260_101 }
+        Self {
+            epochs: 100,
+            batch_size: 256,
+            learning_rate: 1e-3,
+            patience: 10,
+            seed: 20_260_101,
+            with_burial: false,
+        }
     }
 }
 
@@ -145,6 +155,7 @@ fn save(
     model_size: ModelSize,
     embedding_dim: usize,
     report: &Report,
+    with_burial: bool,
 ) -> Result<()> {
     std::fs::create_dir_all(out_dir)?;
     let weights = out_dir.join(format!("{}.safetensors", task.name()));
@@ -155,6 +166,9 @@ fn save(
         embedding_model: model_size.repo().to_string(),
         embedding_dim,
         version: env!("CARGO_PKG_VERSION").to_string(),
+        // Recorded so loading reconstructs the right input width rather than
+        // inferring it from the weight shapes.
+        with_burial,
     };
     std::fs::write(
         out_dir.join(format!("{}.metadata.json", task.name())),
@@ -200,8 +214,13 @@ fn stability_features(
     log_probs: &HashMap<String, (Vec<f32>, usize)>,
     hidden: usize,
     vocab: usize,
+    burial: Option<&HashMap<String, Vec<f32>>>,
 ) -> Result<StabilityData> {
-    let width = StabilityHead::input_width(hidden);
+    let width = if burial.is_some() {
+        StabilityHead::input_width_with_burial(hidden)
+    } else {
+        StabilityHead::input_width(hidden)
+    };
     let mut features = Vec::with_capacity(rows.len() * width);
     let mut targets = Vec::with_capacity(rows.len());
 
@@ -225,7 +244,23 @@ fn stability_features(
         let (Some(wt), Some(mt)) = (amino_index(row.wild_type), amino_index(row.mutant)) else {
             bail!("mutation {}{}{} uses a non-standard residue", row.wild_type, row.position + 1, row.mutant);
         };
-        features.extend(StabilityHead::features(site, wt, mt, mut_logp - wt_logp));
+        // Accessibility at the mutated position, when the variant uses it.
+        // A missing sequence is an error rather than a zero: zero means
+        // "fully buried", so substituting it would feed the head a confident
+        // wrong answer.
+        let exposure =
+            match burial {
+                Some(map) => {
+                    let values = map
+                        .get(&row.wt_sequence)
+                        .with_context(|| "a wild-type sequence is missing from the burial predictions")?;
+                    Some(*values.get(row.position).with_context(|| {
+                        format!("position {} is past the burial prediction", row.position)
+                    })?)
+                }
+                None => None,
+            };
+        features.extend(StabilityHead::features_with(site, wt, mt, mut_logp - wt_logp, exposure));
         targets.push(row.ddg as f32);
     }
     Ok(StabilityData { features, targets, width })
@@ -276,16 +311,34 @@ pub fn stability(
     }
     println!("{} unique wild-type sequences in memory", embeddings.len());
 
+    // Predicted accessibility per wild-type sequence, from the trained
+    // burial head beside the weights being written. It is loaded rather than
+    // retrained so the feature is exactly what inference would supply.
+    let burial = if config.with_burial {
+        let heads = opendna_ml::heads::Heads::load(out_dir, model_size, &device)?;
+        let head = heads.burial.as_ref().with_context(|| {
+            format!("--with-burial needs a trained burial head in {}; train one first", out_dir.display())
+        })?;
+        let mut map = HashMap::new();
+        for (sequence, (values, rows)) in &embeddings {
+            map.insert(sequence.clone(), head.predict(values, *rows, &device)?);
+        }
+        println!("burial predicted for {} wild-type sequences", map.len());
+        Some(map)
+    } else {
+        None
+    };
+
     let data: Vec<StabilityData> = splits
         .iter()
-        .map(|rows| stability_features(rows, &embeddings, &log_probs, hidden, vocab))
+        .map(|rows| stability_features(rows, &embeddings, &log_probs, hidden, vocab, burial.as_ref()))
         .collect::<Result<_>>()?;
     let (train, validation, test) = (&data[0], &data[1], &data[2]);
     println!("{} train / {} validation / {} test mutations", train.len(), validation.len(), test.len());
 
     let mut varmap = VarMap::new();
     let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
-    let head = StabilityHead::new(hidden, vb)?;
+    let head = StabilityHead::new_with(hidden, config.with_burial, vb)?;
     seed_weights(&varmap, config.seed)?;
     let mut optimizer =
         AdamW::new(varmap.all_vars(), ParamsAdamW { lr: config.learning_rate, ..Default::default() })?;
@@ -373,9 +426,11 @@ pub fn stability(
 
     // The language model's log-odds alone, with no trained head: a useful
     // head has to beat this.
-    let last = test.width - 1;
+    // Not `width - 1`: with burial appended the last column is burial, and
+    // taking it would report burial-against-ΔΔG as the zero-shot baseline.
+    let log_odds = StabilityHead::log_odds_index(hidden);
     let zero_shot: Vec<f64> =
-        (0..test.len()).map(|i| f64::from(test.features[i * test.width + last])).collect();
+        (0..test.len()).map(|i| f64::from(test.features[i * test.width + log_odds])).collect();
     let test_actual: Vec<f64> = test.targets.iter().map(|v| f64::from(*v)).collect();
     let baseline = SplitMetrics {
         n: test.len(),
@@ -399,7 +454,7 @@ pub fn stability(
         test: evaluate(test)?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Stability, model_size, hidden, &report)?;
+    save(&varmap, out_dir, Task::Stability, model_size, hidden, &report, config.with_burial)?;
     Ok(report)
 }
 
@@ -553,7 +608,7 @@ pub fn solubility(
         test: evaluate(2)?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Solubility, model_size, hidden, &report)?;
+    save(&varmap, out_dir, Task::Solubility, model_size, hidden, &report, false)?;
     Ok(report)
 }
 
@@ -726,7 +781,7 @@ pub fn disorder(
         test: summarise(&splits[2])?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Disorder, model_size, hidden, &report)?;
+    save(&varmap, out_dir, Task::Disorder, model_size, hidden, &report, false)?;
     Ok(report)
 }
 
@@ -884,6 +939,6 @@ pub fn burial(
         test: summarise(&splits[2])?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Burial, model_size, hidden, &report)?;
+    save(&varmap, out_dir, Task::Burial, model_size, hidden, &report, false)?;
     Ok(report)
 }

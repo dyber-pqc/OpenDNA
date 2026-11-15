@@ -431,6 +431,7 @@ pub fn parse_mutant(label: &str, sequence: &[char]) -> Result<(usize, char)> {
 fn score_one_assay(
     assay: &Assay,
     head: &opendna_ml::heads::StabilityHead,
+    burial: Option<&opendna_ml::heads::BurialHead>,
     model: &Esm2,
     device: &candle_core::Device,
 ) -> Result<(Vec<f64>, Vec<f64>)> {
@@ -447,6 +448,13 @@ fn score_one_assay(
     let log_probs = model.masked_log_probs(&assay.sequence, &positions)?;
     let index_of: std::collections::HashMap<usize, usize> =
         positions.iter().enumerate().map(|(n, p)| (*p, n)).collect();
+
+    // Accessibility for the whole sequence, from the same burial head
+    // inference would use, when this variant takes it.
+    let exposure = match burial {
+        Some(b) => Some(b.predict(&embedding.per_residue, embedding.length, device)?),
+        None => None,
+    };
 
     let standard = opendna_core::AminoAcid::STANDARD;
     let mut rows = Vec::new();
@@ -466,11 +474,20 @@ fn score_one_assay(
         let site = embedding
             .residue(*position)
             .ok_or_else(|| anyhow!("{}: no embedding at {position}", assay.id))?;
-        rows.push(opendna_ml::heads::StabilityHead::features(
+        let at_position = match &exposure {
+            Some(values) => Some(
+                *values
+                    .get(*position)
+                    .ok_or_else(|| anyhow!("{}: no burial prediction at {position}", assay.id))?,
+            ),
+            None => None,
+        };
+        rows.push(opendna_ml::heads::StabilityHead::features_with(
             site,
             wt_index,
             mut_index,
             logp(*mutant) - logp(wild),
+            at_position,
         ));
         measured.push(*score);
     }
@@ -495,6 +512,18 @@ pub fn stability(assays: &[Assay], models_dir: &Path, embedder: ModelSize) -> Re
     let head =
         heads.stability.as_ref().ok_or_else(|| anyhow!("no stability head in {}", models_dir.display()))?;
     let metadata = read_metadata(&HeadFiles::in_dir(models_dir, "stability"), "stability", embedder)?;
+    // The head's metadata says whether it takes predicted burial. Supplying
+    // it when it was not trained with it, or omitting it when it was, is a
+    // width mismatch — which is how this was caught rather than quietly
+    // scoring a different model than the one on disk.
+    let with_burial = metadata.with_burial;
+    if with_burial && heads.burial.is_none() {
+        bail!(
+            "the stability head in {} was trained with burial, but there is no burial head there \
+             to supply it",
+            models_dir.display()
+        );
+    }
     let model = Esm2::from_pretrained(embedder, &device)?;
 
     let mut pooled = Vec::new();
@@ -513,7 +542,13 @@ pub fn stability(assays: &[Assay], models_dir: &Path, embedder: ModelSize) -> Re
             ));
             continue;
         }
-        let (predicted, measured) = score_one_assay(assay, head, &model, &device)?;
+        let (predicted, measured) = score_one_assay(
+            assay,
+            head,
+            if with_burial { heads.burial.as_ref() } else { None },
+            &model,
+            &device,
+        )?;
         scored += predicted.len();
         if let Some(rho) = metrics::spearman(&predicted, &measured) {
             pooled.push((format!("spearman::{}", assay.id), rho));

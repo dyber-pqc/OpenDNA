@@ -145,20 +145,24 @@ impl Heads {
     /// that is simply absent is not an error.
     pub fn load(dir: &Path, embedder: ModelSize, device: &Device) -> Result<Self, MlError> {
         let dim = embedder.hidden_size();
-        let load_one = |task: &str| -> Result<Option<VarBuilder<'_>>, MlError> {
+        let load_one = |task: &str| -> Result<Option<(VarBuilder<'_>, HeadMetadata)>, MlError> {
             let files = HeadFiles::in_dir(dir, task);
             if !files.exist() {
                 return Ok(None);
             }
-            read_metadata(&files, task, embedder)?;
-            Ok(Some(var_builder(&files.weights, device)?))
+            let metadata = read_metadata(&files, task, embedder)?;
+            Ok(Some((var_builder(&files.weights, device)?, metadata)))
         };
 
         Ok(Self {
-            stability: load_one("stability")?.map(|vb| StabilityHead::new(dim, vb)).transpose()?,
-            solubility: load_one("solubility")?.map(|vb| SolubilityHead::new(dim, vb)).transpose()?,
-            disorder: load_one("disorder")?.map(|vb| DisorderHead::new(dim, vb)).transpose()?,
-            burial: load_one("burial")?.map(|vb| BurialHead::new(dim, vb)).transpose()?,
+            // The metadata says whether the stability head takes burial, so
+            // the right input width is used without guessing from the file.
+            stability: load_one("stability")?
+                .map(|(vb, m)| StabilityHead::new_with(dim, m.with_burial, vb))
+                .transpose()?,
+            solubility: load_one("solubility")?.map(|(vb, _)| SolubilityHead::new(dim, vb)).transpose()?,
+            disorder: load_one("disorder")?.map(|(vb, _)| DisorderHead::new(dim, vb)).transpose()?,
+            burial: load_one("burial")?.map(|(vb, _)| BurialHead::new(dim, vb)).transpose()?,
         })
     }
 
