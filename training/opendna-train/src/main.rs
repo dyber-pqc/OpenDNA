@@ -12,6 +12,7 @@
 
 #![allow(clippy::print_stdout)]
 
+mod bench;
 mod cache;
 mod card;
 mod data;
@@ -135,6 +136,50 @@ enum Command {
         #[arg(long, default_value = "../models")]
         out: PathBuf,
     },
+    /// Score a head against an external reference set, so its numbers can be
+    /// compared with published ones.
+    ///
+    /// The reference file is supplied rather than downloaded. Some of these
+    /// sets carry no licence, which permits evaluation but not
+    /// redistribution, so none of them is bundled or built into a dataset.
+    Bench {
+        /// Which reference set.
+        #[arg(long, value_enum)]
+        suite: Suite,
+        /// Path to the reference file. For `caid3-disorder-pdb` this is
+        /// `disorder_pdb.fasta` from the CAID repository, which the
+        /// `datasets` workspace downloads into its cache.
+        #[arg(long)]
+        reference: PathBuf,
+        /// Directory of per-assay score files, for suites whose reference is
+        /// an index rather than the data itself (`proteingym-stability`).
+        #[arg(long)]
+        assays: Option<PathBuf>,
+        /// Directory holding the trained heads.
+        #[arg(long, default_value = "../models")]
+        models: PathBuf,
+        /// Where to write the report. Printed to standard output as well.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Decision threshold for the threshold-dependent metrics. Left at
+        /// the value training used; tuning it here would be fitting to the
+        /// benchmark.
+        #[arg(long, default_value_t = 0.5)]
+        threshold: f64,
+    },
+}
+
+/// External reference sets this command knows how to score.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum Suite {
+    /// CAID3 Disorder-PDB: 319 proteins with per-residue disorder labels and
+    /// a mask for residues the assessment did not cover.
+    Caid3DisorderPdb,
+    /// `ProteinGym`'s stability-like assays, excluding every assay derived from
+    /// Tsuboyama 2023 — which is the stability head's training data. What is
+    /// left is whole proteins far larger than anything the head was trained
+    /// on, so it measures generalisation rather than fit.
+    ProteingymStability,
 }
 
 fn main() -> Result<()> {
@@ -164,6 +209,39 @@ fn main() -> Result<()> {
             let report: train::Report =
                 serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
             card::write(task, &report, &out)?;
+        }
+        Command::Bench { suite, reference, assays, models, out, threshold } => {
+            let report = match suite {
+                Suite::Caid3DisorderPdb => {
+                    let text = std::fs::read_to_string(&reference)
+                        .with_context(|| format!("reading the reference set {}", reference.display()))?;
+                    let entries = bench::read_caid_reference(&text)
+                        .with_context(|| format!("parsing {}", reference.display()))?;
+                    println!("{} proteins in {}", entries.len(), reference.display());
+                    bench::disorder(&entries, &models, model, threshold)
+                }
+                Suite::ProteingymStability => {
+                    let dir = assays.ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "--assays <dir> is required for this suite: it holds the per-assay \
+                             score files that --reference indexes"
+                        )
+                    })?;
+                    let (assays, notes) = bench::read_proteingym(&reference, &dir)?;
+                    for note in &notes {
+                        println!("  note: {note}");
+                    }
+                    println!("{} assays to score", assays.len());
+                    bench::stability(&assays, &models, model)
+                }
+            }
+            .with_context(|| format!("benchmarking against {suite:?}"))?;
+            println!("\n{}", bench::render(&report));
+            if let Some(path) = out {
+                std::fs::write(&path, serde_json::to_string_pretty(&report)?)
+                    .with_context(|| format!("writing {}", path.display()))?;
+                println!("Wrote {}", path.display());
+            }
         }
     }
     Ok(())
