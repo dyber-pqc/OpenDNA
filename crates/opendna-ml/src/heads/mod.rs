@@ -10,12 +10,14 @@
 //! missing: [`crate::MlError`] is returned instead, so the caller can say the
 //! prediction is unavailable rather than present a fabricated number.
 
+mod burial;
 mod disorder;
 mod loader;
 mod mlp;
 mod solubility;
 mod stability;
 
+pub use burial::BurialHead;
 pub use disorder::DisorderHead;
 pub use loader::{read_metadata, HeadFiles, Heads};
 pub use mlp::Mlp;

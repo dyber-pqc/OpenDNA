@@ -45,6 +45,9 @@ fn sequences_for(task: Task, root: &Path) -> Result<BTreeSet<String>> {
             Task::Disorder => {
                 out.extend(data::disorder(root, split)?.into_iter().map(|r| r.sequence));
             }
+            Task::Burial => {
+                out.extend(data::burial(root, split)?.into_iter().map(|r| r.sequence));
+            }
         }
     }
     Ok(out)

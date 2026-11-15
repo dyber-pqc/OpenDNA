@@ -5,7 +5,7 @@
 //! which embedding model the head was trained against, and loading checks it,
 //! so a head can never be paired with embeddings it was not trained on.
 
-use super::{DisorderHead, HeadMetadata, SolubilityHead, StabilityHead};
+use super::{BurialHead, DisorderHead, HeadMetadata, SolubilityHead, StabilityHead};
 use crate::esm2::ModelSize;
 use crate::MlError;
 use candle_core::{DType, Device};
@@ -133,6 +133,8 @@ pub struct Heads {
     pub solubility: Option<SolubilityHead>,
     /// Per-residue disorder head.
     pub disorder: Option<DisorderHead>,
+    /// Per-residue solvent accessibility head.
+    pub burial: Option<BurialHead>,
 }
 
 impl Heads {
@@ -156,6 +158,7 @@ impl Heads {
             stability: load_one("stability")?.map(|vb| StabilityHead::new(dim, vb)).transpose()?,
             solubility: load_one("solubility")?.map(|vb| SolubilityHead::new(dim, vb)).transpose()?,
             disorder: load_one("disorder")?.map(|vb| DisorderHead::new(dim, vb)).transpose()?,
+            burial: load_one("burial")?.map(|vb| BurialHead::new(dim, vb)).transpose()?,
         })
     }
 

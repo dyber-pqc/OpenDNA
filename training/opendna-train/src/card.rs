@@ -105,6 +105,45 @@ fn prose(task: Task) -> Prose {
                        aggregation analysis of the entire ensemble of Escherichia coli proteins. \
                        PNAS 106, 4201-4206 (2009).",
         },
+        Task::Burial => Prose {
+            summary: "Predicts, for each residue, how solvent-exposed it is.",
+            dataset: "dyber-pqc/opendna-burial",
+            dataset_url: "https://huggingface.co/datasets/dyber-pqc/opendna-burial",
+            license: "CC BY 4.0 (CATH v4.4.0); the coordinates it is computed from are CC0 1.0 \
+                      (wwPDB)",
+            weights_license: "apache-2.0",
+            weights_license_note: "CATH is CC BY 4.0 and wwPDB coordinates are CC0, neither of \
+                                   which places a condition on the licence of derived work, so \
+                                   the weights are Apache-2.0. Cite the dataset.",
+            inputs: "Per-residue ESM-2 embeddings. Sequences longer than the embedding model's \
+                     limit are covered by overlapping windows.",
+            outputs: "Relative solvent accessibility per residue: the residue's accessible area \
+                      over the theoretical maximum for that amino acid, so roughly 0 in the core \
+                      and roughly 1 fully exposed. The output is squashed into [0, 1.25], \
+                      because a negative area is not a thing and the theoretical maxima are \
+                      occasionally exceeded.",
+            baseline: "Predicting the training-set mean accessibility for every residue.",
+            limitations: &[
+                "Labels come from a single chain of a crystal or NMR model, so a residue that \
+                 forms an inter-chain interface in an obligate oligomer is labelled exposed. The \
+                 head learns that convention and will do the same.",
+                "Trained on single-segment CATH domains whose sequence could be located in \
+                 current coordinates, which excludes discontinuous domains — about one in eight \
+                 of CATH — and entries substantially revised since CATH v4.4.0. The training \
+                 distribution is biased toward simple, stable structures.",
+                "Accessibility is a property of a fold. For a sequence with no stable structure \
+                 the number is still produced and still means nothing; read it alongside the \
+                 disorder head rather than alone.",
+                "The metrics are pooled over residues, and residues within a domain are strongly \
+                 correlated because neighbours share a local environment. The effective sample \
+                 size is nearer the number of domains than the number of residues, so small \
+                 differences between splits are noise.",
+                "Trained on frozen embeddings, so accuracy is bounded by what ESM-2 already \
+                 encodes about the position.",
+            ],
+            citation: "Tien, M. Z. et al. Maximum allowed solvent accessibilites of residues in \
+                       proteins. PLOS ONE 8, e80635 (2013).",
+        },
         Task::Disorder => Prose {
             summary: "Predicts, for each residue, whether it lies in an intrinsically disordered \
                       region.",

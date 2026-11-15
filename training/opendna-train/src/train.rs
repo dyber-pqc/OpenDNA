@@ -19,7 +19,7 @@ use candle_core::{DType, Tensor};
 use candle_nn::{AdamW, Optimizer, ParamsAdamW, VarBuilder, VarMap};
 use opendna_core::AminoAcid;
 use opendna_ml::esm2::ModelSize;
-use opendna_ml::heads::{DisorderHead, HeadMetadata, SolubilityHead, StabilityHead};
+use opendna_ml::heads::{BurialHead, DisorderHead, HeadMetadata, SolubilityHead, StabilityHead};
 use rand::prelude::*;
 use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
@@ -727,5 +727,163 @@ pub fn disorder(
         baseline,
     };
     save(&varmap, out_dir, Task::Disorder, model_size, hidden, &report)?;
+    Ok(report)
+}
+
+/// Train the per-residue solvent accessibility head.
+///
+/// Deliberately the disorder loop with the loss swapped, because the two
+/// tasks differ only in what a residue's label is. The differences that do
+/// matter:
+///
+/// * The target is continuous, so this is squared error on the squashed
+///   output rather than weighted cross-entropy. There is no class imbalance
+///   to correct — roughly half of all residues are buried.
+/// * Spearman selects the epoch. Accessibility is used to rank positions
+///   ("which residues are exposed enough to mutate"), and a model that
+///   ranks well with a small systematic offset is more useful than one with
+///   lower error and worse ordering.
+/// * The baseline is predicting the training mean everywhere, which is the
+///   floor for any regression and the one the solubility head uses.
+///
+/// # Errors
+/// If the dataset or the embedding cache cannot be read, or training fails.
+pub fn burial(
+    datasets_root: &Path,
+    cache_dir: &Path,
+    out_dir: &Path,
+    model_size: ModelSize,
+    config: &TrainConfig,
+) -> Result<Report> {
+    let device = opendna_ml::best_device()?;
+    let hidden = model_size.hidden_size();
+    let cache = MatrixCache::open(
+        cache_dir,
+        &crate::embed::embedding_cache_name(Task::Burial, model_size),
+        model_size.repo(),
+        hidden,
+    )?;
+
+    let splits: Vec<Vec<data::BurialRow>> =
+        Split::all().iter().map(|s| data::burial(datasets_root, *s)).collect::<Result<_>>()?;
+    println!("{} train / {} validation / {} test domains", splits[0].len(), splits[1].len(), splits[2].len());
+    let residues: usize = splits[0].iter().map(|r| r.rsa.len()).sum();
+    let training_mean =
+        splits[0].iter().flat_map(|r| &r.rsa).map(|v| f64::from(*v)).sum::<f64>() / residues as f64;
+    println!("{residues} training residues, mean accessibility {training_mean:.4}");
+
+    let mut varmap = VarMap::new();
+    let vb = VarBuilder::from_varmap(&varmap, DType::F32, &device);
+    let head = BurialHead::new(hidden, vb)?;
+    seed_weights(&varmap, config.seed)?;
+    let mut optimizer =
+        AdamW::new(varmap.all_vars(), ParamsAdamW { lr: config.learning_rate, ..Default::default() })?;
+
+    let forward = |head: &BurialHead, row: &data::BurialRow| -> Result<Tensor> {
+        let (values, rows) = cache.get(&row.sequence)?;
+        if rows != row.rsa.len() {
+            bail!("cached embedding has {rows} residues but the label array has {}", row.rsa.len());
+        }
+        let x = Tensor::from_vec(values, (rows, hidden), &device)?;
+        Ok(head.forward(&x)?)
+    };
+
+    let evaluate = |head: &BurialHead, rows: &[data::BurialRow]| -> Result<(Vec<f64>, Vec<f64>)> {
+        let mut predicted = Vec::new();
+        let mut actual = Vec::new();
+        for row in rows {
+            let values = BurialHead::accessibility(&forward(head, row)?)?.to_vec1::<f32>()?;
+            predicted.extend(values.into_iter().map(f64::from));
+            actual.extend(row.rsa.iter().map(|v| f64::from(*v)));
+        }
+        Ok((predicted, actual))
+    };
+
+    let mut rng = StdRng::seed_from_u64(config.seed);
+    let mut order: Vec<usize> = (0..splits[0].len()).collect();
+    let mut best = f64::NEG_INFINITY;
+    let mut best_epoch = 0;
+    let mut epochs_run = 0;
+    let mut best_weights: Option<Vec<u8>> = None;
+
+    for epoch in 1..=config.epochs {
+        epochs_run = epoch;
+        order.shuffle(&mut rng);
+        let mut losses = Vec::new();
+        for &i in &order {
+            let row = &splits[0][i];
+            let predicted = BurialHead::accessibility(&forward(&head, row)?)?;
+            let y = Tensor::from_vec(row.rsa.clone(), row.rsa.len(), &device)?;
+            let loss = (predicted - y)?.sqr()?.mean_all()?;
+            optimizer.backward_step(&loss)?;
+            losses.push(f64::from(loss.to_scalar::<f32>()?));
+        }
+
+        let (predicted, actual) = evaluate(&head, &splits[1])?;
+        let score = metrics::spearman(&predicted, &actual).unwrap_or(f64::NEG_INFINITY);
+        println!(
+            "epoch {epoch:3}  loss {:.5}  validation spearman {score:.4}{}",
+            mean(&losses),
+            if score > best { "  *" } else { "" }
+        );
+        if score > best {
+            best = score;
+            best_epoch = epoch;
+            let tmp = std::env::temp_dir().join(format!("opendna-bur-{}.safetensors", std::process::id()));
+            varmap.save(&tmp)?;
+            best_weights = Some(std::fs::read(&tmp)?);
+            let _ = std::fs::remove_file(&tmp);
+        } else if epoch - best_epoch >= config.patience {
+            println!("No improvement for {} epochs; stopping.", config.patience);
+            break;
+        }
+    }
+
+    if let Some(bytes) = best_weights {
+        let tmp = std::env::temp_dir().join(format!("opendna-bur-best-{}.safetensors", std::process::id()));
+        std::fs::write(&tmp, bytes)?;
+        varmap.load(&tmp)?;
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    let summarise = |rows: &[data::BurialRow]| -> Result<SplitMetrics> {
+        let (predicted, actual) = evaluate(&head, rows)?;
+        Ok(SplitMetrics {
+            n: actual.len(),
+            values: metric_map(&[
+                ("spearman", metrics::spearman(&predicted, &actual)),
+                ("pearson", metrics::pearson(&predicted, &actual)),
+                ("rmse", Some(metrics::rmse(&predicted, &actual))),
+                ("mae", Some(metrics::mae(&predicted, &actual))),
+            ]),
+        })
+    };
+
+    // Predicting the training mean for every residue: the floor.
+    let (_, test_actual) = evaluate(&head, &splits[2])?;
+    let flat = vec![training_mean; test_actual.len()];
+    let baseline = SplitMetrics {
+        n: test_actual.len(),
+        values: metric_map(&[
+            ("rmse", Some(metrics::rmse(&flat, &test_actual))),
+            ("mae", Some(metrics::mae(&flat, &test_actual))),
+        ]),
+    };
+
+    let report = Report {
+        task: Task::Burial.name().to_string(),
+        embedding_model: model_size.repo().to_string(),
+        embedding_dim: hidden,
+        best_epoch,
+        epochs_run,
+        learning_rate: config.learning_rate,
+        batch_size: config.batch_size,
+        seed: config.seed,
+        seed_applied: true,
+        validation: summarise(&splits[1])?,
+        test: summarise(&splits[2])?,
+        baseline,
+    };
+    save(&varmap, out_dir, Task::Burial, model_size, hidden, &report)?;
     Ok(report)
 }

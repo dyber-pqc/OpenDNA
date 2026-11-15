@@ -34,6 +34,8 @@ pub enum Task {
     Solubility,
     /// Per-residue intrinsic disorder.
     Disorder,
+    /// Per-residue relative solvent accessibility.
+    Burial,
 }
 
 impl Task {
@@ -43,6 +45,7 @@ impl Task {
             Self::Stability => "stability",
             Self::Solubility => "solubility",
             Self::Disorder => "disorder",
+            Self::Burial => "burial",
         }
     }
 }
@@ -202,6 +205,7 @@ fn main() -> Result<()> {
                 Task::Stability => train::stability(&cli.datasets, &cli.cache, &out, model, &config),
                 Task::Solubility => train::solubility(&cli.datasets, &cli.cache, &out, model, &config),
                 Task::Disorder => train::disorder(&cli.datasets, &cli.cache, &out, model, &config),
+                Task::Burial => train::burial(&cli.datasets, &cli.cache, &out, model, &config),
             }
             .with_context(|| format!("training the {} head", task.name()))?;
             card::write(task, &report, &out, &cli.benchmarks)?;

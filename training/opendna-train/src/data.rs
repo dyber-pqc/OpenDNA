@@ -2,8 +2,8 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use arrow::array::{
-    Array, BooleanArray, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array, ListArray, StringArray,
-    UInt8Array,
+    Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
+    ListArray, StringArray, UInt8Array,
 };
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
@@ -175,6 +175,59 @@ pub struct DisorderRow {
     pub sequence: String,
     /// One label per residue: `true` where the residue is disordered.
     pub disorder: Vec<bool>,
+}
+
+/// One domain's per-residue solvent accessibility.
+pub struct BurialRow {
+    /// Amino-acid sequence.
+    pub sequence: String,
+    /// Relative solvent accessibility per residue, 0 buried to about 1
+    /// fully exposed. Can exceed 1: the Tien et al. maxima are theoretical.
+    pub rsa: Vec<f32>,
+}
+
+/// Read the burial dataset.
+///
+/// # Errors
+/// If the file is missing or a row's label count does not match its sequence.
+pub fn burial(root: &Path, split: Split) -> Result<Vec<BurialRow>> {
+    let mut out = Vec::new();
+    for batch in read_batches(root, "burial", split)? {
+        let sequences = strings(&batch, "sequence")?;
+        let lists = batch
+            .column_by_name("rsa")
+            .ok_or_else(|| anyhow!("missing column rsa"))?
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .ok_or_else(|| anyhow!("column rsa is not a list column"))?
+            .clone();
+        for (i, sequence) in sequences.into_iter().enumerate() {
+            let row = lists.value(i);
+            let values = accessibility(row.as_ref(), i)?;
+            if values.len() != sequence.len() {
+                bail!("row {i}: {} values for {} residues", values.len(), sequence.len());
+            }
+            out.push(BurialRow { sequence, rsa: values });
+        }
+    }
+    Ok(out)
+}
+
+/// Read one domain's accessibility values.
+///
+/// The builder writes `list<float32>`, but float width is an encoding choice
+/// a writer is free to make, so a `float64` column means the same thing.
+/// Accepting both keeps the reader from breaking on a detail that carries no
+/// meaning — the same reasoning as [`labels`] below, which was widened after
+/// exactly that happened.
+fn accessibility(values: &dyn Array, row: usize) -> Result<Vec<f32>> {
+    if let Some(a) = values.as_any().downcast_ref::<Float32Array>() {
+        return Ok((0..a.len()).map(|j| a.value(j)).collect());
+    }
+    if let Some(a) = values.as_any().downcast_ref::<Float64Array>() {
+        return Ok((0..a.len()).map(|j| a.value(j) as f32).collect());
+    }
+    Err(anyhow!("row {row}: accessibility values are {:?}, which is not a float list", values.data_type()))
 }
 
 /// Read one protein's per-residue labels as booleans.
