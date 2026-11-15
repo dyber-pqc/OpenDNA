@@ -19,7 +19,7 @@ mod stability;
 
 pub use burial::BurialHead;
 pub use disorder::DisorderHead;
-pub use loader::{read_metadata, HeadFiles, Heads};
+pub use loader::{read_metadata, sha256_file, HeadFiles, Heads, Integrity};
 pub use mlp::Mlp;
 pub use solubility::SolubilityHead;
 pub use stability::{StabilityFeatures, StabilityHead};
@@ -36,8 +36,24 @@ pub struct HeadMetadata {
     pub embedding_model: String,
     /// Embedding width the head expects.
     pub embedding_dim: usize,
-    /// Version of the trained head.
+    /// Version of the trained head. Semantic, and distinct per head: two
+    /// heads that differ must not share a version string.
     pub version: String,
+    /// Identifies the exact training run: a digest over the dataset files,
+    /// the hyperparameters, the embedding model and the code version.
+    ///
+    /// Two heads with the same `version` and the same `build` were produced
+    /// by the same inputs. A differing build with the same version means
+    /// somebody retrained without bumping, which is worth knowing.
+    #[serde(default)]
+    pub build: Option<String>,
+    /// SHA-256 of the weights file this metadata describes.
+    ///
+    /// Lets an installation prove the weights on disk are the ones the
+    /// metadata names, which is the question an audit asks and the one a
+    /// half-finished download answers wrongly.
+    #[serde(default)]
+    pub weights_sha256: Option<String>,
     /// Whether the head takes predicted solvent accessibility at the mutated
     /// position as an extra feature. Stability only.
     ///

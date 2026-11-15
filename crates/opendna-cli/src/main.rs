@@ -20,6 +20,7 @@
 #![allow(clippy::doc_markdown)]
 
 mod caid;
+mod inventory;
 mod provenance;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -95,8 +96,17 @@ enum Command {
         #[arg(long)]
         mutations: Option<PathBuf>,
     },
-    /// Report which heads are installed, and where they were looked for.
-    Models,
+    /// Report which heads are installed, whether their weights verify, and
+    /// optionally pin them.
+    Models {
+        /// Write a lockfile naming the version, build and hash of every
+        /// installed head.
+        #[arg(long)]
+        lock: Option<PathBuf>,
+        /// Fail unless the installed heads match this lockfile exactly.
+        #[arg(long)]
+        check: Option<PathBuf>,
+    },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -275,10 +285,7 @@ fn main() -> Result<()> {
     let dir = models_dir(cli.models);
 
     match cli.command {
-        Command::Models => {
-            models(&dir);
-            Ok(())
-        }
+        Command::Models { lock, check } => models(&dir, lock.as_deref(), check.as_deref()),
         Command::Predict { task, input, output, format, mutations } => {
             let text = read_input(&input)?;
             // Read as written: real files contain selenocysteine and the
@@ -287,6 +294,17 @@ fn main() -> Result<()> {
             let proteins = opendna_io::fasta::read_raw(&text)
                 .with_context(|| format!("parsing {} as FASTA", input.display()))?;
             eprintln!("{} sequences from {}", proteins.len(), input.display());
+
+            // Refuse before loading anything: predicting from weights that do
+            // not match their metadata is how an unidentifiable number ends
+            // up in someone's results.
+            let head = inventory::scan(&dir, EMBEDDER)
+                .into_iter()
+                .find(|h| h.task == task.name())
+                .ok_or_else(|| anyhow!("unknown task {}", task.name()))?;
+            if !head.ready() {
+                bail!("{} head: {}", task.name(), head.describe());
+            }
 
             let device = opendna_ml::best_device()?;
             let description = opendna_ml::device_description(&device);
@@ -342,21 +360,39 @@ fn main() -> Result<()> {
     }
 }
 
-fn models(dir: &Path) {
+/// Report what is installed, and pin or check it.
+///
+/// Verification is not optional here: a head whose weights do not match its
+/// metadata is reported as corrupt and makes the command fail, because the
+/// alternative is a run that produces numbers from a file nobody can
+/// identify.
+fn models(dir: &Path, lock: Option<&Path>, check: Option<&Path>) -> Result<()> {
+    let found = inventory::scan(dir, EMBEDDER);
     println!("Looking in {}", dir.display());
     println!("Embedding model: {}", EMBEDDER.repo());
-    for task in [Task::Stability, Task::Solubility, Task::Disorder, Task::Burial] {
-        let files = HeadFiles::in_dir(dir, task.name());
-        let state = if files.exist() {
-            match read_metadata(&files, task.name(), EMBEDDER) {
-                Ok(m) => format!("ready, version {}", m.version),
-                Err(e) => format!("unusable: {e}"),
-            }
-        } else {
-            "not installed".to_string()
-        };
-        println!("  {:11} {state}", task.name());
+    for head in &found {
+        println!("  {:11} {}", head.task, head.describe());
     }
+
+    if let Some(path) = lock {
+        std::fs::write(path, inventory::lockfile(&found, EMBEDDER))
+            .with_context(|| format!("writing {}", path.display()))?;
+        eprintln!("Wrote {}", path.display());
+    }
+    if let Some(path) = check {
+        inventory::check(path, &found, EMBEDDER)?;
+        println!(
+            "
+The installed heads match {}.",
+            path.display()
+        );
+    }
+
+    let corrupt: Vec<&str> = found.iter().filter(|h| !h.integrity.usable()).map(|h| h.task).collect();
+    if !corrupt.is_empty() {
+        bail!("corrupt weights: {}. Re-download these heads.", corrupt.join(", "));
+    }
+    Ok(())
 }
 
 /// Per-residue disorder for every sequence, keyed by its FASTA header.

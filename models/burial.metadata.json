@@ -2,5 +2,8 @@
   "task": "burial",
   "embedding_model": "facebook/esm2_t30_150M_UR50D",
   "embedding_dim": 640,
-  "version": "0.6.0-dev"
+  "version": "0.1.0",
+  "build": "1853a82710875d5e",
+  "weights_sha256": "390b750a771305e896405c9054a7a377ed115441d7375bc178cbb284648782c8",
+  "with_burial": false
 }

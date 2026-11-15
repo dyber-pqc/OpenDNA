@@ -148,15 +148,117 @@ fn token_index(residue: char) -> usize {
 }
 
 /// Save weights, metadata and metrics.
-fn save(
-    varmap: &VarMap,
+/// Published version of each head.
+///
+/// Semantic and per head, because they are separate models: the crate's own
+/// version is the same string for all four and says `dev`, which is no use to
+/// anyone pinning what they ran. Bump the head's version when a retrain
+/// changes what it predicts; the build id below changes on its own whenever
+/// any input does.
+// The arms are identical today and must stay separate: these are four
+// independent models, and merging them would mean a retrain of one silently
+// bumped the others.
+#[allow(clippy::match_same_arms)]
+fn head_version(task: Task) -> &'static str {
+    match task {
+        Task::Stability => "1.0.0",
+        Task::Solubility => "1.0.0",
+        Task::Disorder => "1.0.0",
+        Task::Burial => "0.1.0",
+    }
+}
+
+/// A digest over everything that determines these weights.
+///
+/// Two runs agreeing on this produced the same model from the same inputs.
+/// It covers the dataset the run read, the hyperparameters, the embedding
+/// model and the training code's version, so a retrain that forgets to bump
+/// the semantic version is still distinguishable.
+fn build_id(task: Task, model_size: ModelSize, report: &Report, datasets_root: &Path) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(task.name().as_bytes());
+    h.update(head_version(task).as_bytes());
+    h.update(model_size.repo().as_bytes());
+    h.update(env!("CARGO_PKG_VERSION").as_bytes());
+    h.update(
+        format!(
+            "lr={} batch={} seed={} epoch={}",
+            report.learning_rate, report.batch_size, report.seed, report.best_epoch
+        )
+        .as_bytes(),
+    );
+    // The dataset's own manifest already hashes every Parquet file, so
+    // folding it in pins the data without rehashing it here.
+    let manifest = datasets_root.join(task.name()).join("manifest.json");
+    match std::fs::read(&manifest) {
+        Ok(bytes) => h.update(&bytes),
+        // A build id that cannot see the data says so rather than silently
+        // describing less than it claims to.
+        Err(_) => h.update(b"dataset-manifest-unavailable"),
+    }
+    format!("{:x}", h.finalize())[..16].to_string()
+}
+
+/// Rewrite an existing head's metadata with its identity fields.
+///
+/// Reads the head's current metadata for the things only training knows
+/// (the embedding width, and whether the stability head takes burial), and
+/// recomputes the version, build id and weights hash exactly as [`save`]
+/// would. The weights are not touched.
+///
+/// # Errors
+/// If the head's files cannot be read or the metadata cannot be written.
+pub fn stamp(
+    task: Task,
     out_dir: &Path,
+    model_size: ModelSize,
+    report: &Report,
+    datasets_root: &Path,
+) -> Result<()> {
+    let files = opendna_ml::heads::HeadFiles::in_dir(out_dir, task.name());
+    let existing: HeadMetadata = serde_json::from_str(
+        &std::fs::read_to_string(&files.metadata)
+            .with_context(|| format!("reading {}", files.metadata.display()))?,
+    )
+    .with_context(|| format!("parsing {}", files.metadata.display()))?;
+
+    let metadata = HeadMetadata {
+        task: task.name().to_string(),
+        embedding_model: model_size.repo().to_string(),
+        embedding_dim: existing.embedding_dim,
+        version: head_version(task).to_string(),
+        build: Some(build_id(task, model_size, report, datasets_root)),
+        weights_sha256: Some(opendna_ml::heads::sha256_file(&files.weights)?),
+        with_burial: existing.with_burial,
+    };
+    std::fs::write(&files.metadata, serde_json::to_string_pretty(&metadata)?)
+        .with_context(|| format!("writing {}", files.metadata.display()))?;
+    println!(
+        "{}: version {} build {} sha256 {}",
+        task.name(),
+        metadata.version,
+        metadata.build.as_deref().unwrap_or("-"),
+        &metadata.weights_sha256.as_deref().unwrap_or("-")[..16]
+    );
+    Ok(())
+}
+
+/// Everything `save` needs that is not the weights themselves.
+struct Saved<'a> {
+    out_dir: &'a Path,
     task: Task,
     model_size: ModelSize,
     embedding_dim: usize,
-    report: &Report,
+    report: &'a Report,
     with_burial: bool,
-) -> Result<()> {
+    datasets_root: &'a Path,
+}
+
+fn save(varmap: &VarMap, s: &Saved<'_>) -> Result<()> {
+    let (out_dir, task, model_size) = (s.out_dir, s.task, s.model_size);
+    let (embedding_dim, report, with_burial) = (s.embedding_dim, s.report, s.with_burial);
+    let datasets_root = s.datasets_root;
     std::fs::create_dir_all(out_dir)?;
     let weights = out_dir.join(format!("{}.safetensors", task.name()));
     varmap.save(&weights).with_context(|| format!("writing {}", weights.display()))?;
@@ -165,7 +267,11 @@ fn save(
         task: task.name().to_string(),
         embedding_model: model_size.repo().to_string(),
         embedding_dim,
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        version: head_version(task).to_string(),
+        build: Some(build_id(task, model_size, report, datasets_root)),
+        // Hashed after writing, so the recorded digest is of the bytes that
+        // actually landed rather than of what was meant to.
+        weights_sha256: Some(opendna_ml::heads::sha256_file(&weights)?),
         // Recorded so loading reconstructs the right input width rather than
         // inferring it from the weight shapes.
         with_burial,
@@ -454,7 +560,18 @@ pub fn stability(
         test: evaluate(test)?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Stability, model_size, hidden, &report, config.with_burial)?;
+    save(
+        &varmap,
+        &Saved {
+            out_dir,
+            task: Task::Stability,
+            model_size,
+            embedding_dim: hidden,
+            report: &report,
+            with_burial: config.with_burial,
+            datasets_root,
+        },
+    )?;
     Ok(report)
 }
 
@@ -608,7 +725,18 @@ pub fn solubility(
         test: evaluate(2)?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Solubility, model_size, hidden, &report, false)?;
+    save(
+        &varmap,
+        &Saved {
+            out_dir,
+            task: Task::Solubility,
+            model_size,
+            embedding_dim: hidden,
+            report: &report,
+            with_burial: false,
+            datasets_root,
+        },
+    )?;
     Ok(report)
 }
 
@@ -781,7 +909,18 @@ pub fn disorder(
         test: summarise(&splits[2])?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Disorder, model_size, hidden, &report, false)?;
+    save(
+        &varmap,
+        &Saved {
+            out_dir,
+            task: Task::Disorder,
+            model_size,
+            embedding_dim: hidden,
+            report: &report,
+            with_burial: false,
+            datasets_root,
+        },
+    )?;
     Ok(report)
 }
 
@@ -939,6 +1078,17 @@ pub fn burial(
         test: summarise(&splits[2])?,
         baseline,
     };
-    save(&varmap, out_dir, Task::Burial, model_size, hidden, &report, false)?;
+    save(
+        &varmap,
+        &Saved {
+            out_dir,
+            task: Task::Burial,
+            model_size,
+            embedding_dim: hidden,
+            report: &report,
+            with_burial: false,
+            datasets_root,
+        },
+    )?;
     Ok(report)
 }

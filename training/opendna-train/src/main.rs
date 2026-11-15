@@ -148,6 +148,23 @@ enum Command {
         #[arg(long, default_value = "../models")]
         out: PathBuf,
     },
+    /// Rewrite a trained head's metadata with its version, build id and
+    /// weights hash, without retraining it.
+    ///
+    /// Everything the build id is derived from — the run's report and the
+    /// dataset's manifest — is already on disk, so this reproduces exactly
+    /// what a retrain would have written. It exists because heads trained
+    /// before those fields existed are otherwise unverifiable, and
+    /// retraining a published model only to restate its identity would
+    /// change the weights it is meant to identify.
+    Stamp {
+        /// Task whose metadata to rewrite.
+        #[arg(long, value_enum)]
+        task: Task,
+        /// Directory holding the head.
+        #[arg(long, default_value = "../models")]
+        out: PathBuf,
+    },
     /// Score a head against an external reference set, so its numbers can be
     /// compared with published ones.
     ///
@@ -223,6 +240,14 @@ fn main() -> Result<()> {
             let report: train::Report =
                 serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
             card::write(task, &report, &out, &cli.benchmarks)?;
+        }
+        Command::Stamp { task, out } => {
+            let path = out.join(format!("{}.metrics.json", task.name()));
+            let text = std::fs::read_to_string(&path)
+                .with_context(|| format!("reading {}; the head must have been trained", path.display()))?;
+            let report: train::Report =
+                serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+            train::stamp(task, &out, model, &report, &cli.datasets)?;
         }
         Command::Bench { suite, reference, assays, models, out, threshold } => {
             let report = match suite {

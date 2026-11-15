@@ -37,6 +37,35 @@ hf download dyber-pqc/opendna-disorder --local-dir models
 export OPENDNA_MODELS=$PWD/models
 ```
 
+## Knowing what you ran
+
+A result is only defensible if the model behind it can be named and checked.
+
+```bash
+opendna models                       # what is installed, and does it verify
+opendna models --lock models.lock    # pin it
+opendna models --check models.lock   # fail unless the install is still that
+```
+
+Each head records a semantic version, a build id digesting everything that
+determined the weights (the dataset manifest, the hyperparameters, the
+embedding model, the training code), and the SHA-256 of the weights file
+beside it. `models` rehashes the weights and reports one of three states:
+
+| | |
+|---|---|
+| `verified` | the weights are the file the metadata names |
+| `NOT VERIFIABLE` | metadata predating hashes; usable, but unprovable |
+| `CORRUPT` | the weights are not that file |
+
+Corrupt weights make `models` exit non-zero, and `predict` refuses before
+loading anything. A half-finished download otherwise produces numbers from a
+file nobody can identify, which is worse than no numbers.
+
+`--check` exits non-zero when the installed heads differ from the lockfile,
+including a retrain that kept the same version number — the build id catches
+that. Commit the lockfile beside the analysis it produced.
+
 ## Stability needs to be told which mutations
 
 The head scores named substitutions rather than scanning everything, so it

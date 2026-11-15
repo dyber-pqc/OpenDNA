@@ -2,5 +2,8 @@
   "task": "stability",
   "embedding_model": "facebook/esm2_t30_150M_UR50D",
   "embedding_dim": 640,
-  "version": "0.6.0-dev"
+  "version": "1.0.0",
+  "build": "0f87e0457b663d81",
+  "weights_sha256": "1289de0142836b0d3e030ee032acede46a952bac9bb30d007a628df53f6dcd38",
+  "with_burial": false
 }

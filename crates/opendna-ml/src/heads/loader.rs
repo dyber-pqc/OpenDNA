@@ -12,6 +12,55 @@ use candle_core::{DType, Device};
 use candle_nn::VarBuilder;
 use std::path::{Path, PathBuf};
 
+/// SHA-256 of a file, streamed.
+///
+/// # Errors
+/// [`MlError::File`] if the file cannot be read.
+pub fn sha256_file(path: &Path) -> Result<String, MlError> {
+    use sha2::{Digest, Sha256};
+    let file = std::fs::File::open(path)
+        .map_err(|source| MlError::File { path: path.display().to_string(), source })?;
+    let mut reader = std::io::BufReader::with_capacity(1 << 20, file);
+    let mut hasher = Sha256::new();
+    // Heap-allocated: a 64 KiB stack buffer is a lot to ask of a thread with
+    // a small stack, and the lint is right.
+    let mut buf = vec![0u8; 1 << 16].into_boxed_slice();
+    loop {
+        let n = std::io::Read::read(&mut reader, &mut buf)
+            .map_err(|source| MlError::File { path: path.display().to_string(), source })?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+/// What checking a head's files against its metadata found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Integrity {
+    /// The weights hash the metadata records.
+    Verified,
+    /// The metadata records no hash, so nothing could be checked. Metadata
+    /// written before hashes existed reports this rather than failing.
+    Unrecorded,
+    /// The weights are not the file the metadata describes.
+    Mismatch {
+        /// What the metadata says the weights should hash to.
+        expected: String,
+        /// What they actually hash to.
+        actual: String,
+    },
+}
+
+impl Integrity {
+    /// Whether the head may be used. `Unrecorded` is usable: it is an older
+    /// head, not a corrupt one.
+    pub fn usable(&self) -> bool {
+        !matches!(self, Self::Mismatch { .. })
+    }
+}
+
 /// Where a head's files live.
 #[derive(Debug, Clone)]
 pub struct HeadFiles {
@@ -73,6 +122,22 @@ impl HeadFiles {
             }
         }
         out.into_iter().map(|l| l.split_whitespace().collect::<Vec<_>>().join(" ")).collect()
+    }
+
+    /// Check the weights against the hash in `metadata`.
+    ///
+    /// # Errors
+    /// [`MlError::File`] if the weights cannot be read.
+    pub fn verify(&self, metadata: &HeadMetadata) -> Result<Integrity, MlError> {
+        let Some(expected) = metadata.weights_sha256.as_deref() else {
+            return Ok(Integrity::Unrecorded);
+        };
+        let actual = sha256_file(&self.weights)?;
+        Ok(if actual == expected {
+            Integrity::Verified
+        } else {
+            Integrity::Mismatch { expected: expected.to_owned(), actual }
+        })
     }
 
     /// Whether both files are present.
