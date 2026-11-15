@@ -70,62 +70,9 @@ impl Provenance {
     }
 }
 
-/// Read a model card's limitation bullets.
-///
-/// The card is generated from the training run, so taking the limitations
-/// from it means the CLI cannot state a different set than the card does. A
-/// missing or unparseable card yields none rather than an error: the
-/// prediction is still valid, and the comment block says where to look.
-pub fn limitations_from_card(card: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut inside = false;
-    for line in card.lines() {
-        if line.starts_with("## ") {
-            inside = line.trim() == "## Limitations";
-            continue;
-        }
-        if inside {
-            if let Some(bullet) = line.strip_prefix("- ") {
-                out.push(bullet.trim().to_string());
-            }
-        }
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const CARD: &str = "\
-# Head
-
-## Results
-
-| a | b |
-
-## Limitations
-
-- First thing.
-- Second thing,
-  wrapped over lines.
-
-## Intended use
-
-- Not a limitation.
-";
-
-    #[test]
-    fn limitations_come_from_the_card_section_only() {
-        let got = limitations_from_card(CARD);
-        assert_eq!(got, vec!["First thing.", "Second thing,"]);
-        assert!(!got.iter().any(|l| l.contains("Not a limitation")));
-    }
-
-    #[test]
-    fn a_card_without_limitations_yields_none() {
-        assert!(limitations_from_card("# Head\n\n## Results\n").is_empty());
-    }
 
     #[test]
     fn the_comment_block_names_the_model_and_is_all_comments() {

@@ -180,8 +180,9 @@ fn head_provenance(dir: &Path, task: Task, device: &str) -> Result<Provenance> {
         );
     }
     let metadata = read_metadata(&files, task.name(), EMBEDDER)?;
-    let card = std::fs::read_to_string(dir.join(format!("{}.README.md", task.name()))).unwrap_or_default();
-    Ok(Provenance::new(task.name(), &metadata, EMBEDDER, device, provenance::limitations_from_card(&card)))
+    // Limitations come from the card beside the weights, so the CLI, the
+    // desktop panel and the published card cannot state different caveats.
+    Ok(Provenance::new(task.name(), &metadata, EMBEDDER, device, files.limitations()))
 }
 
 /// One row of a result table, as strings so every format shares the values.

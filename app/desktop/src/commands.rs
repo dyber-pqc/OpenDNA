@@ -145,6 +145,34 @@ pub fn predict_disorder(
     predictor.disorder(&sequence_of(&state, &id)?)
 }
 
+/// Save text the UI has rendered, to a file the user picks.
+///
+/// The UI renders the table because it already holds the prediction and the
+/// limitations that came with it; this only writes bytes. Keeping the dialog
+/// in Rust means the front end needs no filesystem permission of its own —
+/// the window's capability grants `core:default` and nothing more, so a bug
+/// in the UI cannot reach the disk except through a path the user chose in a
+/// native dialog.
+///
+/// Returns the path written, or `None` if the user cancelled, which is not an
+/// error.
+#[tauri::command(async)]
+pub fn save_text_file(app: AppHandle, name: String, contents: String) -> CommandResult<Option<String>> {
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("Save predictions")
+        .set_file_name(&name)
+        .add_filter("Comma-separated values", &["csv"])
+        .blocking_save_file();
+    let Some(file) = picked else {
+        return Ok(None);
+    };
+    let path = file.into_path().map_err(fail)?;
+    std::fs::write(&path, contents).map_err(fail)?;
+    Ok(Some(path.display().to_string()))
+}
+
 /// Look up a stored protein's sequence, releasing the database lock before
 /// the long-running model work starts.
 fn sequence_of(state: &State<'_, AppState>, id: &str) -> CommandResult<String> {

@@ -42,6 +42,7 @@ pub fn run() {
             commands::predict_stability,
             commands::predict_solubility,
             commands::predict_disorder,
+            commands::save_text_file,
         ])
         .run(tauri::generate_context!())
         .expect("failed to start OpenDNA");

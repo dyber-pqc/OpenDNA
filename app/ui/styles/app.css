@@ -241,3 +241,20 @@ button.danger.armed { background: var(--danger); border-color: var(--danger); co
 .scan .num { text-align: right; }
 .scan .mono { font-family: var(--font-mono); }
 .scan .muted { color: var(--text-muted); }
+
+/* Export control and the card-sourced limitations shown beside a result. */
+.export {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.export button { width: auto; }
+.export .note { margin: 0; }
+.note.ok { color: var(--ok); }
+.limitations {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  list-style: disc;
+}
+.limitations li { margin-bottom: 2px; }

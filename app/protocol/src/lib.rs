@@ -28,6 +28,8 @@ pub mod command {
     pub const PREDICT_SOLUBILITY: &str = "predict_solubility";
     /// `{ id } -> DisorderPrediction`
     pub const PREDICT_DISORDER: &str = "predict_disorder";
+    /// Save text the UI has rendered to a file the user chooses.
+    pub const SAVE_TEXT_FILE: &str = "save_text_file";
 }
 
 /// One row in the project explorer.
@@ -155,6 +157,13 @@ pub enum HeadStatus {
     Ready {
         /// Version string from the head's metadata.
         version: String,
+        /// The head's limitations, exactly as its model card states them.
+        ///
+        /// Sent from the backend rather than written into the UI, because the
+        /// UI used to carry its own copy and a caveat that disagrees with the
+        /// published card is worse than no caveat: a reader who checks the
+        /// card finds different text and cannot tell which is current.
+        limitations: Vec<String>,
     },
     /// The head's files are not in the models directory.
     Missing,
@@ -170,6 +179,22 @@ impl HeadStatus {
     /// Whether a prediction can be requested.
     pub fn is_ready(&self) -> bool {
         matches!(self, Self::Ready { .. })
+    }
+
+    /// The head's limitations, or nothing if it is not usable.
+    pub fn limitations(&self) -> &[String] {
+        match self {
+            Self::Ready { limitations, .. } => limitations,
+            Self::Missing | Self::Unusable { .. } => &[],
+        }
+    }
+
+    /// The head's version, or nothing if it is not usable.
+    pub fn version(&self) -> Option<&str> {
+        match self {
+            Self::Ready { version, .. } => Some(version),
+            Self::Missing | Self::Unusable { .. } => None,
+        }
     }
 }
 

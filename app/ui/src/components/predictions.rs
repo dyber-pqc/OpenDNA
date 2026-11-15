@@ -11,6 +11,7 @@ use leptos::task::spawn_local;
 use opendna_app_protocol::{
     DisorderPrediction, HeadStatus, ModelStatus, SolubilityPrediction, StabilityScan,
 };
+use std::fmt::Write as _;
 
 /// A request that has been sent but not yet answered, or its result.
 type Pending<T> = RwSignal<Option<Result<T, String>>>;
@@ -72,6 +73,65 @@ fn Models(
     let selected = move || ws.selected.get();
     let sequence_length = move || ws.detail.get().map_or(0, |d| d.sequence.len());
 
+    // Exported tables are rendered from whatever is on screen, so a file can
+    // never hold a different number than the panel showed. Each carries the
+    // head version and the card's limitations.
+    let (sol_head, dis_head, stab_head) =
+        (status.solubility.clone(), status.disorder.clone(), status.stability.clone());
+    let name_of = move || ws.detail.get().map_or_else(|| "protein".to_string(), |d| d.summary.name.clone());
+
+    let for_csv = status.clone();
+    let head = for_csv.solubility.clone();
+    let sol_csv = Memo::new(move |_| {
+        let Some(Ok(p)) = solubility.get() else { return String::new() };
+        let mut out = provenance("solubility", &for_csv, &head);
+        out.push_str("name,solubility_percent\n");
+        let _ = writeln!(out, "{},{:.1}", field(&name_of()), p.percent);
+        out
+    });
+
+    let for_csv = status.clone();
+    let head = for_csv.disorder.clone();
+    let dis_csv = Memo::new(move |_| {
+        let Some(Ok(p)) = disorder.get() else { return String::new() };
+        let sequence = ws.detail.get().map(|d| d.sequence.clone()).unwrap_or_default();
+        let residues: Vec<char> = sequence.chars().collect();
+        let mut out = provenance("disorder", &for_csv, &head);
+        let _ = writeln!(out, "# threshold: {}", p.threshold);
+        if p.windowed {
+            out.push_str("# covered by overlapping windows: longer than the model's limit\n");
+        }
+        out.push_str("name,position,residue,probability,disordered\n");
+        let who = field(&name_of());
+        for (i, probability) in p.probabilities.iter().enumerate() {
+            let _ = writeln!(
+                out,
+                "{who},{},{},{probability:.4},{}",
+                i + 1,
+                residues.get(i).copied().unwrap_or('?'),
+                u8::from(*probability >= p.threshold)
+            );
+        }
+        out
+    });
+
+    let for_csv = status.clone();
+    let head = for_csv.stability.clone();
+    let stab_csv = Memo::new(move |_| {
+        let Some(Ok(s)) = stability.get() else { return String::new() };
+        let mut out = provenance("stability", &for_csv, &head);
+        out.push_str("name,position,wild_type,mutant,ddg_kcal_per_mol,log_odds\n");
+        let who = field(&name_of());
+        for score in &s.scores {
+            let _ = writeln!(
+                out,
+                "{who},{},{},{},{:+.3},{:+.3}",
+                s.position, s.wild_type, score.mutant, score.ddg, score.log_odds
+            );
+        }
+        out
+    });
+
     // Each request runs one at a time: they share one embedding model, and a
     // second concurrent call would simply wait on the same lock in the
     // backend while looking responsive here.
@@ -131,10 +191,9 @@ fn Models(
                                     </tr>
                                 </tbody>
                             </table>
-                            <p class="note">
-                                "Trained on an E. coli cell-free expression assay. Use it to rank "
-                                "constructs against each other, not as a predicted assay value."
-                            </p>
+                            <ExportButton name="solubility.csv".to_string()
+                                contents=sol_csv />
+                            <Limitations head=sol_head.clone() />
                         }.into_any(),
                     })}
                 </div>
@@ -149,7 +208,11 @@ fn Models(
                     </button>
                     {move || disorder.get().map(|r| match r {
                         Err(e) => view! { <p class="note error">{e}</p> }.into_any(),
-                        Ok(p) => view! { <DisorderTrack prediction=p /> }.into_any(),
+                        Ok(p) => view! {
+                            <DisorderTrack prediction=p />
+                            <ExportButton name="disorder.csv".to_string() contents=dis_csv />
+                            <Limitations head=dis_head.clone() />
+                        }.into_any(),
                     })}
                 </div>
             })}
@@ -174,7 +237,11 @@ fn Models(
                     </button>
                     {move || stability.get().map(|r| match r {
                         Err(e) => view! { <p class="note error">{e}</p> }.into_any(),
-                        Ok(s) => view! { <StabilityTable scan=s /> }.into_any(),
+                        Ok(s) => view! {
+                            <StabilityTable scan=s />
+                            <ExportButton name="stability.csv".to_string() contents=stab_csv />
+                            <Limitations head=stab_head.clone() />
+                        }.into_any(),
                     })}
                 </div>
             })}
@@ -194,7 +261,7 @@ enum Kind {
 #[component]
 fn StatusRow(label: &'static str, status: HeadStatus) -> impl IntoView {
     let (text, class) = match &status {
-        HeadStatus::Ready { version } => (format!("v{version}"), "ok"),
+        HeadStatus::Ready { version, .. } => (format!("v{version}"), "ok"),
         HeadStatus::Missing => ("not installed".to_string(), "muted"),
         HeadStatus::Unusable { reason } => (reason.clone(), "error"),
     };
@@ -291,4 +358,74 @@ fn StabilityTable(scan: StabilityScan) -> impl IntoView {
              two is worth noticing."
         </p>
     }
+}
+
+/// The `#` provenance block that precedes an exported table.
+///
+/// The same convention the CLI uses, for the same reason: a prediction that
+/// travels without its model version and its limitations becomes a number in
+/// a spreadsheet that nobody can trace. The limitations come from the head's
+/// model card by way of `model_status`, not from text written here, so the
+/// panel, the file and the published card all say the same thing.
+fn provenance(task: &str, status: &ModelStatus, head: &HeadStatus) -> String {
+    let mut out = format!("# OpenDNA {task} prediction\n");
+    if let Some(version) = head.version() {
+        let _ = writeln!(out, "# head version: {version}");
+    }
+    let _ = writeln!(out, "# embedding model: {}", status.embedding_model);
+    let _ = writeln!(out, "# device: {}", status.device);
+    if head.limitations().is_empty() {
+        out.push_str("# limitations: see the model card next to the weights\n");
+    } else {
+        out.push_str("# limitations:\n");
+        for limitation in head.limitations() {
+            let _ = writeln!(out, "#   - {limitation}");
+        }
+    }
+    out
+}
+
+/// A CSV field, quoted if it could otherwise shift the columns.
+fn field(value: &str) -> String {
+    if value.contains(',') || value.contains('"') || value.contains('\n') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
+/// Offer a rendered table as a file, and report where it went.
+#[component]
+fn ExportButton(name: String, contents: Memo<String>) -> impl IntoView {
+    let saved: RwSignal<Option<Result<Option<String>, String>>> = RwSignal::new(None);
+    view! {
+        <div class="export">
+            <button class="secondary" on:click=move |_| {
+                let (name, contents) = (name.clone(), contents.get_untracked());
+                spawn_local(async move {
+                    saved.set(Some(ipc::save_text_file(&name, &contents).await));
+                });
+            }>"Export CSV"</button>
+            {move || saved.get().map(|r| match r {
+                Err(e) => view! { <span class="note error">{e}</span> }.into_any(),
+                // Cancelling the dialog is not a failure and gets no message.
+                Ok(None) => ().into_any(),
+                Ok(Some(path)) => view! { <span class="note ok">"Saved to "{path}</span> }.into_any(),
+            })}
+        </div>
+    }
+}
+
+/// The limitations a head's card states, shown next to its numbers because
+/// they determine how the numbers may be read.
+#[component]
+fn Limitations(head: HeadStatus) -> impl IntoView {
+    let items: Vec<_> = head.limitations().iter().map(|l| view! { <li>{l.clone()}</li> }).collect();
+    if items.is_empty() {
+        return view! {
+            <p class="note">"See this head's model card for its limitations."</p>
+        }
+        .into_any();
+    }
+    view! { <ul class="note limitations">{items}</ul> }.into_any()
 }

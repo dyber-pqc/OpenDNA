@@ -12,13 +12,16 @@ use candle_core::{DType, Device};
 use candle_nn::VarBuilder;
 use std::path::{Path, PathBuf};
 
-/// Where a head's two files live.
+/// Where a head's files live.
 #[derive(Debug, Clone)]
 pub struct HeadFiles {
     /// Weights.
     pub weights: PathBuf,
     /// Description of what the head expects.
     pub metadata: PathBuf,
+    /// Model card. Not required to load the head, but it is where the
+    /// limitations live.
+    pub card: PathBuf,
 }
 
 impl HeadFiles {
@@ -27,7 +30,49 @@ impl HeadFiles {
         Self {
             weights: dir.join(format!("{task}.safetensors")),
             metadata: dir.join(format!("{task}.metadata.json")),
+            card: dir.join(format!("{task}.README.md")),
         }
+    }
+
+    /// The head's limitations, as its model card states them.
+    ///
+    /// Read from the card rather than written into the application, so that
+    /// the desktop panel, the CLI's output files and the published card
+    /// cannot state three different sets of caveats. Before this existed the
+    /// UI carried its own hardcoded copy, which is precisely the drift this
+    /// avoids.
+    ///
+    /// An absent or unparseable card yields none. The prediction is still
+    /// valid without them, and a caller that has nothing to show should point
+    /// at the card rather than fail.
+    pub fn limitations(&self) -> Vec<String> {
+        let Ok(card) = std::fs::read_to_string(&self.card) else {
+            return Vec::new();
+        };
+        let mut out: Vec<String> = Vec::new();
+        let mut inside = false;
+        for line in card.lines() {
+            if line.starts_with("## ") {
+                inside = line.trim() == "## Limitations";
+                continue;
+            }
+            if !inside {
+                continue;
+            }
+            if let Some(bullet) = line.strip_prefix("- ") {
+                out.push(bullet.trim().to_string());
+            } else if !line.trim().is_empty() {
+                // A continuation of the bullet above. Dropping it would
+                // truncate a limitation mid-sentence, which is worse than
+                // showing none: the reader gets half a caveat and no sign
+                // that the rest was cut.
+                if let Some(last) = out.last_mut() {
+                    last.push(' ');
+                    last.push_str(line.trim());
+                }
+            }
+        }
+        out.into_iter().map(|l| l.split_whitespace().collect::<Vec<_>>().join(" ")).collect()
     }
 
     /// Whether both files are present.
@@ -127,5 +172,70 @@ impl Heads {
             out.push("disorder");
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CARD: &str = "\
+# Head
+
+## Results
+
+| a | b |
+
+## Limitations
+
+- First thing.
+- Second thing,
+  wrapped over two lines.
+
+## Intended use
+
+- Not a limitation.
+";
+
+    /// A head whose card holds `body`.
+    ///
+    /// `case` keys the directory, because `cargo test` runs these in parallel
+    /// and a directory shared between them means one test overwrites the card
+    /// another is reading — which shows up as a failure that disappears when
+    /// the test is run on its own.
+    fn card_with(case: &str, body: &str) -> HeadFiles {
+        let dir = std::env::temp_dir().join(format!("opendna-card-{}-{case}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        std::fs::write(dir.join("disorder.README.md"), body).expect("write card");
+        HeadFiles::in_dir(&dir, "disorder")
+    }
+
+    #[test]
+    fn limitations_come_from_the_limitations_section_only() {
+        let got = card_with("section", CARD).limitations();
+        assert_eq!(got.len(), 2, "{got:?}");
+        assert_eq!(got[0], "First thing.");
+        assert!(!got.iter().any(|l| l.contains("Not a limitation")), "{got:?}");
+    }
+
+    /// A bullet wrapped across lines used to lose its tail, leaving the
+    /// reader half a caveat with no sign the rest was cut.
+    #[test]
+    fn a_wrapped_bullet_keeps_its_continuation() {
+        let got = card_with("wrapped", CARD).limitations();
+        assert_eq!(got[1], "Second thing, wrapped over two lines.", "{got:?}");
+    }
+
+    #[test]
+    fn a_card_without_limitations_yields_none() {
+        assert!(card_with("empty", "# Head\n\n## Results\n").limitations().is_empty());
+    }
+
+    /// A head can be used without its card; the caller points at the card
+    /// instead of failing.
+    #[test]
+    fn a_missing_card_yields_none() {
+        let files = HeadFiles::in_dir(Path::new("definitely/not/here"), "disorder");
+        assert!(files.limitations().is_empty());
     }
 }

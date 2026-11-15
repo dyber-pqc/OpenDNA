@@ -93,3 +93,18 @@ pub async fn predict_solubility(id: &str) -> Result<SolubilityPrediction, String
 pub async fn predict_disorder(id: &str) -> Result<DisorderPrediction, String> {
     call(command::PREDICT_DISORDER, &Id { id }).await
 }
+
+// Both fields are single words, so the key is the same whether Tauri looks
+// for the camelCase or the snake_case spelling of the parameter name. The
+// other payloads here are single words for the same reason.
+#[derive(Serialize)]
+struct SaveText<'a> {
+    name: &'a str,
+    contents: &'a str,
+}
+
+/// Save rendered text to a file the user picks. `Ok(None)` means they
+/// cancelled, which is not a failure.
+pub async fn save_text_file(name: &str, contents: &str) -> Result<Option<String>, String> {
+    call(command::SAVE_TEXT_FILE, &SaveText { name, contents }).await
+}

@@ -60,7 +60,9 @@ fn head_status(dir: &Path, task: &str) -> HeadStatus {
         return HeadStatus::Missing;
     }
     match opendna_ml::heads::read_metadata(&files, task, EMBEDDER) {
-        Ok(metadata) => HeadStatus::Ready { version: metadata.version },
+        // Limitations come from the card beside the weights, so the panel,
+        // the exported file and the published card cannot disagree.
+        Ok(metadata) => HeadStatus::Ready { version: metadata.version, limitations: files.limitations() },
         Err(e) => HeadStatus::Unusable { reason: e.to_string() },
     }
 }
@@ -301,6 +303,58 @@ mod tests {
                 assert!(reason.contains("esm2_t6_8M_UR50D"), "{reason}");
             }
             other => panic!("expected Unusable, got {other:?}"),
+        }
+    }
+
+    /// The panel used to carry its own hardcoded caveats, which could drift
+    /// from the published card without anyone noticing. They now come from
+    /// the card beside the weights, so the panel, the exported CSV and the
+    /// card on Hugging Face cannot say three different things.
+    #[test]
+    fn a_ready_head_carries_the_limitations_from_its_card() {
+        let dir = tempdir();
+        std::fs::write(dir.join("disorder.safetensors"), b"not really weights").unwrap();
+        std::fs::write(
+            dir.join("disorder.metadata.json"),
+            br#"{"task":"disorder","embedding_model":"facebook/esm2_t30_150M_UR50D",
+                 "embedding_dim":640,"version":"0.6.0-dev"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("disorder.README.md"),
+            "# Head\n\n## Limitations\n\n- Annotated, not exhaustive.\n- Pooled over\n  residues.\n\n## Intended use\n\n- Not a limitation.\n",
+        )
+        .unwrap();
+
+        match head_status(&dir, "disorder") {
+            HeadStatus::Ready { version, limitations } => {
+                assert_eq!(version, "0.6.0-dev");
+                assert_eq!(
+                    limitations,
+                    vec!["Annotated, not exhaustive.", "Pooled over residues."],
+                    "a wrapped bullet must keep its tail, and intended-use must not leak in"
+                );
+            }
+            other => panic!("expected Ready, got {other:?}"),
+        }
+    }
+
+    /// A head with no card is still usable; the UI points at the card rather
+    /// than refusing to predict.
+    #[test]
+    fn a_head_without_a_card_is_still_ready() {
+        let dir = tempdir().join("nocard");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("solubility.safetensors"), b"not really weights").unwrap();
+        std::fs::write(
+            dir.join("solubility.metadata.json"),
+            br#"{"task":"solubility","embedding_model":"facebook/esm2_t30_150M_UR50D",
+                 "embedding_dim":640,"version":"0.6.0-dev"}"#,
+        )
+        .unwrap();
+        match head_status(&dir, "solubility") {
+            HeadStatus::Ready { limitations, .. } => assert!(limitations.is_empty()),
+            other => panic!("expected Ready, got {other:?}"),
         }
     }
 
