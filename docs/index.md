@@ -13,6 +13,9 @@ The reason to use it is usually not that it predicts better, but that it
 predicts at all somewhere that sending unpublished sequences to a vendor is
 not allowed.
 
+If you have to sign off on using this for real work, start with
+[Validation](VALIDATION.md): what has been checked, how, and what has not.
+
 This documentation set is deliberately thin. OpenDNA is mid-rewrite from a
 Python service with a React front end to a single Rust application, and most
 of what used to be here described the Python REST API, its deployment, and its
