@@ -1,0 +1,30 @@
+{
+  "task": "burial",
+  "embedding_model": "facebook/esm2_t30_150M_UR50D",
+  "embedding_dim": 640,
+  "best_epoch": 4,
+  "epochs_run": 14,
+  "learning_rate": 0.001,
+  "batch_size": 256,
+  "seed": 20260101,
+  "seed_applied": true,
+  "validation": {
+    "n": 20476,
+    "mae": 0.102159,
+    "pearson": 0.766936,
+    "rmse": 0.140649,
+    "spearman": 0.781693
+  },
+  "test": {
+    "n": 14858,
+    "mae": 0.11539,
+    "pearson": 0.720618,
+    "rmse": 0.154413,
+    "spearman": 0.737184
+  },
+  "baseline": {
+    "n": 14858,
+    "mae": 0.189957,
+    "rmse": 0.222303
+  }
+}

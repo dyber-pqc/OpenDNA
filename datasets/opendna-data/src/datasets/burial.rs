@@ -466,6 +466,22 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
             "This is a sample, not the whole of CATH: 72,522 PDB entries would be hundreds of \
              gigabytes and an unreasonable load on RCSB. Coverage of rare folds is therefore \
              thinner than the structures dataset's.",
+            "Discontinuous domains are excluded. A domain is placed by finding its sequence \
+             as a contiguous stretch of its chain, which cannot locate the roughly one in eight \
+             CATH domains assembled from separated segments. The kept set is biased toward \
+             single-segment domains.",
+            "CATH v4.4.0 dates from 2019 and wwPDB entries are revised, so a domain's sequence \
+             sometimes covers residues the current coordinates no longer observe. Where the \
+             observed chain lies inside the domain sequence the overlap is labelled and the \
+             `sequence` column records what was labelled rather than what CATH listed; where \
+             neither contains the other the domain is dropped. This biases the kept set toward \
+             entries that have not been substantially revised. Together with the previous point \
+             this rejects roughly a third of the sample, counted by reason in the statistics \
+             above.",
+            "Domains are aligned by sequence rather than by residue numbering, so insertion \
+             codes and renumbered chains do not matter, but a domain whose sequence occurs more \
+             than once in its chain is placed at the first occurrence. At these lengths a repeat \
+             is rare, and two copies of one domain in a chain would have similar burial.",
             "Relative accessibility can exceed 1 for a residue whose side chain is unusually \
              extended, because the Tien et al. maxima are theoretical. Values are not clipped.",
             "The buried column uses a 0.25 threshold by convention. It is a convenience; the rsa \
