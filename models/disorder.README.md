@@ -38,6 +38,24 @@ Baseline: Labelling every residue disordered.
 
 Validation chose the epoch that was kept (epoch 5 of 15 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
 
+### Against published benchmarks
+
+**caid3-disorder-pdb** — 99239 items scored.
+
+| Metric | Value |
+|---|---:|
+| auroc | 0.9410 |
+| auprc | 0.8996 |
+| mcc | 0.7292 |
+| f1 | 0.8182 |
+| balanced_accuracy | 0.8777 |
+| auroc (mean over proteins) | 0.9252 |
+
+- Residues the reference did not assess ('-') are excluded, which is the CAID protocol. 61183 of 160422 residues were excluded.
+- 34 of 319 proteins are longer than the embedding model's 1024-residue limit and were covered by overlapping windows. No published CAID3 entrant uses this windowing, so those proteins are not scored the way another method would score them.
+- The threshold for MCC, F1 and balanced accuracy is 0.5, carried over from training rather than tuned on this set. Tuning it here would make the number incomparable to a published one and would be fitting to the test set.
+- CAID3 rankings are computed by the organisers' own code on a server-side ground truth. This is our reimplementation of the protocol against the published reference file, so a small difference from an official number is expected and this figure should not be presented as an official CAID3 result.
+
 ## Training
 
 | | |

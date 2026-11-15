@@ -84,6 +84,11 @@ struct Cli {
     /// Embedding model.
     #[arg(long, value_enum, default_value_t = Embedder::Esm2Large, global = true)]
     embedder: Embedder,
+    /// Where `bench` writes its reports, and where a card looks for the
+    /// external numbers to quote. Reports are matched on the embedding model,
+    /// so a card cannot pick up a figure measured on a different one.
+    #[arg(long, default_value = "benchmarks", global = true)]
+    benchmarks: PathBuf,
     #[command(subcommand)]
     command: Command,
 }
@@ -199,7 +204,7 @@ fn main() -> Result<()> {
                 Task::Disorder => train::disorder(&cli.datasets, &cli.cache, &out, model, &config),
             }
             .with_context(|| format!("training the {} head", task.name()))?;
-            card::write(task, &report, &out)?;
+            card::write(task, &report, &out, &cli.benchmarks)?;
             println!("\n{}", serde_json::to_string_pretty(&report)?);
         }
         Command::Card { task, out } => {
@@ -208,7 +213,7 @@ fn main() -> Result<()> {
                 .with_context(|| format!("reading {}; train the head first", path.display()))?;
             let report: train::Report =
                 serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
-            card::write(task, &report, &out)?;
+            card::write(task, &report, &out, &cli.benchmarks)?;
         }
         Command::Bench { suite, reference, assays, models, out, threshold } => {
             let report = match suite {

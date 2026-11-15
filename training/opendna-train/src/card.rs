@@ -201,8 +201,45 @@ fn metrics_table(report: &Report) -> String {
     out
 }
 
+/// The external-benchmark section, or an explanation of why there is none.
+///
+/// The table above it is measured on our own test split, which says nothing
+/// about how the head compares to published work, because nobody else reports
+/// a number on our splits. A card that gives only that number invites the
+/// reader to treat it as a standing rather than a measurement, so the absence
+/// of an external figure is stated rather than left as a gap.
+fn external_section(reports: &[crate::bench::BenchReport]) -> String {
+    let mut out = String::from("### Against published benchmarks\n\n");
+    if reports.is_empty() {
+        out.push_str(
+            "None. The external benchmarks for this task come from sources whose terms do not \
+             permit redistribution, or from services that have been retired, so there is no \
+             set this head can be scored on alongside other published methods. The figures \
+             above are therefore not evidence of where it stands relative to the field — only \
+             of how it does on data drawn the way its training data was drawn.\n\n",
+        );
+        return out;
+    }
+    for report in reports {
+        let _ = writeln!(out, "**{}** — {} items scored.\n", report.suite, report.residues_scored);
+        let _ = writeln!(out, "| Metric | Value |\n|---|---:|");
+        for (name, value) in &report.pooled {
+            let _ = writeln!(out, "| {name} | {value:.4} |");
+        }
+        if let Some(mean) = report.per_protein_auroc {
+            let _ = writeln!(out, "| auroc (mean over proteins) | {mean:.4} |");
+        }
+        out.push('\n');
+        for caveat in &report.caveats {
+            let _ = writeln!(out, "- {caveat}");
+        }
+        out.push('\n');
+    }
+    out
+}
+
 /// Render a model card.
-pub fn render(task: Task, report: &Report) -> String {
+pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport]) -> String {
     let p = prose(task);
     let mut out = String::new();
     let _ = write!(
@@ -220,6 +257,7 @@ pub fn render(task: Task, report: &Report) -> String {
          Validation chose the epoch that was kept (epoch {best_epoch} of {epochs_run} run). The \
          test split was evaluated once, afterwards. Splits come from the dataset builder, which \
          clusters by sequence identity so near-identical proteins cannot appear on both sides.\n\n\
+         {external}\
          ## Training\n\n\
          | | |\n|---|---|\n\
          | Embedding model | `{base}` ({dim} dimensions, frozen) |\n\
@@ -266,6 +304,7 @@ pub fn render(task: Task, report: &Report) -> String {
         license = p.license,
         weights_license = p.weights_license,
         weights_license_note = p.weights_license_note,
+        external = external_section(external),
     );
     for limitation in p.limitations {
         let _ = writeln!(out, "- {limitation}");
@@ -287,10 +326,19 @@ pub fn render(task: Task, report: &Report) -> String {
 ///
 /// # Errors
 /// If the file cannot be written.
-pub fn write(task: Task, report: &Report, out_dir: &Path) -> Result<()> {
+pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> Result<()> {
+    // Benchmark reports are matched on the embedding model, so a card can
+    // never quote a figure measured on a different one than it documents.
+    let external = crate::bench::load_reports(benchmarks, task.name(), &report.embedding_model)?;
     let path = out_dir.join(format!("{}.README.md", task.name()));
-    std::fs::write(&path, render(task, report)).with_context(|| format!("writing {}", path.display()))?;
-    println!("Wrote {}", path.display());
+    std::fs::write(&path, render(task, report, &external))
+        .with_context(|| format!("writing {}", path.display()))?;
+    println!(
+        "Wrote {} ({} external benchmark{})",
+        path.display(),
+        external.len(),
+        if external.len() == 1 { "" } else { "s" }
+    );
     Ok(())
 }
 
@@ -324,7 +372,7 @@ mod tests {
 
     #[test]
     fn card_reports_the_measured_numbers_and_the_baseline() {
-        let card = render(Task::Stability, &report());
+        let card = render(Task::Stability, &report(), &[]);
         assert!(card.contains("| Spearman ρ | 0.610 | 0.600 | 0.280 |"), "{card}");
         assert!(card.contains("epoch 7 of 17"));
         // The run used a non-default batch size once, and the card's command
@@ -346,7 +394,7 @@ mod tests {
     #[test]
     fn the_dataset_link_points_at_a_published_dataset() {
         for task in [Task::Stability, Task::Solubility, Task::Disorder] {
-            let card = render(task, &report());
+            let card = render(task, &report(), &[]);
             let expected = format!("https://huggingface.co/datasets/dyber-pqc/opendna-{}", task.name());
             assert!(card.contains(&expected), "{} card: missing {expected}", task.name());
             assert!(
@@ -364,15 +412,82 @@ mod tests {
     /// is an open question and not one to settle in our own favour.
     #[test]
     fn a_head_trained_on_share_alike_data_does_not_claim_apache() {
-        let solubility = render(Task::Solubility, &report());
+        let solubility = render(Task::Solubility, &report(), &[]);
         assert!(solubility.starts_with("---\nlicense: other\n"), "{solubility}");
         assert!(solubility.contains("license_name: cc-by-sa-2.1-jp"), "{solubility}");
         assert!(solubility.contains("### Licence of these weights"), "{solubility}");
         // The other two are CC BY, which carries no such condition.
         for task in [Task::Stability, Task::Disorder] {
-            let card = render(task, &report());
+            let card = render(task, &report(), &[]);
             assert!(card.starts_with("---\nlicense: apache-2.0"), "{} card", task.name());
         }
+    }
+
+    fn bench(suite: &str) -> crate::bench::BenchReport {
+        crate::bench::BenchReport {
+            suite: suite.into(),
+            embedding_model: "facebook/esm2_t30_150M_UR50D".into(),
+            head_version: "0.6.0-dev".into(),
+            proteins: 319,
+            residues_scored: 99_239,
+            residues_masked: 61_183,
+            positive_rate: Some(0.3164),
+            windowed: 34,
+            pooled: vec![("auroc".into(), 0.941_02)],
+            per_protein_auroc: Some(0.925_2),
+            per_protein_undefined: 86,
+            caveats: vec!["Not an official CAID3 result.".into()],
+        }
+    }
+
+    /// An in-domain number on its own invites a reader to treat it as a
+    /// standing rather than a measurement.
+    #[test]
+    fn external_benchmarks_appear_on_the_card() {
+        let card = render(Task::Disorder, &report(), &[bench("caid3-disorder-pdb")]);
+        assert!(card.contains("### Against published benchmarks"), "{card}");
+        assert!(card.contains("caid3-disorder-pdb"), "{card}");
+        assert!(card.contains("| auroc | 0.9410 |"), "{card}");
+        assert!(card.contains("Not an official CAID3 result."), "{card}");
+    }
+
+    /// Having no external benchmark is a fact about the task, not a gap to
+    /// pass over in silence: solubility has none, and the card says why.
+    #[test]
+    fn the_absence_of_an_external_benchmark_is_stated() {
+        let card = render(Task::Solubility, &report(), &[]);
+        assert!(card.contains("### Against published benchmarks"), "{card}");
+        assert!(card.contains("None."), "{card}");
+        assert!(card.contains("not evidence of where it stands"), "{card}");
+    }
+
+    /// A report measured on another embedding model must not be quoted on a
+    /// card documenting this one, and a suite belonging to another head must
+    /// not be picked up at all.
+    #[test]
+    fn a_report_from_a_different_embedder_is_not_loaded() {
+        let dir = std::env::temp_dir().join(format!("opendna-card-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut other = bench("caid3-disorder-pdb");
+        other.embedding_model = "facebook/esm2_t33_650M_UR50D".into();
+        std::fs::write(dir.join("caid3.json"), serde_json::to_string(&other).unwrap()).unwrap();
+
+        let loaded = |task, model| crate::bench::load_reports(&dir, task, model).unwrap().len();
+        assert_eq!(loaded("disorder", "facebook/esm2_t30_150M_UR50D"), 0, "650M quoted on a 150M card");
+        assert_eq!(loaded("disorder", "facebook/esm2_t33_650M_UR50D"), 1);
+        assert_eq!(loaded("stability", "facebook/esm2_t33_650M_UR50D"), 0, "wrong head's suite");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_missing_benchmarks_directory_is_not_an_error() {
+        let got = crate::bench::load_reports(
+            Path::new("definitely/not/here"),
+            "disorder",
+            "facebook/esm2_t30_150M_UR50D",
+        )
+        .unwrap();
+        assert!(got.is_empty());
     }
 
     /// `FireProtDB` was dropped from the stability dataset for licensing
@@ -380,7 +495,7 @@ mod tests {
     /// not in the model.
     #[test]
     fn the_stability_card_credits_only_the_source_that_is_in_the_data() {
-        let card = render(Task::Stability, &report());
+        let card = render(Task::Stability, &report(), &[]);
         assert!(!card.contains("FireProtDB"), "{card}");
         assert!(card.contains("Tsuboyama"), "{card}");
     }
@@ -392,21 +507,21 @@ mod tests {
         // The constant baseline has rmse but no spearman.
         r.baseline.values.remove("spearman");
         r.baseline.values.insert("rmse".into(), 32.3);
-        let card = render(Task::Solubility, &r);
+        let card = render(Task::Solubility, &r, &[]);
         assert!(card.contains("| Spearman ρ | 0.610 | 0.600 | — |"), "{card}");
         assert!(card.contains("undefined for that baseline"), "{card}");
     }
 
     #[test]
     fn a_baseline_with_every_metric_gets_no_footnote() {
-        assert!(!render(Task::Stability, &report()).contains("undefined for that baseline"));
+        assert!(!render(Task::Stability, &report(), &[]).contains("undefined for that baseline"));
     }
 
     #[test]
     fn an_unseeded_run_says_so() {
         let mut r = report();
         r.seed_applied = false;
-        assert!(render(Task::Stability, &r).contains("could not seed"));
+        assert!(render(Task::Stability, &r, &[]).contains("could not seed"));
     }
 
     #[test]
@@ -414,7 +529,7 @@ mod tests {
         for task in [Task::Stability, Task::Solubility, Task::Disorder] {
             let mut r = report();
             r.task = task.name().to_string();
-            let card = render(task, &r);
+            let card = render(task, &r, &[]);
             assert!(card.contains("## Limitations"), "{} has no limitations", task.name());
             assert!(card.contains("## Citation"));
         }

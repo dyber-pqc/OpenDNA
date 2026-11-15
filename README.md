@@ -73,9 +73,18 @@ the numbers:
   have been retired. Saying so is more useful than quoting the in-domain
   figure as though it were comparable.
 
-Reproduce either with `opendna-train bench`; see [training/](training). The
-benchmark data is never redistributed or built into a dataset — some of it
-carries no licence at all, which permits evaluation but not republication.
+Reproduce either with `opendna-train bench`; see
+[training/benchmarks/](training/benchmarks). The benchmark data is never
+redistributed or built into a dataset — some of it carries no licence at all,
+which permits evaluation but not republication.
+
+The published heads use ESM-2 150M. All three were also retrained on 650M, an
+embedder four times the size: the stability head improved (+0.019 external
+Spearman), the disorder head got **worse** on every external metric, and
+solubility gained 0.01 in domain with no external check. Since 650M is 2.61 GB
+against 0.60 GB, mixing them would mean shipping two embedding models to buy
+one modest gain, so 150M stays. The numbers are in
+[training/benchmarks/](training/benchmarks).
 
 ## Datasets and models
 

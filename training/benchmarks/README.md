@@ -8,9 +8,47 @@ Spearman of 0.674 or an AUROC of 0.883 says how a head does on data drawn the
 way its training data was drawn, and nothing at all about how it compares to
 published methods — because no other method reports a number on our splits.
 
+## Is a bigger embedding model worth it?
+
+Asked and answered: **mostly no**, which is not what we expected and is the
+reason these suites were built before the experiment rather than after.
+
+All three heads were retrained on ESM-2 650M with every hyperparameter held at
+the value the 150M run used, so the embedder is the only variable. Reports are
+in this directory as `*.esm2-650m.json`, with the in-domain metrics under
+`in-domain/`.
+
+| Suite | Metric | 150M | 650M | Δ |
+|---|---|---:|---:|---:|
+| CAID3 Disorder-PDB | AUROC | 0.9410 | 0.9384 | **−0.0025** |
+| CAID3 Disorder-PDB | MCC | 0.7292 | 0.7018 | **−0.0274** |
+| CAID3 Disorder-PDB | AUPRC | 0.8996 | 0.8916 | **−0.0080** |
+| ProteinGym stability | Spearman, mean | 0.4419 | 0.4607 | +0.0187 |
+| In domain: stability | Spearman | 0.6742 | 0.6964 | +0.0222 |
+| In domain: solubility | Spearman | 0.7009 | 0.7105 | +0.0096 |
+| In domain: disorder | AUROC | 0.8833 | 0.8836 | +0.0003 |
+
+The disorder head gets **worse** on every external metric with an embedder
+four times the size, and gains nothing in domain. The stability head improves
+consistently, in domain and out. Solubility gains 0.01 Spearman in domain with
+a worse MAE and has no external check at all.
+
+The 650M checkpoint is 2.61 GB against 0.60 GB. Promoting only the head that
+benefits would mean the application downloading and running two embedding
+models — 3.2 GB of weights and two forward passes per prediction — to buy
+0.019 external Spearman on one head whose honest external figure is 0.46
+either way. For a local-first desktop application that is a bad trade, so
+**all three published heads stay on 150M**.
+
+The useful part of this is the negative result. "Bigger embeddings are a
+near-free win" is the kind of claim that is obviously true until measured, and
+measuring it cost one afternoon because the suites already existed. Had the
+retrain come first, all three heads would have been promoted on the strength
+of the in-domain numbers, and the disorder head would have quietly got worse.
+
 ## Results
 
-Heads trained on frozen ESM-2 150M embeddings.
+Heads trained on frozen ESM-2 150M embeddings, which is what is published.
 
 | Suite | Metric | Ours | In-domain equivalent |
 |---|---|---:|---:|

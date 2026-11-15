@@ -37,6 +37,27 @@ Baseline: The language model's masked log-odds used directly, with no trained he
 
 Validation chose the epoch that was kept (epoch 1 of 11 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
 
+### Against published benchmarks
+
+**proteingym-stability-out-of-domain** — 13747 items scored.
+
+| Metric | Value |
+|---|---:|
+| spearman::ESTA_BACSU_Nutschel_2020 | 0.3163 |
+| spearman::NUD15_HUMAN_Suiter_2020 | 0.5351 |
+| spearman::PTEN_HUMAN_Matreyek_2021 | 0.4253 |
+| spearman::TPMT_HUMAN_Matreyek_2018 | 0.4911 |
+| spearman::mean_over_assays | 0.4419 |
+
+- These assays measure variant abundance or thermostability in whole proteins, not ΔΔG by calorimetry. They are correlates of folding stability, so a positive Spearman means the head orders destabilising substitutions correctly; the magnitude is not comparable to a ΔΔG-against-ΔΔG correlation.
+- Every ProteinGym assay derived from Tsuboyama 2023 is excluded. Those 64 assays are the head's own training data, and scoring them would measure memorisation.
+- ProteinGym scores are higher-is-fitter, and the head predicts higher-is-more-stable, so the expected sign is positive. A negative correlation here would mean the head is ordering mutations backwards on this protein, not that the convention is flipped.
+- 4 assays, 13747 mutants scored. This is a handful of proteins, so the mean across assays has no useful confidence interval; read the per-assay numbers.
+- ESTA_BACSU_Nutschel_2020: thermostability in a 212-residue protein, 2172 single substitutions.
+- NUD15_HUMAN_Suiter_2020: VAMP-seq, drug sensitivity in a 164-residue protein, 2844 single substitutions.
+- PTEN_HUMAN_Matreyek_2021: Protein stability in a 403-residue protein, 5083 single substitutions.
+- TPMT_HUMAN_Matreyek_2018: Protein stability in a 245-residue protein, 3648 single substitutions.
+
 ## Training
 
 | | |

@@ -577,6 +577,53 @@ pub fn stability(assays: &[Assay], models_dir: &Path, embedder: ModelSize) -> Re
     })
 }
 
+/// Which head a suite scores.
+///
+/// A report records the suite it ran, not the head, because a suite is the
+/// fixed thing: the head is whatever was in `--models`. The association is
+/// here, spelled out, rather than inferred from a filename.
+#[must_use]
+pub fn task_of(suite: &str) -> Option<&'static str> {
+    match suite {
+        "caid3-disorder-pdb" => Some("disorder"),
+        "proteingym-stability-out-of-domain" => Some("stability"),
+        _ => None,
+    }
+}
+
+/// Load the benchmark reports in `dir` that describe `task` scored with
+/// `embedding_model`.
+///
+/// The embedding model has to match, or a card would quote a number measured
+/// on a different model than the one it documents. A directory that does not
+/// exist yields no reports rather than an error: benchmarks are optional, and
+/// a card without them is incomplete rather than wrong.
+///
+/// # Errors
+/// If a file in `dir` ends in `.json` but is not a readable report. A
+/// malformed report is a mistake worth stopping for, since the alternative is
+/// silently publishing a card with a benchmark missing.
+pub fn load_reports(dir: &Path, task: &str, embedding_model: &str) -> Result<Vec<BenchReport>> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Ok(Vec::new());
+    };
+    let mut out = Vec::new();
+    for entry in entries {
+        let path = entry.context("listing the benchmarks directory")?.path();
+        if path.extension().is_none_or(|e| e != "json") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+        let report: BenchReport = serde_json::from_str(&text)
+            .with_context(|| format!("parsing {} as a benchmark report", path.display()))?;
+        if task_of(&report.suite) == Some(task) && report.embedding_model == embedding_model {
+            out.push(report);
+        }
+    }
+    out.sort_by(|a, b| a.suite.cmp(&b.suite));
+    Ok(out)
+}
+
 /// Render a report as a short markdown section.
 pub fn render(report: &BenchReport) -> String {
     let mut out = String::new();

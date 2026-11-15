@@ -39,6 +39,10 @@ Baseline: Predicting the training-set mean for every protein.
 
 Validation chose the epoch that was kept (epoch 35 of 45 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
 
+### Against published benchmarks
+
+None. The external benchmarks for this task come from sources whose terms do not permit redistribution, or from services that have been retired, so there is no set this head can be scored on alongside other published methods. The figures above are therefore not evidence of where it stands relative to the field — only of how it does on data drawn the way its training data was drawn.
+
 ## Training
 
 | | |
