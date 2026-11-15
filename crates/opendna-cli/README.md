@@ -66,6 +66,38 @@ file nobody can identify, which is worse than no numbers.
 including a retrain that kept the same version number — the build id catches
 that. Commit the lockfile beside the analysis it produced.
 
+## Running on a machine with no network
+
+The heads are about a megabyte each and copy anywhere. The embedding model does
+not: it is 568 MB, it lives in the Hugging Face cache rather than beside the
+heads, and a machine that has never run a prediction downloads it on its first
+one. On an instrument computer or anything behind an air gap that is not a slow
+first run, it is a failure at the moment somebody needs a result.
+
+```bash
+opendna stage --to /mnt/usb/opendna-models        # on a connected machine
+opendna --models ./opendna-models --offline selftest
+```
+
+`stage` writes one directory holding the four heads, their cards, the embedding
+model's own files, `models.lock`, and a `sha256sums.txt` in the format
+`sha256sum -c` reads. It copies what this machine already resolved rather than
+re-fetching on the target, so the bundle is exactly what was tested here. It
+refuses to stage an installation that does not verify — a bundle nobody can
+trust, carried to a machine where nobody can re-download, is the worst possible
+place to discover a bad file.
+
+`--offline` is a hard promise, not a preference: nothing will reach the
+network, and if the embedding model is not staged the command says so and names
+the two files it wanted. Without the flag a missing model is downloaded, which
+is right on a laptop and wrong on anything validated.
+
+`opendna models` says which of the two situations a directory is in.
+
+Verified by staging a bundle, pointing `HF_HOME` at an empty directory so the
+cache held nothing, and running `--offline`: the self-test passed all
+seventeen checks and a disorder run gave values identical to the online one.
+
 ## Proving the install works here
 
 Verifying the files is not the same as checking the machine. A head can hash

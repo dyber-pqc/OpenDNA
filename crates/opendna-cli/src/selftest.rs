@@ -29,7 +29,7 @@
 //! what the new head does on this fixture yet.
 
 use anyhow::{anyhow, bail, Context, Result};
-use opendna_ml::esm2::{Esm2, ModelSize};
+use opendna_ml::esm2::ModelSize;
 use opendna_ml::heads::Heads;
 use std::path::Path;
 
@@ -371,7 +371,10 @@ fn pinned(n: &Numbers, build_of: &impl Fn(&str) -> Option<String>) -> Vec<Check>
 /// If a head is missing or corrupt, if the embedding model cannot be loaded,
 /// or if any check fails. Failure is an error rather than a warning because
 /// the whole purpose is to be runnable in an installation script.
-pub fn run(dir: &Path, embedder: ModelSize) -> Result<()> {
+///
+/// With `offline` set it will not reach the network, so on a staged bundle it
+/// tests the same files the predictions will use.
+pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<()> {
     let found = crate::inventory::scan(dir, embedder);
     let unusable: Vec<String> =
         found.iter().filter(|h| !h.ready()).map(|h| format!("  {:11} {}", h.task, h.describe())).collect();
@@ -392,7 +395,16 @@ pub fn run(dir: &Path, embedder: ModelSize) -> Result<()> {
     println!("Fixture: {NAME}, {} residues", SEQUENCE.len());
 
     let heads = Heads::load(dir, embedder, &device)?;
-    let model = Esm2::from_pretrained(embedder, &device)?;
+    let model = crate::staging::open_embedder(dir, embedder, &device, offline)?;
+    println!(
+        "Embedding model: {} ({})",
+        embedder.repo(),
+        if crate::staging::staged_embedder(dir).is_some() {
+            "staged in the models directory"
+        } else {
+            "Hugging Face cache"
+        }
+    );
     let proteins = vec![(NAME.to_string(), SEQUENCE.to_string())];
     let mutations: Vec<(String, String)> =
         MUTATIONS.iter().map(|m| (NAME.to_string(), (*m).to_string())).collect();

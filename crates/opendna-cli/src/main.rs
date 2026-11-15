@@ -23,6 +23,7 @@ mod caid;
 mod inventory;
 mod provenance;
 mod selftest;
+mod staging;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -72,6 +73,15 @@ struct Cli {
     /// then `./models`.
     #[arg(long, global = true)]
     models: Option<PathBuf>,
+    /// Never reach the network. The embedding model must already be staged in
+    /// the models directory — see `opendna stage`.
+    ///
+    /// Without this, a machine that has not run a prediction before downloads
+    /// several hundred megabytes on its first one. On an instrument computer
+    /// or behind an air gap that is a failure at the worst moment, so this
+    /// turns it into an error up front.
+    #[arg(long, global = true)]
+    offline: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -112,6 +122,13 @@ enum Command {
     /// against recorded values. Exits non-zero if this machine does not
     /// reproduce them.
     Selftest,
+    /// Copy this installation, embedding model included, into one directory
+    /// that can be carried to a machine with no network.
+    Stage {
+        /// Where to write the bundle. Created if it does not exist.
+        #[arg(long)]
+        to: PathBuf,
+    },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -288,10 +305,12 @@ fn json_scalar(value: &str) -> serde_json::Value {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let dir = models_dir(cli.models);
+    let offline = cli.offline;
 
     match cli.command {
         Command::Models { lock, check } => models(&dir, lock.as_deref(), check.as_deref()),
-        Command::Selftest => selftest::run(&dir, EMBEDDER),
+        Command::Selftest => selftest::run(&dir, EMBEDDER, offline),
+        Command::Stage { to } => staging::stage(&dir, &to, EMBEDDER),
         Command::Predict { task, input, output, format, mutations } => {
             let text = read_input(&input)?;
             // Read as written: real files contain selenocysteine and the
@@ -318,7 +337,7 @@ fn main() -> Result<()> {
             eprintln!("Running {} on {description}", task.name());
 
             let heads = Heads::load(&dir, EMBEDDER, &device)?;
-            let model = Esm2::from_pretrained(EMBEDDER, &device)?;
+            let model = staging::open_embedder(&dir, EMBEDDER, &device, offline)?;
 
             if format == Format::Caid {
                 if task != Task::Disorder {
@@ -378,6 +397,17 @@ fn models(dir: &Path, lock: Option<&Path>, check: Option<&Path>) -> Result<()> {
     println!("Embedding model: {}", EMBEDDER.repo());
     for head in &found {
         println!("  {:11} {}", head.task, head.describe());
+    }
+    // Whether this directory is self-contained is the question an offline
+    // machine asks, and it is not answerable from the head listing.
+    if staging::staged_embedder(dir).is_some() {
+        println!("\nThe embedding model is staged here, so --offline will work.");
+    } else {
+        println!(
+            "\nNo embedding model staged here: the first prediction downloads {}.\n\
+             Run `opendna stage --to <dir>` for a directory that works offline.",
+            EMBEDDER.repo()
+        );
     }
 
     if let Some(path) = lock {
