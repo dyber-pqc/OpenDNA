@@ -21,6 +21,7 @@
 
 mod caid;
 mod inventory;
+mod manifest;
 mod provenance;
 mod selftest;
 mod staging;
@@ -82,31 +83,53 @@ struct Cli {
     /// turns it into an error up front.
     #[arg(long, global = true)]
     offline: bool,
+    /// Do not write the `.manifest.json` that records what produced an output
+    /// file.
+    ///
+    /// The manifest is written by default because a result that cannot be
+    /// traced back to its input bytes and its model build is not a result
+    /// anyone can defend. This exists for the case where something downstream
+    /// cannot tolerate a second file appearing.
+    #[arg(long, global = true)]
+    no_manifest: bool,
     #[command(subcommand)]
     command: Command,
+}
+
+/// What to predict, from what.
+#[derive(clap::Args)]
+struct PredictArgs {
+    /// Which property.
+    #[arg(long, value_enum)]
+    task: Task,
+    /// FASTA file to read. `-` reads standard input.
+    #[arg(long, short = 'i')]
+    input: PathBuf,
+    /// Where to write the table. Omit to write to standard output.
+    #[arg(long, short = 'o')]
+    output: Option<PathBuf>,
+    /// Output format.
+    #[arg(long, value_enum, default_value_t = Format::Csv)]
+    format: Format,
+    /// For `stability` only: a CSV of `name,mutation` rows, for example
+    /// `ubiquitin,L8P`. Mutations are 1-based, as they are written.
+    #[arg(long)]
+    mutations: Option<PathBuf>,
+}
+
+/// Settings that apply to every subcommand.
+#[derive(Copy, Clone)]
+struct Global {
+    /// Never reach the network.
+    offline: bool,
+    /// Write a manifest beside each output file.
+    manifest: bool,
 }
 
 #[derive(Subcommand)]
 enum Command {
     /// Predict a property for every sequence in a FASTA file.
-    Predict {
-        /// Which property.
-        #[arg(long, value_enum)]
-        task: Task,
-        /// FASTA file to read. `-` reads standard input.
-        #[arg(long, short = 'i')]
-        input: PathBuf,
-        /// Where to write the table. Omit to write to standard output.
-        #[arg(long, short = 'o')]
-        output: Option<PathBuf>,
-        /// Output format.
-        #[arg(long, value_enum, default_value_t = Format::Csv)]
-        format: Format,
-        /// For `stability` only: a CSV of `name,mutation` rows, for example
-        /// `ubiquitin,L8P`. Mutations are 1-based, as they are written.
-        #[arg(long)]
-        mutations: Option<PathBuf>,
-    },
+    Predict(PredictArgs),
     /// Report which heads are installed, whether their weights verify, and
     /// optionally pin them.
     Models {
@@ -210,8 +233,18 @@ fn write_output(output: Option<&Path>, text: &str) -> Result<()> {
     Ok(())
 }
 
+/// A head's identity, its files, and the provenance derived from them.
+struct Loaded {
+    /// What goes into the output's comments.
+    prov: Provenance,
+    /// What the head records about itself.
+    metadata: opendna_ml::heads::HeadMetadata,
+    /// Where its files are.
+    files: HeadFiles,
+}
+
 /// Load a head's metadata and its card's limitations.
-fn head_provenance(dir: &Path, task: Task, device: &str) -> Result<Provenance> {
+fn head_provenance(dir: &Path, task: Task, device: &str) -> Result<Loaded> {
     let files = HeadFiles::in_dir(dir, task.name());
     if !files.exist() {
         bail!(
@@ -229,7 +262,8 @@ fn head_provenance(dir: &Path, task: Task, device: &str) -> Result<Provenance> {
     let metadata = read_metadata(&files, task.name(), EMBEDDER)?;
     // Limitations come from the card beside the weights, so the CLI, the
     // desktop panel and the published card cannot state different caveats.
-    Ok(Provenance::new(task.name(), &metadata, EMBEDDER, device, files.limitations()))
+    let prov = Provenance::new(task.name(), &metadata, EMBEDDER, device, files.limitations());
+    Ok(Loaded { prov, metadata, files })
 }
 
 /// One row of a result table, as strings so every format shares the values.
@@ -305,84 +339,135 @@ fn json_scalar(value: &str) -> serde_json::Value {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let dir = models_dir(cli.models);
-    let offline = cli.offline;
+    let global = Global { offline: cli.offline, manifest: !cli.no_manifest };
 
     match cli.command {
         Command::Models { lock, check } => models(&dir, lock.as_deref(), check.as_deref()),
-        Command::Selftest => selftest::run(&dir, EMBEDDER, offline),
+        Command::Selftest => selftest::run(&dir, EMBEDDER, global.offline),
         Command::Stage { to } => staging::stage(&dir, &to, EMBEDDER),
-        Command::Predict { task, input, output, format, mutations } => {
-            let text = read_input(&input)?;
-            // Read as written: real files contain selenocysteine and the
-            // ambiguity codes, ESM-2 has tokens for them, and collapsing them
-            // to X would feed the model a residue the file does not specify.
-            let proteins = opendna_io::fasta::read_raw(&text)
-                .with_context(|| format!("parsing {} as FASTA", input.display()))?;
-            eprintln!("{} sequences from {}", proteins.len(), input.display());
-
-            // Refuse before loading anything: predicting from weights that do
-            // not match their metadata is how an unidentifiable number ends
-            // up in someone's results.
-            let head = inventory::scan(&dir, EMBEDDER)
-                .into_iter()
-                .find(|h| h.task == task.name())
-                .ok_or_else(|| anyhow!("unknown task {}", task.name()))?;
-            if !head.ready() {
-                bail!("{} head: {}", task.name(), head.describe());
-            }
-
-            let device = opendna_ml::best_device()?;
-            let description = opendna_ml::device_description(&device);
-            let prov = head_provenance(&dir, task, &description)?;
-            eprintln!("Running {} on {description}", task.name());
-
-            let heads = Heads::load(&dir, EMBEDDER, &device)?;
-            let model = staging::open_embedder(&dir, EMBEDDER, &device, offline)?;
-
-            if format == Format::Caid {
-                if task != Task::Disorder {
-                    bail!(
-                        "--format caid is the CAID disorder prediction format and only applies to \
-                         --task disorder"
-                    );
-                }
-                let predictions = disorder(&proteins, &heads, &model, &device)?;
-                let targets: Vec<(String, Vec<caid::Residue>)> = predictions
-                    .into_iter()
-                    .map(|(header, residues)| (caid::accession(&header).to_string(), residues))
-                    .collect();
-                let rendered = caid::render(&targets, DISORDER_THRESHOLD)?;
-                write_output(output.as_deref(), &rendered)?;
-                // The format cannot carry comments, so the provenance that
-                // every other output embeds goes beside the file instead.
-                eprint!("{}", prov.comment_block());
-                if let Some(path) = output.as_deref() {
-                    let sidecar = path.with_extension("provenance.txt");
-                    std::fs::write(&sidecar, prov.comment_block())
-                        .with_context(|| format!("writing {}", sidecar.display()))?;
-                    eprintln!("Wrote {}", sidecar.display());
-                }
-                return Ok(());
-            }
-
-            let table = match task {
-                Task::Disorder => disorder_table(&disorder(&proteins, &heads, &model, &device)?),
-                Task::Burial => burial(&proteins, &heads, &model, &device)?,
-                Task::Solubility => solubility(&proteins, &heads, &model, &device)?,
-                Task::Stability => {
-                    let path = mutations.ok_or_else(|| {
-                        anyhow!(
-                            "--mutations <file> is required for stability: the head scores named \
-                             substitutions, so it needs to be told which ones. The file is a CSV \
-                             of `name,mutation` rows, for example `ubiquitin,L8P`."
-                        )
-                    })?;
-                    stability(&proteins, &read_mutations(&path)?, &heads, &model, &device)?
-                }
-            };
-            write_output(output.as_deref(), &table.render(format, &prov)?)
-        }
+        Command::Predict(args) => predict(&dir, global, args),
     }
+}
+
+/// Run one prediction and record what produced it.
+///
+/// # Errors
+/// If the input cannot be parsed, if the head is missing or corrupt, if the
+/// embedding model cannot be loaded, or if anything cannot be written.
+fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<()> {
+    let PredictArgs { task, input, output, format, mutations } = args;
+    let started_utc = chrono::Utc::now();
+    let started = std::time::Instant::now();
+    let text = read_input(&input)?;
+    // Read as written: real files contain selenocysteine and the ambiguity
+    // codes, ESM-2 has tokens for them, and collapsing them to X would feed
+    // the model a residue the file does not specify.
+    let proteins = opendna_io::fasta::read_raw(&text)
+        .with_context(|| format!("parsing {} as FASTA", input.display()))?;
+    eprintln!("{} sequences from {}", proteins.len(), input.display());
+
+    // Refuse before loading anything: predicting from weights that do not
+    // match their metadata is how an unidentifiable number ends up in
+    // someone's results.
+    let head = inventory::scan(dir, EMBEDDER)
+        .into_iter()
+        .find(|h| h.task == task.name())
+        .ok_or_else(|| anyhow!("unknown task {}", task.name()))?;
+    if !head.ready() {
+        bail!("{} head: {}", task.name(), head.describe());
+    }
+
+    let device = opendna_ml::best_device()?;
+    let description = opendna_ml::device_description(&device);
+    let Loaded { prov, metadata, files } = head_provenance(dir, task, &description)?;
+    eprintln!("Running {} on {description}", task.name());
+
+    let heads = Heads::load(dir, EMBEDDER, &device)?;
+    let model = staging::open_embedder(dir, EMBEDDER, &device, global.offline)?;
+
+    // One manifest writer for every format, so no output can end up described
+    // differently from another.
+    let label = input.display().to_string();
+    let record = |path: &Path, rendered: &str, rows: usize, muts: Option<&Path>| -> Result<()> {
+        if !global.manifest {
+            return Ok(());
+        }
+        let residues = proteins.iter().map(|(_, s)| s.chars().count()).sum();
+        let wrote = manifest::write(
+            &manifest::Run {
+                task: task.name(),
+                device: &description,
+                started: started_utc,
+                elapsed: started.elapsed(),
+                input: manifest::Input {
+                    label: &label,
+                    bytes: text.as_bytes(),
+                    sequences: proteins.len(),
+                    residues,
+                },
+                output: Some(path),
+                rendered,
+                rows,
+                mutations: muts,
+                head: &metadata,
+                files: &files,
+                embedder: &staging::describe_embedder(dir, EMBEDDER),
+                limitations: &prov.limitations,
+            },
+            path,
+        )?;
+        eprintln!("Wrote {}", wrote.display());
+        Ok(())
+    };
+
+    if format == Format::Caid {
+        if task != Task::Disorder {
+            bail!(
+                "--format caid is the CAID disorder prediction format and only applies to \
+                 --task disorder"
+            );
+        }
+        let predictions = disorder(&proteins, &heads, &model, &device)?;
+        let targets: Vec<(String, Vec<caid::Residue>)> = predictions
+            .into_iter()
+            .map(|(header, residues)| (caid::accession(&header).to_string(), residues))
+            .collect();
+        let rendered = caid::render(&targets, DISORDER_THRESHOLD)?;
+        write_output(output.as_deref(), &rendered)?;
+        // The format cannot carry comments, so the provenance that every
+        // other output embeds goes beside the file instead.
+        eprint!("{}", prov.comment_block());
+        if let Some(path) = output.as_deref() {
+            let sidecar = path.with_extension("provenance.txt");
+            std::fs::write(&sidecar, prov.comment_block())
+                .with_context(|| format!("writing {}", sidecar.display()))?;
+            eprintln!("Wrote {}", sidecar.display());
+            record(path, &rendered, targets.iter().map(|(_, r)| r.len()).sum(), None)?;
+        }
+        return Ok(());
+    }
+
+    let table = match task {
+        Task::Disorder => disorder_table(&disorder(&proteins, &heads, &model, &device)?),
+        Task::Burial => burial(&proteins, &heads, &model, &device)?,
+        Task::Solubility => solubility(&proteins, &heads, &model, &device)?,
+        Task::Stability => {
+            let path = mutations.as_deref().ok_or_else(|| {
+                anyhow!(
+                    "--mutations <file> is required for stability: the head scores named \
+                     substitutions, so it needs to be told which ones. The file is a CSV of \
+                     `name,mutation` rows, for example `ubiquitin,L8P`."
+                )
+            })?;
+            stability(&proteins, &read_mutations(path)?, &heads, &model, &device)?
+        }
+    };
+    let rendered = table.render(format, &prov)?;
+    write_output(output.as_deref(), &rendered)?;
+    if let Some(path) = output.as_deref() {
+        record(path, &rendered, table.rows.len(), mutations.as_deref())?;
+    }
+    Ok(())
 }
 
 /// Report what is installed, and pin or check it.

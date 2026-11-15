@@ -2387,12 +2387,14 @@ version = "0.6.0-dev"
 dependencies = [
  "anyhow",
  "candle-core",
+ "chrono",
  "clap",
  "opendna-core",
  "opendna-io",
  "opendna-ml",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]

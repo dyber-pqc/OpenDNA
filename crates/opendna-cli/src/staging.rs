@@ -78,6 +78,42 @@ pub fn open_embedder(
     Esm2::from_pretrained(size, device).map_err(Into::into)
 }
 
+/// What the manifest should say about the embedding model.
+///
+/// Nothing here hashes the weights. At 568 MB that costs about as long as a
+/// small run, so a staged bundle's recorded digest is used when there is one
+/// and the absence is stated plainly when there is not.
+pub fn describe_embedder(dir: &Path, size: ModelSize) -> crate::manifest::Embedder {
+    let staged = staged_embedder(dir).map(|(_, weights)| weights);
+    let bytes = staged.as_ref().and_then(|p| std::fs::metadata(p).ok()).map(|m| m.len());
+    let digest = staged.as_ref().and_then(|_| recorded_digest(dir, "embedder/model.safetensors"));
+    crate::manifest::Embedder {
+        repo: size.repo(),
+        source: if staged.is_some() { "staged bundle" } else { "Hugging Face cache" },
+        weights: staged,
+        bytes,
+        digest_source: if digest.is_some() {
+            "recorded in the staged bundle's sha256sums.txt"
+        } else {
+            "not recorded: hashing 568 MB costs about as long as a small run"
+        },
+        digest,
+    }
+}
+
+/// The digest a bundle already wrote down for one of its files.
+///
+/// Read rather than recomputed: the manifest's claim is "the bundle says this
+/// file is X", which is what `sha256sum -c` checks, and recomputing it here
+/// would cost the time this avoids while proving nothing extra.
+fn recorded_digest(dir: &Path, name: &str) -> Option<String> {
+    let text = std::fs::read_to_string(dir.join(SUMS)).ok()?;
+    text.lines().find_map(|line| {
+        let (digest, file) = line.split_once("  ")?;
+        (file.trim() == name).then(|| digest.trim().to_owned())
+    })
+}
+
 /// Build a self-contained bundle in `to`.
 ///
 /// # Errors
@@ -193,6 +229,19 @@ mod tests {
         assert!(err.contains("--offline"), "{err}");
         assert!(err.contains("opendna stage --to"), "{err}");
         assert!(err.contains("will not reach the network"), "{err}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// `describe_embedder` reads the digests back out of the manifest the
+    /// staging wrote, so the two formats have to agree.
+    #[test]
+    fn a_recorded_digest_is_read_back_out_of_the_manifest() {
+        let dir = scratch("sums");
+        std::fs::write(dir.join(SUMS), "aa11  disorder.safetensors\nbb22  embedder/model.safetensors\n")
+            .unwrap();
+        assert_eq!(recorded_digest(&dir, "embedder/model.safetensors").as_deref(), Some("bb22"));
+        assert_eq!(recorded_digest(&dir, "disorder.safetensors").as_deref(), Some("aa11"));
+        assert_eq!(recorded_digest(&dir, "absent.safetensors"), None);
         std::fs::remove_dir_all(&dir).ok();
     }
 

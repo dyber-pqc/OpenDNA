@@ -163,6 +163,46 @@ looks: a prediction that travels without them becomes a number in a
 spreadsheet, then a number in a slide, and by then nobody can tell which model
 made it or what it does not cover.
 
+## Every run writes down what made it
+
+The `#` comments say which head produced a file, which is what a person
+reading it needs. It is not enough to reproduce the run: which input, which
+bytes of that input, which build of the head, which embedding model, on what,
+for how long. So every run that writes an output file writes a manifest beside
+it.
+
+```
+out.csv
+out.manifest.json
+```
+
+It is JSON because something else has to read it — a pipeline collecting
+provenance, a notebook, a script checking two runs used the same model. One run
+writes one file and never appends, so there is no race to worry about.
+
+| | |
+|---|---|
+| `input` | path, SHA-256 of the bytes read, sequence and residue counts |
+| `output` | path, SHA-256 of the bytes written, row count |
+| `head` | task, version, build id, weights SHA-256, path |
+| `embedding_model` | repo, where it came from, size, digest if known |
+| `run` | UTC start, wall-clock seconds, device, the arguments as given |
+| `limitations` | the model card's, so the manifest alone states the caveats |
+
+The input is hashed from the bytes in memory rather than by re-reading the
+file, so the digest describes what was actually used even when the input came
+through a pipe and has no path at all.
+
+The embedding model is the one thing not hashed by default: it is 568 MB and
+digesting it takes about as long as a small run. A staged bundle already wrote
+the digest into its `sha256sums.txt`, so for a staged install the manifest
+carries it for free; otherwise the field is null and `sha256_source` says why.
+An absent field with a reason is honest — a missing field somebody assumes was
+checked is not.
+
+`--no-manifest` turns it off, for the case where something downstream cannot
+tolerate a second file appearing.
+
 ## What it will not do
 
 There is no fallback. A missing head is an error naming the files it looked
