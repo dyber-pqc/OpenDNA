@@ -203,6 +203,45 @@ checked is not.
 `--no-manifest` turns it off, for the case where something downstream cannot
 tolerate a second file appearing.
 
+## What the exit status means
+
+A pipeline cannot read an error message. It reads a number, and what it needs
+from that number is what to do next.
+
+| | | |
+|---|---|---|
+| 0 | it worked | — |
+| 1 | an unanticipated failure | report it |
+| 2 | the command asked for something that does not exist | fix the command |
+| 3 | the installation is wrong | fix the machine; retrying will not help |
+| 4 | the data is wrong | fix the input; retrying will not help |
+| 5 | the checks ran and did not hold | do not use results from this machine |
+
+2 is deliberately the same code `clap` uses for a usage error, since a mistyped
+flag and an impossible combination of valid ones want the same response.
+3 covers a missing or corrupt head, a lockfile that does not match, and
+`--offline` with nothing staged. 4 covers unparseable FASTA, a mutation naming
+a residue the sequence does not have, and a sequence longer than the embedding
+model takes. 5 comes only from `selftest`.
+
+Anything not classified is 1. That is the honest default: a failure nobody
+anticipated is not one a caller can be told how to handle, and filing it under
+a known category would be worse than admitting it.
+
+Every failure prints to standard error and names which of the above it is.
+`predict` streams results to standard output, so a failing run leaves standard
+output empty — a pipe collecting results never receives an error as though it
+were data.
+
+Checks that need only the arguments and the input happen before any model
+loads, so a typo in a mutation file is refused in about 50 ms rather than after
+568 MB has loaded for a run that cannot work.
+
+The contract is exercised against the compiled binary in
+[tests/exit_codes.rs](tests/exit_codes.rs). It needs the heads installed and
+skips with a message when they are not, because a test that fails on every
+machine without them gets disabled and then checks nothing at all.
+
 ## What it will not do
 
 There is no fallback. A missing head is an error naming the files it looked

@@ -20,6 +20,7 @@
 #![allow(clippy::doc_markdown)]
 
 mod caid;
+mod exit;
 mod inventory;
 mod manifest;
 mod provenance;
@@ -28,6 +29,7 @@ mod staging;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
+use exit::{Classify as _, Failure, Fault};
 use opendna_core::AminoAcid;
 use opendna_ml::esm2::{Esm2, ModelSize};
 use opendna_ml::heads::{read_metadata, HeadFiles, Heads, StabilityHead};
@@ -336,54 +338,155 @@ fn json_scalar(value: &str) -> serde_json::Value {
         .map_or_else(|| serde_json::Value::String(value.to_string()), serde_json::Value::Number)
 }
 
-fn main() -> Result<()> {
+fn main() -> std::process::ExitCode {
+    match run() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(Failure { fault, error }) => {
+            // The chain, because the useful sentence is usually the innermost
+            // one and the outer context says where it happened.
+            eprintln!("Error: {error:#}");
+            eprintln!("{fault}");
+            std::process::ExitCode::from(fault.code())
+        }
+    }
+}
+
+fn run() -> Result<(), Failure> {
     let cli = Cli::parse();
     let dir = models_dir(cli.models);
     let global = Global { offline: cli.offline, manifest: !cli.no_manifest };
 
     match cli.command {
-        Command::Models { lock, check } => models(&dir, lock.as_deref(), check.as_deref()),
+        // Everything these two can fail at is a property of the install.
+        Command::Models { lock, check } => {
+            models(&dir, lock.as_deref(), check.as_deref()).blame(Fault::Install)
+        }
+        Command::Stage { to } => staging::stage(&dir, &to, EMBEDDER).blame(Fault::Install),
         Command::Selftest => selftest::run(&dir, EMBEDDER, global.offline),
-        Command::Stage { to } => staging::stage(&dir, &to, EMBEDDER),
         Command::Predict(args) => predict(&dir, global, args),
     }
 }
 
-/// Run one prediction and record what produced it.
+/// The input, parsed.
+struct Request {
+    /// Every sequence in the input, as written.
+    proteins: Vec<(String, String)>,
+    /// The input's bytes, for the manifest's digest.
+    text: String,
+}
+
+/// Read and parse the input.
 ///
 /// # Errors
-/// If the input cannot be parsed, if the head is missing or corrupt, if the
-/// embedding model cannot be loaded, or if anything cannot be written.
-fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<()> {
-    let PredictArgs { task, input, output, format, mutations } = args;
-    let started_utc = chrono::Utc::now();
-    let started = std::time::Instant::now();
-    let text = read_input(&input)?;
+/// If it cannot be read, or is not FASTA.
+fn read_request(input: &Path) -> Result<Request, Failure> {
+    let text = read_input(input)?;
     // Read as written: real files contain selenocysteine and the ambiguity
     // codes, ESM-2 has tokens for them, and collapsing them to X would feed
     // the model a residue the file does not specify.
     let proteins = opendna_io::fasta::read_raw(&text)
-        .with_context(|| format!("parsing {} as FASTA", input.display()))?;
+        .with_context(|| format!("parsing {} as FASTA", input.display()))
+        .blame(Fault::Input)?;
     eprintln!("{} sequences from {}", proteins.len(), input.display());
+    Ok(Request { proteins, text })
+}
 
+/// The models, loaded and verified.
+struct Prepared {
+    /// The trained heads.
+    heads: Heads,
+    /// The embedding model.
+    model: Esm2,
+    /// What it runs on.
+    device: candle_core::Device,
+    /// How that device is described to a reader.
+    description: String,
+    /// What goes in the output's comments.
+    prov: Provenance,
+    /// The head's recorded identity.
+    metadata: opendna_ml::heads::HeadMetadata,
+    /// Where the head's files are.
+    files: HeadFiles,
+}
+
+/// Load the models, refusing before any work begins.
+///
+/// # Errors
+/// If the head is missing, corrupt, or unloadable. Everything here is a
+/// property of the installation rather than of the data, which is why it runs
+/// after the request has already been checked.
+fn prepare(dir: &Path, global: Global, task: Task) -> Result<Prepared, Failure> {
     // Refuse before loading anything: predicting from weights that do not
     // match their metadata is how an unidentifiable number ends up in
     // someone's results.
     let head = inventory::scan(dir, EMBEDDER)
         .into_iter()
         .find(|h| h.task == task.name())
-        .ok_or_else(|| anyhow!("unknown task {}", task.name()))?;
+        .ok_or_else(|| anyhow!("unknown task {}", task.name()))
+        .blame(Fault::Usage)?;
     if !head.ready() {
-        bail!("{} head: {}", task.name(), head.describe());
+        return Err(Failure {
+            fault: Fault::Install,
+            error: anyhow!("{} head: {}", task.name(), head.describe()),
+        });
     }
 
     let device = opendna_ml::best_device()?;
     let description = opendna_ml::device_description(&device);
-    let Loaded { prov, metadata, files } = head_provenance(dir, task, &description)?;
+    let Loaded { prov, metadata, files } = head_provenance(dir, task, &description).blame(Fault::Install)?;
     eprintln!("Running {} on {description}", task.name());
 
-    let heads = Heads::load(dir, EMBEDDER, &device)?;
-    let model = staging::open_embedder(dir, EMBEDDER, &device, global.offline)?;
+    let heads = Heads::load(dir, EMBEDDER, &device).blame(Fault::Install)?;
+    let model = staging::open_embedder(dir, EMBEDDER, &device, global.offline).blame(Fault::Install)?;
+    Ok(Prepared { heads, model, device, description, prov, metadata, files })
+}
+
+/// Run one prediction and record what produced it.
+///
+/// # Errors
+/// If the input cannot be parsed, if the head is missing or corrupt, if the
+/// embedding model cannot be loaded, or if anything cannot be written. The
+/// [`Fault`] on the failure distinguishes the install's problems from the
+/// data's, because a caller can only act on the difference.
+fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure> {
+    let PredictArgs { task, input, output, format, mutations } = args;
+    let started_utc = chrono::Utc::now();
+    let started = std::time::Instant::now();
+    // Nothing installed can make this combination meaningful, so it is
+    // refused before the input is even read.
+    if format == Format::Caid && task != Task::Disorder {
+        return Err(Failure {
+            fault: Fault::Usage,
+            error: anyhow!(
+                "--format caid is the CAID disorder prediction format and only applies to \
+                 --task disorder"
+            ),
+        });
+    }
+
+    let Request { proteins, text } = read_request(&input)?;
+
+    // Resolve what was asked for against the data before loading the model.
+    // Everything that can be wrong with a mutation list needs only the FASTA,
+    // so checking it first means a typo is reported in a moment rather than
+    // after several hundred megabytes have loaded for a run that cannot work.
+    let resolved = match task {
+        Task::Stability => {
+            let path = mutations.as_deref().ok_or_else(|| Failure {
+                fault: Fault::Usage,
+                error: anyhow!(
+                    "--mutations <file> is required for stability: the head scores named \
+                     substitutions, so it needs to be told which ones. The file is a CSV of \
+                     `name,mutation` rows, for example `ubiquitin,L8P`."
+                ),
+            })?;
+            let wanted = read_mutations(path).blame(Fault::Input)?;
+            Some(resolve_mutations(&proteins, &wanted).blame(Fault::Input)?)
+        }
+        Task::Disorder | Task::Burial | Task::Solubility => None,
+    };
+
+    let Prepared { heads, model, device, description, prov, metadata, files } = prepare(dir, global, task)?;
 
     // One manifest writer for every format, so no output can end up described
     // differently from another.
@@ -421,12 +524,6 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<()> {
     };
 
     if format == Format::Caid {
-        if task != Task::Disorder {
-            bail!(
-                "--format caid is the CAID disorder prediction format and only applies to \
-                 --task disorder"
-            );
-        }
         let predictions = disorder(&proteins, &heads, &model, &device)?;
         let targets: Vec<(String, Vec<caid::Residue>)> = predictions
             .into_iter()
@@ -448,18 +545,12 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<()> {
     }
 
     let table = match task {
-        Task::Disorder => disorder_table(&disorder(&proteins, &heads, &model, &device)?),
-        Task::Burial => burial(&proteins, &heads, &model, &device)?,
-        Task::Solubility => solubility(&proteins, &heads, &model, &device)?,
+        Task::Disorder => disorder_table(&disorder(&proteins, &heads, &model, &device).blame(Fault::Input)?),
+        Task::Burial => burial(&proteins, &heads, &model, &device).blame(Fault::Input)?,
+        Task::Solubility => solubility(&proteins, &heads, &model, &device).blame(Fault::Input)?,
         Task::Stability => {
-            let path = mutations.as_deref().ok_or_else(|| {
-                anyhow!(
-                    "--mutations <file> is required for stability: the head scores named \
-                     substitutions, so it needs to be told which ones. The file is a CSV of \
-                     `name,mutation` rows, for example `ubiquitin,L8P`."
-                )
-            })?;
-            stability(&proteins, &read_mutations(path)?, &heads, &model, &device)?
+            let resolved = resolved.as_deref().unwrap_or_default();
+            stability(&proteins, resolved, &heads, &model, &device).blame(Fault::Input)?
         }
     };
     let rendered = table.render(format, &prov)?;
@@ -691,39 +782,103 @@ fn parse_mutation(label: &str, residues: &[char], name: &str) -> Result<(char, u
     Ok((wild, index, mutant))
 }
 
-fn stability(
+/// One substitution, resolved against the sequence it applies to.
+struct Substitution {
+    /// The label as written, which is what the output reports.
+    label: String,
+    /// 0-based position in the sequence.
+    index: usize,
+    /// The wild-type residue's index in [`AminoAcid::STANDARD`].
+    wild: usize,
+    /// The mutant residue's, likewise.
+    mutant: usize,
+    /// The wild-type and mutant letters, for the masked log-odds.
+    letters: (char, char),
+}
+
+/// Resolve every requested mutation against the sequences.
+///
+/// Done before any model is loaded. Everything that can go wrong here -- a
+/// malformed label, a position past the end, a wild-type letter the sequence
+/// contradicts, a residue outside the twenty the head encodes, a name matching
+/// no sequence -- needs only the FASTA, so paying for several hundred
+/// megabytes of embedding model first would be waiting to be told about a
+/// typo.
+///
+/// # Errors
+/// If any mutation cannot be resolved, naming it. One bad label stops the run
+/// rather than being skipped: a table silently missing rows looks exactly like
+/// a table that is complete.
+fn resolve_mutations(
     proteins: &[(String, String)],
     wanted: &[(String, String)],
-    heads: &Heads,
-    model: &Esm2,
-    device: &candle_core::Device,
-) -> Result<Table> {
-    let head = heads.stability.as_ref().ok_or_else(|| anyhow!("the stability head did not load"))?;
+) -> Result<Vec<(String, Vec<Substitution>)>> {
     let standard = AminoAcid::STANDARD;
-    let mut rows = Vec::new();
-
+    let mut out = Vec::new();
     for (name, sequence) in proteins {
         let mine: Vec<&String> = wanted.iter().filter(|(n, _)| n == name).map(|(_, m)| m).collect();
         if mine.is_empty() {
             continue;
         }
         let residues: Vec<char> = sequence.chars().collect();
-        if residues.len() > model.max_residues() {
+        let mut resolved = Vec::with_capacity(mine.len());
+        for label in mine {
+            let (wild, index, mutant) = parse_mutation(label, &residues, name)?;
+            let (Some(wt), Some(mt)) = (
+                standard.iter().position(|a| a.one_letter() == wild),
+                standard.iter().position(|a| a.one_letter() == mutant),
+            ) else {
+                bail!(
+                    "{name}: {label} involves a residue the head was not trained on; only the 20 \
+                     standard amino acids are encoded"
+                );
+            };
+            resolved.push(Substitution {
+                label: label.clone(),
+                index,
+                wild: wt,
+                mutant: mt,
+                letters: (wild, mutant),
+            });
+        }
+        out.push((name.clone(), resolved));
+    }
+    if out.is_empty() {
+        bail!(
+            "no mutation matched a sequence in the FASTA file. Names must match the FASTA header \
+             exactly."
+        );
+    }
+    Ok(out)
+}
+
+fn stability(
+    proteins: &[(String, String)],
+    resolved: &[(String, Vec<Substitution>)],
+    heads: &Heads,
+    model: &Esm2,
+    device: &candle_core::Device,
+) -> Result<Table> {
+    let head = heads.stability.as_ref().ok_or_else(|| anyhow!("the stability head did not load"))?;
+    let mut rows = Vec::new();
+
+    for (name, mutations) in resolved {
+        let sequence = proteins
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, s)| s)
+            .ok_or_else(|| anyhow!("{name}: resolved mutations for a sequence that is not here"))?;
+        if sequence.chars().count() > model.max_residues() {
             bail!(
                 "{}: {} residues exceeds the embedding model's {} limit",
                 name,
-                residues.len(),
+                sequence.chars().count(),
                 model.max_residues()
             );
         }
 
-        let parsed: Vec<(char, usize, char, &String)> = mine
-            .iter()
-            .map(|label| parse_mutation(label, &residues, name).map(|(w, i, m)| (w, i, m, *label)))
-            .collect::<Result<_>>()?;
-
         let embedding = model.embed(&[sequence.as_str()])?.remove(0);
-        let mut positions: Vec<usize> = parsed.iter().map(|(_, i, _, _)| *i).collect();
+        let mut positions: Vec<usize> = mutations.iter().map(|m| m.index).collect();
         positions.sort_unstable();
         positions.dedup();
         let log_probs = model.masked_log_probs(sequence, &positions)?;
@@ -732,34 +887,21 @@ fn stability(
 
         let mut features = Vec::new();
         let mut kept = Vec::new();
-        for (wild, index, mutant, label) in &parsed {
-            let (Some(wt), Some(mt)) = (
-                standard.iter().position(|a| a.one_letter() == *wild),
-                standard.iter().position(|a| a.one_letter() == *mutant),
-            ) else {
-                bail!(
-                    "{name}: {label} involves a residue the head was not trained on; only the 20 \
-                     standard amino acids are encoded"
-                );
-            };
-            let lp = &log_probs[index_of[index]];
+        for m in mutations {
+            let lp = &log_probs[index_of[&m.index]];
             let logp = |letter: char| -> f32 { lp[opendna_ml::esm2::alphabet::token_id(letter) as usize] };
-            let site = embedding.residue(*index).ok_or_else(|| anyhow!("{name}: no embedding at {index}"))?;
-            features.push(StabilityHead::features(site, wt, mt, logp(*mutant) - logp(*wild)));
-            kept.push((label, logp(*mutant) - logp(*wild)));
+            let odds = logp(m.letters.1) - logp(m.letters.0);
+            let site =
+                embedding.residue(m.index).ok_or_else(|| anyhow!("{name}: no embedding at {}", m.index))?;
+            features.push(StabilityHead::features(site, m.wild, m.mutant, odds));
+            kept.push((&m.label, odds));
         }
         let predicted = head.predict(&features, model.hidden_size(), device)?;
         for ((label, log_odds), ddg) in kept.into_iter().zip(predicted) {
-            rows.push(vec![name.clone(), (*label).clone(), format!("{ddg:+.3}"), format!("{log_odds:+.3}")]);
+            rows.push(vec![name.clone(), label.clone(), format!("{ddg:+.3}"), format!("{log_odds:+.3}")]);
         }
     }
 
-    if rows.is_empty() {
-        bail!(
-            "no mutation matched a sequence in the FASTA file. Names must match the FASTA header \
-             exactly."
-        );
-    }
     Ok(Table { columns: vec!["name", "mutation", "ddg_kcal_per_mol", "log_odds"], rows })
 }
 

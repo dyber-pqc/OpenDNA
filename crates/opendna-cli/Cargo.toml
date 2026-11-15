@@ -24,6 +24,12 @@ serde_json.workspace = true
 sha2.workspace = true
 chrono.workspace = true
 
+[dev-dependencies]
+# The exit-code test builds its own corrupt and swapped fixtures, which means
+# rehashing weights and rewriting metadata.
+sha2.workspace = true
+serde_json.workspace = true
+
 [features]
 cuda = ["opendna-ml/cuda"]
 metal = ["opendna-ml/metal"]

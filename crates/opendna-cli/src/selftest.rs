@@ -28,6 +28,7 @@
 //! someone records new values. That is the honest state: nobody has measured
 //! what the new head does on this fixture yet.
 
+use crate::exit::{Classify as _, Fault::Install};
 use anyhow::{anyhow, bail, Context, Result};
 use opendna_ml::esm2::ModelSize;
 use opendna_ml::heads::Heads;
@@ -374,28 +375,31 @@ fn pinned(n: &Numbers, build_of: &impl Fn(&str) -> Option<String>) -> Vec<Check>
 ///
 /// With `offline` set it will not reach the network, so on a staged bundle it
 /// tests the same files the predictions will use.
-pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<()> {
+pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<(), crate::exit::Failure> {
     let found = crate::inventory::scan(dir, embedder);
     let unusable: Vec<String> =
         found.iter().filter(|h| !h.ready()).map(|h| format!("  {:11} {}", h.task, h.describe())).collect();
     if !unusable.is_empty() {
-        bail!(
-            "selftest needs all four heads installed and intact. In {}:\n{}",
-            dir.display(),
-            unusable.join("\n")
-        );
+        return Err(crate::exit::Failure {
+            fault: crate::exit::Fault::Install,
+            error: anyhow!(
+                "selftest needs all four heads installed and intact. In {}:\n{}",
+                dir.display(),
+                unusable.join("\n")
+            ),
+        });
     }
     let build_of = |task: &str| -> Option<String> {
         found.iter().find(|h| h.task == task).and_then(|h| h.metadata.as_ref()).and_then(|m| m.build.clone())
     };
 
-    let device = opendna_ml::best_device()?;
+    let device = opendna_ml::best_device().blame(Install)?;
     let description = opendna_ml::device_description(&device);
     println!("Self-test on {description}");
     println!("Fixture: {NAME}, {} residues", SEQUENCE.len());
 
-    let heads = Heads::load(dir, embedder, &device)?;
-    let model = crate::staging::open_embedder(dir, embedder, &device, offline)?;
+    let heads = Heads::load(dir, embedder, &device).blame(Install)?;
+    let model = crate::staging::open_embedder(dir, embedder, &device, offline).blame(Install)?;
     println!(
         "Embedding model: {} ({})",
         embedder.repo(),
@@ -408,13 +412,16 @@ pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<()> {
     let proteins = vec![(NAME.to_string(), SEQUENCE.to_string())];
     let mutations: Vec<(String, String)> =
         MUTATIONS.iter().map(|m| (NAME.to_string(), (*m).to_string())).collect();
+    // Through the same resolution the CLI does, so the fixture exercises the
+    // wild-type agreement check as well as the head.
+    let resolved = crate::resolve_mutations(&proteins, &mutations).blame(Install)?;
 
     // The same calls `predict` makes, in the same order.
-    let disorder_runs = crate::disorder(&proteins, &heads, &model, &device)?;
+    let disorder_runs = crate::disorder(&proteins, &heads, &model, &device).blame(Install)?;
     let disorder_table = crate::disorder_table(&disorder_runs);
-    let burial_table = crate::burial(&proteins, &heads, &model, &device)?;
-    let solubility_table = crate::solubility(&proteins, &heads, &model, &device)?;
-    let stability_table = crate::stability(&proteins, &mutations, &heads, &model, &device)?;
+    let burial_table = crate::burial(&proteins, &heads, &model, &device).blame(Install)?;
+    let solubility_table = crate::solubility(&proteins, &heads, &model, &device).blame(Install)?;
+    let stability_table = crate::stability(&proteins, &resolved, &heads, &model, &device).blame(Install)?;
 
     let numbers = Numbers {
         repeated: {
@@ -432,7 +439,7 @@ pub fn run(dir: &Path, embedder: ModelSize, offline: bool) -> Result<()> {
 
     let mut checks = invariants(&numbers);
     checks.extend(pinned(&numbers, &build_of));
-    report(&checks)
+    report(&checks).blame(crate::exit::Fault::Checks)
 }
 
 /// Print the checks and decide the exit status.
