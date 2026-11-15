@@ -1,36 +1,111 @@
 # OpenDNA
 
-A desktop application for protein engineering. It runs locally, in Rust, with
-no server and no network service: sequences stay on the machine they were
-opened on.
+Protein property prediction that runs on your own machine. No server, no
+account, no network: sequences stay where you opened them.
 
-Three trained models predict mutation effects on folding stability, protein
-solubility, and per-residue disorder. Each is a small head on frozen
-[ESM-2](https://huggingface.co/facebook/esm2_t30_150M_UR50D) embeddings. When
-a model is missing the application says the prediction is unavailable; there
-is no heuristic fallback anywhere, and no number shown in the interface comes
-from anything but a trained model.
+Three trained models score candidate sequences for per-residue disorder,
+solubility, and the stability effect of a point mutation. Each is a small head
+on frozen [ESM-2](https://huggingface.co/facebook/esm2_t30_150M_UR50D)
+embeddings. When a model is missing the answer is an error saying so — there
+is no heuristic fallback anywhere, and no number in the interface comes from
+anything but a trained model.
 
-## Status
+## Who this is for
 
-The project is being rewritten from a Python service with a React front end to
-a single Rust application. That rewrite is the current state of the repository:
-the Python backend and React UI have been removed, along with the REST API and
-the deployment and workflow integrations that targeted it.
+**If you have candidate sequences you cannot upload, and you want to triage
+them before committing bench time**, this is built for you. Of the commercial
+protein-design platforms, essentially all are cloud-only; the reason to use
+OpenDNA is usually not that it predicts better but that it predicts at all
+inside an environment where sending unpublished constructs to a vendor is not
+allowed.
 
-What works today:
+Concretely, it is useful today if you are:
 
-| | |
-|---|---|
-| Structure and sequence I/O | PDB, mmCIF, FASTA |
-| Structure analysis | geometry, contacts, secondary structure, SASA |
-| Embeddings | ESM-2 (8M–650M) in [candle](https://github.com/huggingface/candle), CPU, CUDA or Metal |
-| Predictions | ΔΔG of substitution, solubility, per-residue disorder |
-| Desktop application | Tauri 2 shell, Leptos UI, Mol\* structure viewer |
-| Dataset pipeline | four datasets built from pinned upstream sources |
+- **Working on intrinsic disorder.** The disorder head is competitive with the
+  CAID3 field (below), runs over a whole proteome from one command, and costs
+  nothing.
+- **Screening constructs under IP or data-governance constraints.** Nothing
+  leaves the machine, so there is no review to pass.
+- **Somewhere that has to show its work.** Every prediction carries the model
+  version, the embedding model, and the limitations from that model's card;
+  every dataset file is checksummed; the published models and this repository
+  provably describe the same build.
 
-What it does **not** do. Earlier versions of this README advertised these; none
-of them exists in the Rust application:
+It is **not** yet useful if you need structure prediction, docking, sequence
+design, antibody-specific models, a signed installer, or a support contract.
+Those are either absent or unfinished, and the section below says which.
+
+## Quick start
+
+Predictions need the trained heads, which are not bundled:
+
+```bash
+hf download dyber-pqc/opendna-disorder --local-dir models
+export OPENDNA_MODELS=$PWD/models
+```
+
+Then score a whole FASTA file:
+
+```bash
+cargo run --release -p opendna-cli -- predict --task disorder \
+    --input candidates.fasta --output disorder.csv
+```
+
+`--task` takes `disorder`, `solubility` or `stability`; `--format` takes
+`csv`, `tsv`, `json`, or `caid` for a CAID submission. See
+[crates/opendna-cli](crates/opendna-cli) for the command, and
+[CAID.md](crates/opendna-cli/CAID.md) for the assessment format.
+
+The desktop application is the same models with a structure viewer; see
+[Build](#build).
+
+## How good the models are
+
+Two kinds of number, and the distinction matters more than the values.
+**In-domain** is our own held-out test split: how a head does on data drawn
+the way its training data was drawn. **External** is a reference set that
+other published methods also report on, which is the only kind that says where
+a head stands relative to the field.
+
+| Head | In-domain test | External |
+|---|---|---|
+| **Disorder** | AUROC 0.883 | **AUROC 0.941** on CAID3 Disorder-PDB |
+| Stability (ΔΔG) | Spearman 0.674 | Spearman 0.442 over 4 ProteinGym assays |
+| Solubility | Spearman 0.701 | none exists under usable terms |
+
+**Disorder is the strong one.** Published CAID3 Disorder-PDB figures include
+AIUPred v3 at 0.925 and MUSE-IDR at 0.954, so 0.941 sits inside that field.
+Two caveats, both ours: this is a reimplementation of the CAID protocol
+against their published reference file, not an official CAID entry; and 34 of
+the 319 targets exceed ESM-2's length limit and were covered by overlapping
+windows, which no published entrant does. The number was independently
+recomputed in numpy at 0.9409 by `scripts/validate_caid.py`, so it is not an
+artefact of one implementation.
+
+It scores *higher* externally than in-domain, which is not an improvement but
+a different target: our split labels unannotated residues ordered, because
+DisProt records only demonstrated disorder, so the negative class contains
+disordered residues nobody has shown yet. CAID masks what it did not assess.
+
+**Stability is a ranking signal, not a measurement.** It falls from 0.674 to
+0.442 out of domain because it trains on single domains of 32–74 residues and
+the external assays are whole proteins of 164–403. The in-domain figure
+overstates generalisation by roughly 0.23 Spearman. All four assays correlate
+positively, so the ordering is right; treat an individual ΔΔG as weak.
+
+**Solubility has no external number** because the benchmarks for it come from
+sources whose terms forbid redistribution, or from services that have been
+retired. Saying so beats quoting the in-domain figure as though it were
+comparable.
+
+Both suites are reproducible with `opendna-train bench`; the reports and the
+reasoning are in [training/benchmarks](training/benchmarks). A bigger
+embedding model was tried and rejected: ESM-2 650M made the disorder head
+*worse* on every external metric, for 2.61 GB of weights against 0.60 GB.
+
+## What it does not do
+
+Earlier versions of this README advertised all of these. None exists:
 
 - structure prediction (no ESMFold, no AlphaFold)
 - docking, molecular dynamics, or free-energy calculation
@@ -38,59 +113,11 @@ of them exists in the Rust application:
 - antibody-specific modelling
 - any HTTP API, hosted service, or notebook integration
 
-## Predictions, and how good they are
-
-Two kinds of number. **In-domain** is our own held-out test split: how the head
-does on data drawn the way its training data was drawn. **External** is a
-reference set that other published methods also report on, which is the only
-kind of number that says where the head stands relative to the field.
-
-| Head | In-domain test | External |
-|---|---|---|
-| Stability (ΔΔG) | Spearman 0.674 | Spearman 0.442 mean over 4 ProteinGym assays |
-| Solubility | Spearman 0.701 | none — see below |
-| Disorder | AUROC 0.883 | AUROC 0.941 on CAID3 Disorder-PDB |
-
-The two columns disagree in both directions, and the reasons matter more than
-the numbers:
-
-- **Stability falls from 0.674 to 0.442.** The head is trained on single
-  domains of 32–74 residues. The external assays are whole proteins of 164–403
-  residues measuring variant abundance and thermostability. The in-domain
-  figure overstates how well this generalises by roughly 0.23 Spearman, and
-  the external one is the honest estimate for a protein you care about. All
-  four assays correlate positively, so the ordering is right even where the
-  strength is modest.
-- **Disorder rises from 0.883 to 0.941.** Not an improvement: a different
-  target. Our split uses DisProt labels, where any unannotated residue counts
-  as ordered, so the negative class contains disordered residues nobody has
-  demonstrated yet. CAID masks the residues it did not assess and scores only
-  the rest. For context, published CAID3 Disorder-PDB figures include AIUPred
-  v3 at 0.925 and MUSE-IDR at 0.954. This is our reimplementation of the
-  protocol against the published reference file, not an official CAID3 entry.
-- **Solubility has no external number.** The benchmarks that exist for it come
-  from sources whose terms do not permit redistribution, or from services that
-  have been retired. Saying so is more useful than quoting the in-domain
-  figure as though it were comparable.
-
-Reproduce either with `opendna-train bench`; see
-[training/benchmarks/](training/benchmarks). The benchmark data is never
-redistributed or built into a dataset — some of it carries no licence at all,
-which permits evaluation but not republication.
-
-The published heads use ESM-2 150M. All three were also retrained on 650M, an
-embedder four times the size: the stability head improved (+0.019 external
-Spearman), the disorder head got **worse** on every external metric, and
-solubility gained 0.01 in domain with no external check. Since 650M is 2.61 GB
-against 0.60 GB, mixing them would mean shipping two embedding models to buy
-one modest gain, so 150M stays. The numbers are in
-[training/benchmarks/](training/benchmarks).
-
-## Datasets and models
+## Datasets
 
 Built by [datasets/](datasets) from pinned upstream sources, every file
 checksummed, with a licence review recorded per source — including the sources
-that were **excluded** because their terms forbid redistribution.
+**excluded** because their terms forbid redistribution.
 
 | Dataset | Rows | Source |
 |---|---:|---|
@@ -101,8 +128,8 @@ that were **excluded** because their terms forbid redistribution.
 
 Splits are by 30% sequence-identity cluster, so no close homolog spans two
 splits. Validation chooses the epoch; the test split is scored once,
-afterwards. The published datasets and heads are listed in
-[models/README.md](models/README.md).
+afterwards; external benchmarks are never tuned against at all. The published
+datasets and heads are listed in [models/README.md](models/README.md).
 
 ## Build
 
@@ -110,6 +137,7 @@ Rust 1.95 or newer. `unsafe` is forbidden across the workspace.
 
 ```bash
 cargo test --workspace
+cargo run --release -p opendna-cli -- models
 ```
 
 The desktop application is a separate workspace:
@@ -123,36 +151,35 @@ cd ui && trunk build --release && cd ..
 cargo run -p opendna-desktop
 ```
 
-Predictions need the trained heads. Download them into a directory and point
-`OPENDNA_MODELS` at it:
-
-```bash
-hf download dyber-pqc/opendna-stability --local-dir models
-```
-
 GPU builds need a `cuda` feature and a toolkit candle supports; on Windows use
-`scripts/cargo-cuda.ps1`, which loads nvcc and MSVC and explains the version
-bounds.
+`scripts/cargo-cuda.ps1`, which loads nvcc and MSVC and documents the version
+bounds and the PowerShell argument traps.
 
 ## Layout
 
 | Directory | Workspace | Contents |
 |---|---|---|
-| [crates/](crates) | root | core types, I/O, analysis, storage, ESM-2 and the heads |
+| [crates/](crates) | root | core types, I/O, analysis, storage, ESM-2, the heads, the CLI |
 | [app/](app) | `app` | Tauri desktop shell, Leptos UI, IPC protocol |
 | [datasets/](datasets) | `datasets` | the dataset builder |
 | [training/](training) | `training` | embedding cache, training, model cards, benchmarks |
 | [models/](models) | — | trained heads and their cards; weights are not committed |
 
 Each workspace is built, linted with `clippy -D warnings`, and tested in CI.
+[DEVELOPMENT.md](DEVELOPMENT.md) has the ground rules a change is held to.
 
-## License
+## Licence
 
-[Apache-2.0](LICENSE), which is what the `LICENSE` file and every crate's
-metadata say. An earlier README claimed "Apache 2.0 + Commons Clause", a
-different and more restrictive grant that appears nowhere in the repository;
-that claim has been removed rather than acted on.
+The code is [Apache-2.0](LICENSE), which is what the `LICENSE` file and every
+crate's metadata say. An earlier README claimed "Apache 2.0 + Commons Clause",
+a different and more restrictive grant that appears nowhere in the repository;
+it was removed rather than acted on.
 
-Datasets and model weights carry the licences their training data requires,
-which are not all the same — the solubility head is share-alike because eSOL
-is. Each card states its own.
+**Model weights are not all under the same licence, because their training
+data is not.** The stability and disorder heads are Apache-2.0: their sources
+are CC BY, which asks for attribution and sets no condition on derived work.
+The solubility head is **CC BY-SA 2.1 JP**, following eSOL — whether weights
+are a derivative work of their training data is unsettled, and a share-alike
+condition is not something to assume away in our own favour. If you are
+embedding OpenDNA commercially, that distinction is the one to take to
+counsel. Each model card states its own licence and the reasoning.

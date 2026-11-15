@@ -1,7 +1,17 @@
 # OpenDNA
 
-A desktop application for protein engineering. It runs locally, in Rust, with
-no server and no network service.
+Protein property prediction that runs on your own machine. No server, no
+account, no network: sequences stay where you opened them.
+
+Three trained models score candidate sequences for per-residue disorder,
+solubility, and the stability effect of a point mutation, from a command line
+or a desktop application. The disorder head is competitive with the CAID3
+field — AUROC 0.941 on Disorder-PDB, against published figures of 0.925 for
+AIUPred v3 and 0.954 for MUSE-IDR.
+
+The reason to use it is usually not that it predicts better, but that it
+predicts at all somewhere that sending unpublished sequences to a vendor is
+not allowed.
 
 This documentation set is deliberately thin. OpenDNA is mid-rewrite from a
 Python service with a React front end to a single Rust application, and most
@@ -18,6 +28,8 @@ The accurate documentation lives next to the code it describes:
 | [Datasets](https://github.com/dyber-pqc/OpenDNA/blob/main/datasets/README.md) | sources, licences, construction, reproducibility |
 | [Training](https://github.com/dyber-pqc/OpenDNA/blob/main/training/README.md) | embedding caches, training the heads, external benchmarks |
 | [Models](https://github.com/dyber-pqc/OpenDNA/blob/main/models/README.md) | the trained heads, their cards, and publishing |
+| [Command line](https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/README.md) | batch predictions over a FASTA file |
+| [CAID submissions](https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/CAID.md) | the assessment format, and the two ways it fails silently |
 
 Each trained head carries its own model card stating its baseline, its
 measured metrics, and its limitations.

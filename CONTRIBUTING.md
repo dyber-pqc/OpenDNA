@@ -70,9 +70,20 @@ the ground rules a change is held to.
 
 By participating, you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## License
+## Licence
 
-By contributing, you agree to license your contributions under the same terms as the project (Apache 2.0 + Commons Clause).
+By contributing, you agree to licence your contributions under the same terms
+as the project: **[Apache-2.0](LICENSE)**.
+
+This previously said "Apache 2.0 + Commons Clause", which is a different and
+more restrictive grant and is not the licence in the `LICENSE` file or in any
+crate's metadata. It mattered more here than in a README: this paragraph is
+what a contributor agrees to, and it was asking them to agree to terms the
+project does not use.
+
+Model weights are a separate question — they carry the licence their training
+data requires, and those differ. See the [licence section of the
+README](README.md#licence).
 
 ## Questions?
 
