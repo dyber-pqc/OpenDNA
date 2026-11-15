@@ -111,7 +111,7 @@ pub fn read_caid_reference(r: impl BufRead) -> Result<Vec<CaidEntry>> {
         .into_iter()
         .filter(|l| !l.trim().is_empty())
         .collect();
-    if lines.len() % 3 != 0 {
+    if !lines.len().is_multiple_of(3) {
         bail!("CAID reference has {} non-empty lines, expected a multiple of 3", lines.len());
     }
     let mut out = Vec::with_capacity(lines.len() / 3);
