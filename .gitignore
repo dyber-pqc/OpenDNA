@@ -40,3 +40,7 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Comparison runs on another embedder write heads here; weights are never
+# committed, the same as models/.
+models-*/
