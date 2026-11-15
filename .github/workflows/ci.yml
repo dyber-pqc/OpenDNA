@@ -77,7 +77,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.95
       - uses: Swatinem/rust-cache@v2
+      # Each workspace declares the same `rust-version`, so each has to be
+      # checked: a declared MSRV that nothing builds against is a guess.
       - run: cargo check --workspace --locked
+      - run: cargo check --workspace --locked
+        working-directory: datasets
+      - run: cargo check --workspace --locked
+        working-directory: training
 
   desktop-app:
     name: Desktop app (Tauri + Leptos)
@@ -110,6 +116,41 @@ jobs:
       - run: cargo clippy -p opendna-desktop -p opendna-app-protocol -p xtask --all-targets --locked -- -D warnings
       - run: cargo clippy -p opendna-ui --target wasm32-unknown-unknown --all-targets --locked -- -D warnings
       - run: cargo test -p opendna-desktop -p opendna-app-protocol -p opendna-ui --locked
+
+  # The dataset builder and the training pipeline are separate workspaces, so
+  # the root `rust` job does not reach them. Ubuntu only: both pull in heavy
+  # dependencies (Arrow, candle) and neither contains platform-specific code,
+  # while the libraries they share are already built on three OSes above.
+  #
+  # Nothing here downloads a dataset, fetches a checkpoint or trains anything.
+  # The dataset tests run against the small fixtures in
+  # `datasets/opendna-data/tests/fixtures`, and the training tests cover the
+  # dataset readers, metrics and card rendering on synthetic reports. Both
+  # suites finish in seconds.
+  data-and-training:
+    name: Dataset builder and training
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [datasets, training]
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.workspace }}
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test
+        run: cargo test --workspace --locked
 
   # Legacy jobs below cover the Python backend and React UI until the Rust
   # rewrite reaches parity; they are removed at cutover.
