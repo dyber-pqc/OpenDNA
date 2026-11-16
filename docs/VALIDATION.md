@@ -229,10 +229,15 @@ for residues predicted to be buried down to 79.1% in the middle of the range.
 Somebody holding a mid-range prediction has a 79% interval labelled 90%. Each
 model card lists the conditional coverage by band.
 
-One more caveat specific to stability: its 37,983 calibration residuals come
-from only 36 distinct wild-type proteins. The quantile is estimated from far
-fewer independent observations than the count suggests, so coverage on a
-protein unlike those 36 may be worse than the table says.
+One more caveat specific to stability, and it is worse than an earlier version
+of this page said. Its 37,983 calibration residuals come from the validation
+split, which the dataset manifest records as **18** sequence-identity clusters
+of wild-type proteins; coverage was then measured on a test split of 24. This
+page previously said 36, a figure nothing supports — the manifest is the
+source, and it is in `datasets/cards/stability/manifest.json`. Residuals from
+one wild-type protein are correlated, so each quantile rests on something
+nearer 18 independent observations than 37,983, and coverage on a protein
+unlike those 18 may be worse than the table says.
 
 ## Should I trust every residue equally?
 

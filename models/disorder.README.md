@@ -58,7 +58,7 @@ For a CAID submission, add `--format caid`.
 | F1 | 0.535 | 0.573 | 0.304 |
 | MCC | 0.434 | 0.493 | — |
 
-A — in the baseline column means the metric is undefined for that baseline, not unmeasured: a baseline that predicts the same value for every input has no correlation with the truth.
+A — in the baseline column means the metric is undefined for that baseline, not unmeasured. This baseline is a score rather than a prediction in the same units as the measurements, so an absolute or squared error against them is not defined for it — only how well it orders them.
 
 Baseline: Labelling every residue disordered.
 

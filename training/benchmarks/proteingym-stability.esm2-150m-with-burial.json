@@ -2,6 +2,7 @@
   "suite": "proteingym-stability-out-of-domain",
   "embedding_model": "facebook/esm2_t30_150M_UR50D",
   "head_version": "0.6.0-dev",
+  "with_burial": true,
   "proteins": 4,
   "residues_scored": 13747,
   "residues_masked": 0,
@@ -32,7 +33,7 @@
   "per_protein_auroc": null,
   "per_protein_undefined": 0,
   "caveats": [
-    "These assays measure variant abundance or thermostability in whole proteins, not ΔΔG by calorimetry. They are correlates of folding stability, so a positive Spearman means the head orders destabilising substitutions correctly; the magnitude is not comparable to a ΔΔG-against-ΔΔG correlation.",
+    "These assays measure variant abundance or thermostability in whole proteins, not \u0394\u0394G by calorimetry. They are correlates of folding stability, so a positive Spearman means the head orders destabilising substitutions correctly; the magnitude is not comparable to a \u0394\u0394G-against-\u0394\u0394G correlation.",
     "Every ProteinGym assay derived from Tsuboyama 2023 is excluded. Those 64 assays are the head's own training data, and scoring them would measure memorisation.",
     "ProteinGym scores are higher-is-fitter, and the head predicts higher-is-more-stable, so the expected sign is positive. A negative correlation here would mean the head is ordering mutations backwards on this protein, not that the convention is flipped.",
     "4 assays, 13747 mutants scored. This is a handful of proteins, so the mean across assays has no useful confidence interval; read the per-assay numbers.",

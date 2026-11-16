@@ -186,6 +186,16 @@ pub struct BenchReport {
     pub embedding_model: String,
     /// Head version from its metadata.
     pub head_version: String,
+    /// Whether the head that was scored takes burial features.
+    ///
+    /// Two heads can be trained on the same embedder and scored on the same
+    /// suite and differ only in this. Without it a report cannot say which of
+    /// them it measured, and a card showing both presents a variant that was
+    /// rejected beside the one that ships. Defaults to false so reports
+    /// written before the field existed still parse; the one of those that was
+    /// a with-burial run has been corrected by hand.
+    #[serde(default)]
+    pub with_burial: bool,
     /// Proteins scored.
     pub proteins: usize,
     /// Residues the reference assessed, and which therefore count.
@@ -339,6 +349,7 @@ pub fn disorder(
         suite: "caid3-disorder-pdb".into(),
         embedding_model: embedder.repo().into(),
         head_version: metadata.version,
+        with_burial: false,
         proteins: reference.len(),
         residues_scored: scores.len(),
         residues_masked: masked,
@@ -606,6 +617,7 @@ pub fn stability(assays: &[Assay], models_dir: &Path, embedder: ModelSize) -> Re
         suite: "proteingym-stability-out-of-domain".into(),
         embedding_model: embedder.repo().into(),
         head_version: metadata.version,
+        with_burial,
         proteins: assays.len() - skipped_assays.len(),
         residues_scored: scored,
         residues_masked: 0,
@@ -644,7 +656,12 @@ pub fn task_of(suite: &str) -> Option<&'static str> {
 /// If a file in `dir` ends in `.json` but is not a readable report. A
 /// malformed report is a mistake worth stopping for, since the alternative is
 /// silently publishing a card with a benchmark missing.
-pub fn load_reports(dir: &Path, task: &str, embedding_model: &str) -> Result<Vec<BenchReport>> {
+pub fn load_reports(
+    dir: &Path,
+    task: &str,
+    embedding_model: &str,
+    with_burial: bool,
+) -> Result<Vec<BenchReport>> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Ok(Vec::new());
     };
@@ -657,7 +674,14 @@ pub fn load_reports(dir: &Path, task: &str, embedding_model: &str) -> Result<Vec
         let text = std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
         let report: BenchReport = serde_json::from_str(&text)
             .with_context(|| format!("parsing {} as a benchmark report", path.display()))?;
-        if task_of(&report.suite) == Some(task) && report.embedding_model == embedding_model {
+        // All three must match. A report from a variant that was measured
+        // and not published is a measurement of a different model, and putting
+        // it on this model's card would be describing something nobody can
+        // download.
+        if task_of(&report.suite) == Some(task)
+            && report.embedding_model == embedding_model
+            && report.with_burial == with_burial
+        {
             out.push(report);
         }
     }

@@ -57,32 +57,13 @@ The output carries the head version, the embedding model, the device and the lim
 | RMSE | 0.802 | 0.699 | — |
 | Spearman ρ | 0.674 | 0.674 | 0.445 |
 
-A — in the baseline column means the metric is undefined for that baseline, not unmeasured: a baseline that predicts the same value for every input has no correlation with the truth.
+A — in the baseline column means the metric is undefined for that baseline, not unmeasured. This baseline is a score rather than a prediction in the same units as the measurements, so an absolute or squared error against them is not defined for it — only how well it orders them.
 
 Baseline: The language model's masked log-odds used directly, with no trained head.
 
 Validation chose the epoch that was kept (epoch 1 of 11 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
 
 ### Against published benchmarks
-
-**proteingym-stability-out-of-domain** — 13747 items scored.
-
-| Metric | Value |
-|---|---:|
-| spearman::ESTA_BACSU_Nutschel_2020 | 0.2897 |
-| spearman::NUD15_HUMAN_Suiter_2020 | 0.4570 |
-| spearman::PTEN_HUMAN_Matreyek_2021 | 0.3965 |
-| spearman::TPMT_HUMAN_Matreyek_2018 | 0.5057 |
-| spearman::mean_over_assays | 0.4122 |
-
-- These assays measure variant abundance or thermostability in whole proteins, not ΔΔG by calorimetry. They are correlates of folding stability, so a positive Spearman means the head orders destabilising substitutions correctly; the magnitude is not comparable to a ΔΔG-against-ΔΔG correlation.
-- Every ProteinGym assay derived from Tsuboyama 2023 is excluded. Those 64 assays are the head's own training data, and scoring them would measure memorisation.
-- ProteinGym scores are higher-is-fitter, and the head predicts higher-is-more-stable, so the expected sign is positive. A negative correlation here would mean the head is ordering mutations backwards on this protein, not that the convention is flipped.
-- 4 assays, 13747 mutants scored. This is a handful of proteins, so the mean across assays has no useful confidence interval; read the per-assay numbers.
-- ESTA_BACSU_Nutschel_2020: thermostability in a 212-residue protein, 2172 single substitutions.
-- NUD15_HUMAN_Suiter_2020: VAMP-seq, drug sensitivity in a 164-residue protein, 2844 single substitutions.
-- PTEN_HUMAN_Matreyek_2021: Protein stability in a 403-residue protein, 5083 single substitutions.
-- TPMT_HUMAN_Matreyek_2018: Protein stability in a 245-residue protein, 3648 single substitutions.
 
 **proteingym-stability-out-of-domain** — 13747 items scored.
 
@@ -164,6 +145,8 @@ A point estimate invites being read as a measurement. These intervals say how wi
 
 Mean absolute error on the same split is 0.532 kcal/mol.
 
-The achieved column is there because it differs from the nominal one. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. Where coverage falls short, it falls short in the direction that matters, so the measured figure is the one to believe.
+The achieved column is there because it differs from the nominal one, and it can differ either way. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. The measured column is the one to believe, in whichever direction it points.
+
+It rests on fewer observations than the residual count suggests. Residuals from one wild-type protein are correlated — neighbouring positions and related substitutions share whatever the head has got wrong about that fold — so the effective number of independent observations behind each quantile is nearer the number of distinct proteins in the split than the number of residuals. The dataset card records both.
 
 The half-width is constant, which is the method's main limitation: the interval is wider than it needs to be where the head is reliable and narrower than it should be where it is not.

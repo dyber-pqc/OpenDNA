@@ -215,13 +215,20 @@ fn metrics_table(report: &Report) -> String {
     keys.sort();
 
     let mut out = String::from("| Metric | Validation | Test | Baseline (test) |\n|---|---|---|---|\n");
-    let mut baseline_gap = false;
+    // Which metrics the baseline has no value for, because the reason differs
+    // and the two reasons are near opposites.
+    let mut missing_correlation = false;
+    let mut missing_error = false;
     for key in keys {
         let cell = |m: &crate::train::SplitMetrics| {
             m.values.get(key).map_or_else(|| "—".to_string(), |v| format!("{v:.3}"))
         };
         if !report.baseline.values.contains_key(key) {
-            baseline_gap = true;
+            if matches!(key.as_str(), "pearson" | "spearman") {
+                missing_correlation = true;
+            } else {
+                missing_error = true;
+            }
         }
         let _ = writeln!(
             out,
@@ -232,16 +239,38 @@ fn metrics_table(report: &Report) -> String {
             cell(&report.baseline)
         );
     }
-    if baseline_gap {
-        // A constant baseline — the training mean, or the majority class —
-        // has no rank or linear correlation to report, because correlation
-        // with a constant is undefined rather than zero. Say so, so the dash
-        // does not read as a metric nobody bothered to measure.
+    if missing_correlation || missing_error {
         out.push_str(
-            "\nA — in the baseline column means the metric is undefined for that baseline, \
-             not unmeasured: a baseline that predicts the same value for every input has no \
-             correlation with the truth.\n",
+            "\nA — in the baseline column means the metric is undefined for that baseline, not \
+             unmeasured. ",
         );
+    }
+    // A constant baseline — the training mean, or the majority class — has no
+    // correlation to report, because correlation with a constant is undefined
+    // rather than zero.
+    if missing_correlation {
+        out.push_str(
+            "This baseline predicts the same value for every input, so it has no correlation \
+             with the truth. ",
+        );
+    }
+    // A baseline that is a real predictor on another scale is the opposite
+    // case: it correlates, and an absolute error against the measurements is
+    // not a thing it has.
+    if missing_error {
+        out.push_str(
+            "This baseline is a score rather than a prediction in the same units as the \
+             measurements, so an absolute or squared error against them is not defined for it \
+             — only how well it orders them. ",
+        );
+    }
+    if missing_correlation || missing_error {
+        // Each sentence above ends in a space so they join on one line; the
+        // last one must not leave trailing whitespace in a published file.
+        while out.ends_with(' ') {
+            out.pop();
+        }
+        out.push('\n');
     }
     out
 }
@@ -633,14 +662,18 @@ fn interval_section(intervals: Option<&opendna_ml::heads::Intervals>) -> String 
     let _ = write!(
         out,
         "\nMean absolute error on the same split is {:.3} {}.\n\n\
-         The achieved column is there because it differs from the nominal one. A conformal \
-         guarantee assumes the calibration and held-out sets are exchangeable, and this \
-         project's splits are deliberately not: the dataset builder clusters by sequence \
-         identity so that near-identical proteins cannot straddle a split, which makes the \
-         held-out set systematically more distant than a random sample. That is the right way \
-         to build the splits, and the cost is that the guarantee is approximate. Where coverage \
-         falls short, it falls short in the direction that matters, so the measured figure is \
-         the one to believe.\n\n\
+         The achieved column is there because it differs from the nominal one, and it can \
+         differ either way. A conformal guarantee assumes the calibration and held-out sets are \
+         exchangeable, and this project's splits are deliberately not: the dataset builder \
+         clusters by sequence identity so that near-identical proteins cannot straddle a split, \
+         which makes the held-out set systematically more distant than a random sample. That is \
+         the right way to build the splits, and the cost is that the guarantee is approximate. \
+         The measured column is the one to believe, in whichever direction it points.\n\n\
+         It rests on fewer observations than the residual count suggests. Residuals from one \
+         wild-type protein are correlated — neighbouring positions and related substitutions \
+         share whatever the head has got wrong about that fold — so the effective number of \
+         independent observations behind each quantile is nearer the number of distinct \
+         proteins in the split than the number of residuals. The dataset card records both.\n\n\
          The half-width is constant, which is the method's main limitation: the interval is \
          wider than it needs to be where the head is reliable and narrower than it should be \
          where it is not.\n",
@@ -650,13 +683,20 @@ fn interval_section(intervals: Option<&opendna_ml::heads::Intervals>) -> String 
 }
 
 pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> Result<()> {
-    // Benchmark reports are matched on the embedding model, so a card can
-    // never quote a figure measured on a different one than it documents.
-    let external = crate::bench::load_reports(benchmarks, task.name(), &report.embedding_model)?;
     let path = out_dir.join(format!("{}.README.md", task.name()));
     // Read from the metadata beside the weights, so the card cannot describe
     // a calibration the head is not carrying.
     let files = opendna_ml::heads::HeadFiles::in_dir(out_dir, task.name());
+    // Benchmark reports are matched on the embedding model and on whether the
+    // head takes burial features. Both are needed: the with-burial stability
+    // variant scores the same suite on the same embedder, so matching on the
+    // embedder alone put a rejected variant's figures on the published head's
+    // card, listed first.
+    let with_burial = std::fs::read_to_string(&files.metadata)
+        .ok()
+        .and_then(|t| serde_json::from_str::<opendna_ml::heads::HeadMetadata>(&t).ok())
+        .is_some_and(|m| m.with_burial);
+    let external = crate::bench::load_reports(benchmarks, task.name(), &report.embedding_model, with_burial)?;
     let calibration = std::fs::read_to_string(&files.metadata)
         .ok()
         .and_then(|t| serde_json::from_str::<opendna_ml::heads::HeadMetadata>(&t).ok())
@@ -724,6 +764,45 @@ mod tests {
         assert!(card.contains("facebook/esm2_t30_150M_UR50D"));
         assert!(card.starts_with("---\nlicense: apache-2.0"), "needs YAML front matter");
         assert!(card.contains("## Limitations"));
+    }
+
+    /// The dash in the baseline column has two opposite causes.
+    ///
+    /// Burial and solubility are compared against the training mean, which
+    /// correlates with nothing, so the correlations are the dashes. Stability
+    /// is compared against the language model's masked log-odds, a real
+    /// predictor on another scale, so the correlations have values and the
+    /// error metrics are the dashes. One sentence cannot explain both, and the
+    /// one that was there explained the wrong one on the stability card.
+    #[test]
+    fn the_baseline_dash_is_explained_by_what_the_baseline_is() {
+        // The real stability report: a baseline that correlates but has no
+        // error in kcal/mol, because it is the log-odds.
+        let mut ranking_baseline = report();
+        for split in [&mut ranking_baseline.validation, &mut ranking_baseline.test] {
+            split.values.insert("mae".into(), 0.5);
+            split.values.insert("rmse".into(), 0.7);
+        }
+        let card = render(Task::Stability, &ranking_baseline, &[]);
+        assert!(
+            card.contains("a score rather than a prediction in the same units"),
+            "a log-odds baseline has no error against the measurements:
+{card}"
+        );
+        assert!(
+            !card.contains("predicts the same value for every input"),
+            "the log-odds baseline is not a constant:
+{card}"
+        );
+
+        // And the other way round: a constant baseline has the error metrics
+        // and no correlation, which is burial's and solubility's case.
+        let mut constant_baseline = report();
+        constant_baseline.baseline.values.remove("spearman");
+        constant_baseline.baseline.values.insert("mae".into(), 0.19);
+        let card = render(Task::Burial, &constant_baseline, &[]);
+        assert!(card.contains("predicts the same value for every input"), "{card}");
+        assert!(!card.contains("a score rather than a prediction"), "{card}");
     }
 
     /// Two Matthews correlations on one card need telling apart.
@@ -883,6 +962,7 @@ mod tests {
             suite: suite.into(),
             embedding_model: "facebook/esm2_t30_150M_UR50D".into(),
             head_version: "0.6.0-dev".into(),
+            with_burial: false,
             proteins: 319,
             residues_scored: 99_239,
             residues_masked: 61_183,
@@ -927,10 +1007,42 @@ mod tests {
         other.embedding_model = "facebook/esm2_t33_650M_UR50D".into();
         std::fs::write(dir.join("caid3.json"), serde_json::to_string(&other).unwrap()).unwrap();
 
-        let loaded = |task, model| crate::bench::load_reports(&dir, task, model).unwrap().len();
+        let loaded = |task, model| crate::bench::load_reports(&dir, task, model, false).unwrap().len();
         assert_eq!(loaded("disorder", "facebook/esm2_t30_150M_UR50D"), 0, "650M quoted on a 150M card");
         assert_eq!(loaded("disorder", "facebook/esm2_t33_650M_UR50D"), 1);
         assert_eq!(loaded("stability", "facebook/esm2_t33_650M_UR50D"), 0, "wrong head's suite");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The stability card carried the `ProteinGym` section twice.
+    ///
+    /// Same suite, same embedder, same item count, same caveats, different
+    /// numbers: the with-burial variant was measured, found not to help, and
+    /// never published, but it scored the same suite on the same embedder as
+    /// the head that ships. Matching on those two alone put it on the card,
+    /// listed first, so the figure a reader saw before any other was a model
+    /// nobody can download.
+    #[test]
+    fn a_variant_that_was_not_published_stays_off_the_card() {
+        let dir = std::env::temp_dir().join(format!("opendna-variant-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let shipped = bench("proteingym-stability-out-of-domain");
+        let mut variant = shipped.clone();
+        variant.with_burial = true;
+        std::fs::write(dir.join("plain.json"), serde_json::to_string(&shipped).unwrap()).unwrap();
+        std::fs::write(dir.join("burial.json"), serde_json::to_string(&variant).unwrap()).unwrap();
+
+        let model = "facebook/esm2_t30_150M_UR50D";
+        let for_head =
+            |with_burial| crate::bench::load_reports(&dir, "stability", model, with_burial).unwrap();
+        let plain = for_head(false);
+        assert_eq!(plain.len(), 1, "a head without burial features gets one report, not both");
+        assert!(!plain[0].with_burial);
+        let with = for_head(true);
+        assert_eq!(with.len(), 1, "and the variant's card gets the variant's report");
+        assert!(with[0].with_burial);
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -940,6 +1052,7 @@ mod tests {
             Path::new("definitely/not/here"),
             "disorder",
             "facebook/esm2_t30_150M_UR50D",
+            false,
         )
         .unwrap();
         assert!(got.is_empty());

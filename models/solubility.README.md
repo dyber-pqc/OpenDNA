@@ -55,7 +55,7 @@ The output carries the head version, the embedding model, the device and the lim
 | RMSE | 23.015 | 23.388 | 32.256 |
 | Spearman ρ | 0.737 | 0.701 | — |
 
-A — in the baseline column means the metric is undefined for that baseline, not unmeasured: a baseline that predicts the same value for every input has no correlation with the truth.
+A — in the baseline column means the metric is undefined for that baseline, not unmeasured. This baseline predicts the same value for every input, so it has no correlation with the truth.
 
 Baseline: Predicting the training-set mean for every protein.
 
@@ -124,6 +124,8 @@ A point estimate invites being read as a measurement. These intervals say how wi
 
 Mean absolute error on the same split is 18.823 %.
 
-The achieved column is there because it differs from the nominal one. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. Where coverage falls short, it falls short in the direction that matters, so the measured figure is the one to believe.
+The achieved column is there because it differs from the nominal one, and it can differ either way. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. The measured column is the one to believe, in whichever direction it points.
+
+It rests on fewer observations than the residual count suggests. Residuals from one wild-type protein are correlated — neighbouring positions and related substitutions share whatever the head has got wrong about that fold — so the effective number of independent observations behind each quantile is nearer the number of distinct proteins in the split than the number of residuals. The dataset card records both.
 
 The half-width is constant, which is the method's main limitation: the interval is wider than it needs to be where the head is reliable and narrower than it should be where it is not.
