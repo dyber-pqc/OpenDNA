@@ -18,6 +18,25 @@ Predicts protein solubility from sequence.
 
 This is a small head trained on **frozen** [facebook/esm2_t30_150M_UR50D](https://huggingface.co/facebook/esm2_t30_150M_UR50D) embeddings. It is not a fine-tuned language model: the embedding model is unchanged, and only the head below was trained.
 
+## Using it
+
+These are not transformers weights and no `AutoModel` will load them. They are read by [OpenDNA](https://github.com/dyber-pqc/OpenDNA), which is a single binary with no runtime to install — take it from the [releases page](https://github.com/dyber-pqc/OpenDNA/releases) or build it with `cargo build --release -p opendna-cli`.
+
+```bash
+hf download dyber-pqc/opendna-solubility --local-dir models
+export OPENDNA_MODELS=$PWD/models
+
+# confirm the download is intact: the weights are hashed against the
+# digest recorded in their metadata
+opendna models
+
+opendna predict --task solubility -i candidates.fasta -o solubility.csv
+```
+
+The output carries the head version, the embedding model, the device and the limitations below as `#` comments, and a `solubility.manifest.json` beside it records the digests of what went in and what came out. The first run downloads the embedding model; after that `opendna stage` makes a directory that works with no network at all.
+
+`opendna models` checks that the file is the one it claims to be. `opendna selftest` goes further and re-runs the heads over a known sequence to check they reproduce recorded values — worth doing, and it needs all four heads installed.
+
 ## Inputs and outputs
 
 **Input.** The mean-pooled ESM-2 embedding of the sequence.

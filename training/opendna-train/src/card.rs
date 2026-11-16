@@ -280,6 +280,58 @@ fn external_section(reports: &[crate::bench::BenchReport]) -> String {
     out
 }
 
+/// How to actually run these weights, in the card itself.
+///
+/// Hugging Face renders a "Use this model" snippet for libraries it knows how
+/// to load. `library_name: opendna` is not one, which is accurate -- these are
+/// not transformers weights -- and leaves a reader with metrics and no way to
+/// act on them. So the card carries the commands.
+///
+/// The prediction line differs by task, and the difference is not cosmetic:
+/// stability scores named substitutions and cannot do anything without being
+/// told which ones.
+fn usage_section(task: Task) -> String {
+    let name = task.name();
+    let predict = match task {
+        // A mutation list is required, so a card that showed the bare command
+        // would be showing one that exits 2.
+        Task::Stability => format!(
+            "# a CSV of `name,mutation` rows, for example `ubiquitin,L8P`\n\
+             opendna predict --task {name} -i candidates.fasta \\\n\
+             \u{20}   --mutations muts.csv -o {name}.csv"
+        ),
+        Task::Disorder | Task::Burial | Task::Solubility => {
+            format!("opendna predict --task {name} -i candidates.fasta -o {name}.csv")
+        }
+    };
+    let caid =
+        if matches!(task, Task::Disorder) { "\nFor a CAID submission, add `--format caid`.\n" } else { "" };
+    format!(
+        "## Using it\n\n\
+         These are not transformers weights and no `AutoModel` will load them. They are read by \
+         [OpenDNA](https://github.com/dyber-pqc/OpenDNA), which is a single binary with no \
+         runtime to install — take it from the \
+         [releases page](https://github.com/dyber-pqc/OpenDNA/releases) or build it with \
+         `cargo build --release -p opendna-cli`.\n\n\
+         ```bash\n\
+         hf download dyber-pqc/opendna-{name} --local-dir models\n\
+         export OPENDNA_MODELS=$PWD/models\n\n\
+         # confirm the download is intact: the weights are hashed against the\n\
+         # digest recorded in their metadata\n\
+         opendna models\n\n\
+         {predict}\n\
+         ```\n\n\
+         The output carries the head version, the embedding model, the device and the \
+         limitations below as `#` comments, and a `{name}.manifest.json` beside it records the \
+         digests of what went in and what came out. The first run downloads the embedding model; \
+         after that `opendna stage` makes a directory that works with no network at all.\n\n\
+         `opendna models` checks that the file is the one it claims to be. `opendna selftest` \
+         goes further and re-runs the heads over a known sequence to check they reproduce \
+         recorded values — worth doing, and it needs all four heads installed.\n\
+         {caid}\n"
+    )
+}
+
 /// Render a model card.
 pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport]) -> String {
     let p = prose(task);
@@ -293,6 +345,7 @@ pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport
          This is a small head trained on **frozen** [{base}](https://huggingface.co/{base}) \
          embeddings. It is not a fine-tuned language model: the embedding model is unchanged, and \
          only the head below was trained.\n\n\
+         {usage}\
          ## Inputs and outputs\n\n**Input.** {inputs}\n\n**Output.** {outputs}\n\n\
          ## Results\n\n{table}\n\
          Baseline: {baseline}\n\n\
@@ -342,6 +395,7 @@ pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport
         } else {
             " (data order only; the training device could not seed weight initialisation)"
         },
+        usage = usage_section(task),
         dataset_url = p.dataset_url,
         license = p.license,
         weights_license = p.weights_license,
@@ -602,6 +656,44 @@ mod tests {
         assert!(card.contains("## Limitations"));
     }
 
+    /// A reader who lands on the card has to be able to run the thing.
+    ///
+    /// Hugging Face renders no "Use this model" snippet for this library, so
+    /// the card is the only place the commands can come from. Each one has to
+    /// name its own repository, and the verification step has to be one that
+    /// works for somebody who downloaded a single head: `selftest` needs all
+    /// four and exits 3 with fewer, so a card that told them to run it would
+    /// be telling them to run a command that fails.
+    #[test]
+    fn every_card_says_how_to_run_the_weights() {
+        for task in [Task::Stability, Task::Solubility, Task::Disorder, Task::Burial] {
+            let card = render(task, &report(), &[]);
+            let name = task.name();
+            assert!(card.contains("## Using it"), "{name} card: no usage section");
+            assert!(
+                card.contains(&format!("hf download dyber-pqc/opendna-{name}")),
+                "{name} card: does not say how to download itself"
+            );
+            assert!(
+                card.contains(&format!("opendna predict --task {name}")),
+                "{name} card: does not show a prediction command"
+            );
+            assert!(card.contains("opendna models"), "{name} card: no way to verify the download");
+            assert!(
+                !card.contains("\nopendna selftest\n"),
+                "{name} card: tells a reader with one head to run a command needing four"
+            );
+        }
+    }
+
+    /// Stability scores named substitutions, so the bare command exits 2.
+    #[test]
+    fn the_stability_card_shows_the_mutation_file() {
+        let card = render(Task::Stability, &report(), &[]);
+        assert!(card.contains("--mutations muts.csv"), "{card}");
+        assert!(card.contains("`name,mutation`"), "{card}");
+    }
+
     /// The dataset link has to resolve for someone who only has the card.
     ///
     /// It used to point at `datasets/` inside the GitHub repository, a
@@ -610,7 +702,7 @@ mod tests {
     /// dataset's own Hugging Face repository, which is published alongside.
     #[test]
     fn the_dataset_link_points_at_a_published_dataset() {
-        for task in [Task::Stability, Task::Solubility, Task::Disorder] {
+        for task in [Task::Stability, Task::Solubility, Task::Disorder, Task::Burial] {
             let card = render(task, &report(), &[]);
             let expected = format!("https://huggingface.co/datasets/dyber-pqc/opendna-{}", task.name());
             assert!(card.contains(&expected), "{} card: missing {expected}", task.name());

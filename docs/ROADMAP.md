@@ -39,6 +39,12 @@ feature.
   file. Staging a bundle works around it and is documented, but a tool whose
   own `split` command exists to run parts in parallel should not need a
   workaround for it.
+- **Let `selftest` check the heads that are present.** It needs all four
+  installed and exits 3 with fewer, which is wrong for the common case: a lab
+  that wants only disorder cannot verify the head it has. `opendna models`
+  hashes the weights against their recorded digest and works on one head, so
+  the model cards point there instead, but the stronger check should not be
+  all-or-nothing.
 - **Check resuming at the scale it is for.** `--checkpoint` is verified
   byte-identical across an interruption on runs of a few chunks, including a
   real process kill. Nothing has tested a run of tens of thousands of

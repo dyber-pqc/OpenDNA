@@ -11,6 +11,7 @@ workspace, so the application never depends on arrow, parquet or an HTTP client.
 | `stability` | 389,068 | a single substitution | Tsuboyama et al. 2023 | CC BY 4.0 | 30% identity cluster of the wild type |
 | `solubility` | 3,127 | an E. coli protein | eSOL (NBDC archive), UniProtKB | CC BY-SA 2.1 JP | 30% identity cluster |
 | `disorder` | 3,186 | a protein, with per-residue labels | DisProt 2025_12, CAID3 reference (hold-out only) | CC BY 4.0 | 30% identity cluster; CAID3 clusters fixed to test |
+| `burial` | 939 | a CATH domain, with per-residue labels | CATH v4.4.0 S100, wwPDB entries index | CC BY 4.0 | inherited from `structures`, so no topology or cluster spans two splits |
 
 Row counts are from the committed manifests in `cards/`, which describe the
 builds that are published and that trained the heads.
@@ -23,6 +24,7 @@ builds that are published and that trained the heads.
 | `stability` | [`dyber-pqc/opendna-stability`](https://huggingface.co/datasets/dyber-pqc/opendna-stability) |
 | `solubility` | [`dyber-pqc/opendna-solubility`](https://huggingface.co/datasets/dyber-pqc/opendna-solubility) |
 | `disorder` | [`dyber-pqc/opendna-disorder`](https://huggingface.co/datasets/dyber-pqc/opendna-disorder) |
+| `burial` | [`dyber-pqc/opendna-burial`](https://huggingface.co/datasets/dyber-pqc/opendna-burial) |
 
 `cards/<dataset>/manifest.json` records the SHA-256 of every Parquet file in
 the published build, so what is on the Hub can be checked against what is in
