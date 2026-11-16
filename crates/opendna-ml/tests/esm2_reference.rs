@@ -31,7 +31,7 @@ fn reference() -> &'static serde_json::Value {
 fn load_f32(name: &str) -> Vec<f32> {
     let bytes = std::fs::read(data_dir().join(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
     assert_eq!(bytes.len() % 4, 0, "{name} is not a whole number of f32 values");
-    bytes.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect()
+    bytes.as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect()
 }
 
 fn cases() -> Vec<(String, usize)> {

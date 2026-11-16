@@ -408,7 +408,7 @@ mod tests {
         )
         .unwrap();
         match head_status(&dir, "solubility") {
-            HeadStatus::Ready { limitations, .. } => assert!(limitations.is_empty()),
+            HeadStatus::Ready { limitations, .. } => assert_eq!(limitations, [] as [std::string::String; 0]),
             other => panic!("expected Ready, got {other:?}"),
         }
     }

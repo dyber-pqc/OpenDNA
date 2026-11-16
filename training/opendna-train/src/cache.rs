@@ -172,7 +172,8 @@ impl MatrixCache {
         let mut bytes = vec![0u8; count * 2];
         file.read_exact(&mut bytes)
             .with_context(|| format!("reading {count} values for {key} from {}", self.data_path.display()))?;
-        let values = bytes.chunks_exact(2).map(|c| f16::from_le_bytes([c[0], c[1]]).to_f32()).collect();
+        let values =
+            bytes.as_chunks::<2>().0.iter().map(|c| f16::from_le_bytes([c[0], c[1]]).to_f32()).collect();
         Ok((values, entry.rows))
     }
 }

@@ -184,8 +184,8 @@ mod tests {
 
     #[test]
     fn an_empty_input_plans_nothing() {
-        assert!(plan(&[], Cut::Parts(4)).is_empty());
-        assert!(plan(&[], Cut::PerChunk(4)).is_empty());
+        assert_eq!(plan(&[], Cut::Parts(4)), [] as [(usize, usize); 0]);
+        assert_eq!(plan(&[], Cut::PerChunk(4)), [] as [(usize, usize); 0]);
     }
 
     /// A pipeline that resumes has to produce the same boundaries, or it is

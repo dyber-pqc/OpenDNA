@@ -208,14 +208,17 @@ pub fn net_charge(seq: &Sequence, ph: f64) -> Result<f64, AnalysisError> {
 pub fn isoelectric_point(seq: &Sequence) -> Result<f64, AnalysisError> {
     let (mut lo, mut hi) = (0.0_f64, 14.0_f64);
     while hi - lo > 1e-4 {
-        let mid = 0.5 * (lo + hi);
+        // `midpoint` rather than `0.5 * (lo + hi)`: the same value here, where
+        // the bracket is [0, 14], and correct in general because it cannot
+        // overflow on the way to halving.
+        let mid = f64::midpoint(lo, hi);
         if net_charge(seq, mid)? > 0.0 {
             lo = mid;
         } else {
             hi = mid;
         }
     }
-    Ok(0.5 * (lo + hi))
+    Ok(f64::midpoint(lo, hi))
 }
 
 #[cfg(test)]

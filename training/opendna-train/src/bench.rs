@@ -65,7 +65,7 @@ pub fn read_caid_reference(text: &str) -> Result<Vec<Reference>> {
         );
     }
     let mut out = Vec::with_capacity(lines.len() / 3);
-    for (record, chunk) in lines.chunks_exact(3).enumerate() {
+    for (record, chunk) in lines.as_chunks::<3>().0.iter().enumerate() {
         let id = chunk[0]
             .strip_prefix('>')
             .ok_or_else(|| anyhow!("record {record}: expected a '>' header, found {:?}", chunk[0]))?;

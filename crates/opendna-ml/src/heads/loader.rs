@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn a_card_without_limitations_yields_none() {
-        assert!(card_with("empty", "# Head\n\n## Results\n").limitations().is_empty());
+        assert_eq!(card_with("empty", "# Head\n\n## Results\n").limitations(), [] as [String; 0]);
     }
 
     /// The share-alike licence on the solubility data is the reason this
@@ -472,6 +472,6 @@ license: gpl-3.0
     #[test]
     fn a_missing_card_yields_none() {
         let files = HeadFiles::in_dir(Path::new("definitely/not/here"), "disorder");
-        assert!(files.limitations().is_empty());
+        assert_eq!(files.limitations(), [] as [String; 0]);
     }
 }

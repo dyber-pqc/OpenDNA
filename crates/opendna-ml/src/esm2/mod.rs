@@ -473,6 +473,6 @@ mod tests {
 
     #[test]
     fn an_empty_input_plans_nothing() {
-        assert!(plan_batches(&[], 8192).is_empty());
+        assert_eq!(plan_batches(&[], 8192), [] as [Vec<usize>; 0]);
     }
 }
