@@ -368,7 +368,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
             "A label of 0 means \"not annotated as disordered in DisProt\", not \"experimentally ordered\". DisProt annotates \
              regions with experimental evidence of disorder; the rest of each sequence is mostly unexamined, so negatives \
              are noisy and the positive rate is underestimated.",
-            "Sequences are full UniProt sequences, some longer than 30,000 residues. ESM-2 accepts at most 1,022 residues \
+            "Sequences are full UniProt sequences, some longer than 30,000 residues. ESM-2 accepts at most 1,024 residues \
              per pass; training code must crop or tile.",
             "Coverage is biased toward well-studied proteins and organisms (human, model organisms, viruses).",
             "Clustering uses 30% identity over 80% bidirectional coverage; a short disordered region shared between \

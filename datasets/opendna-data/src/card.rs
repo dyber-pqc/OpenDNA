@@ -112,12 +112,34 @@ pub fn render(c: &CardInput<'_>) -> String {
         let _ = writeln!(s, "| `{}` | {} | {} |", col.name, col.data.type_name(), col.description);
     }
 
-    let _ = writeln!(s, "\n## Splits\n\n| Split | {} | {} |\n|---|---:|---:|", c.row_unit, c.group_unit);
-    for sp in Split::ALL {
-        let k = c.splits.get(sp);
-        let _ = writeln!(s, "| {sp} | {} | {} |", k.rows, k.groups);
+    // When every row is its own split group the second column repeats the
+    // first, which reads as a mistake and hides the fact that makes them
+    // equal. One column, and a sentence saying why.
+    let one_per_group = Split::ALL.iter().all(|sp| {
+        let k = c.splits.get(*sp);
+        k.rows == k.groups
+    });
+    if one_per_group {
+        let _ = writeln!(s, "\n## Splits\n\n| Split | {} |\n|---|---:|", c.row_unit);
+        for sp in Split::ALL {
+            let _ = writeln!(s, "| {sp} | {} |", c.splits.get(sp).rows);
+        }
+        let _ = writeln!(s, "| total | {} |\n", c.splits.total_rows());
+        let _ = writeln!(
+            s,
+            "Each of these {} is its own split unit, so the no-shared-fold guarantee comes from \
+             the grouping described under Construction rather than from grouping rows together \
+             here.\n",
+            c.row_unit
+        );
+    } else {
+        let _ = writeln!(s, "\n## Splits\n\n| Split | {} | {} |\n|---|---:|---:|", c.row_unit, c.group_unit);
+        for sp in Split::ALL {
+            let k = c.splits.get(sp);
+            let _ = writeln!(s, "| {sp} | {} | {} |", k.rows, k.groups);
+        }
+        let _ = writeln!(s, "| total | {} | |\n", c.splits.total_rows());
     }
-    let _ = writeln!(s, "| total | {} | |\n", c.splits.total_rows());
 
     if !c.statistics.is_empty() {
         s.push_str("### Cleaning statistics\n\n| Step | Count |\n|---|---:|\n");
@@ -186,6 +208,62 @@ mod tests {
         assert!(card.contains("| `id` | string | identifier |"));
         assert!(card.contains("| train | 8 | 4 |"));
         assert!(card.contains("- n<1K"));
+    }
+
+    /// A dataset whose split unit is its row prints one column, not two of
+    /// the same.
+    ///
+    /// Burial is that case: every sampled domain is its own split unit, so the
+    /// card read "| Split | domains | domains |" with identical figures, which
+    /// looks like a mistake and hides the fact that makes them identical. The
+    /// no-shared-fold guarantee there comes from the grouping its Construction
+    /// section describes, which is why the card has to say so instead.
+    #[test]
+    fn a_dataset_grouped_one_row_at_a_time_prints_one_column() {
+        let mut t = Table::new();
+        t.push("id", "identifier", ColumnData::Utf8(vec![]));
+        let lock = Lockfile::default();
+        let input = |splits: &SplitSummary| {
+            render(&CardInput {
+                pretty_name: "Example",
+                license: CardLicense::Known("cc-by-4.0"),
+                license_note: "note",
+                tags: &["biology"],
+                summary: "Summary.".into(),
+                sources: &[],
+                excluded: vec![],
+                construction: "Steps.".into(),
+                schema: &t,
+                row_unit: "domains",
+                group_unit: "domains",
+                splits,
+                statistics: vec![],
+                citations: "@misc{x}",
+                limitations: &["small"],
+                lock: &lock,
+            })
+        };
+
+        let one_each = SplitSummary {
+            train: SplitCounts { rows: 751, groups: 751 },
+            validation: SplitCounts { rows: 95, groups: 95 },
+            test: SplitCounts { rows: 93, groups: 93 },
+        };
+        let card = input(&one_each);
+        assert!(card.contains("| Split | domains |\n|---|---:|"), "{card}");
+        assert!(card.contains("| train | 751 |"), "{card}");
+        assert!(!card.contains("| train | 751 | 751 |"), "the column is printed twice:\n{card}");
+        assert!(card.contains("is its own split unit"), "{card}");
+
+        // And a dataset that really does group rows keeps both columns.
+        let grouped = SplitSummary {
+            train: SplitCounts { rows: 314_716, groups: 123 },
+            validation: SplitCounts { rows: 37_983, groups: 18 },
+            test: SplitCounts { rows: 36_369, groups: 24 },
+        };
+        let card = input(&grouped);
+        assert!(card.contains("| train | 314716 | 123 |"), "{card}");
+        assert!(!card.contains("is its own split unit"), "{card}");
     }
 
     #[test]

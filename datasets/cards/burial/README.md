@@ -55,12 +55,14 @@ CATH is CC BY 4.0 and wwPDB coordinate data is CC0 1.0; the derived dataset is r
 
 ## Splits
 
-| Split | domains | domains |
-|---|---:|---:|
-| train | 751 | 751 |
-| validation | 95 | 95 |
-| test | 93 | 93 |
-| total | 939 | |
+| Split | domains |
+|---|---:|
+| train | 751 |
+| validation | 95 |
+| test | 93 |
+| total | 939 |
+
+Each of these domains is its own split unit, so the no-shared-fold guarantee comes from the grouping described under Construction rather than from grouping rows together here.
 
 ### Cleaning statistics
 
