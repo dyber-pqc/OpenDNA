@@ -10,8 +10,8 @@ authors.workspace = true
 publish = false
 
 [dependencies]
-opendna-ml = { path = "../../crates/opendna-ml", version = "0.6.0-dev" }
-opendna-core = { path = "../../crates/opendna-core", version = "0.6.0-dev" }
+opendna-ml = { path = "../../crates/opendna-ml", version = "0.6.0-rc1" }
+opendna-core = { path = "../../crates/opendna-core", version = "0.6.0-rc1" }
 anyhow = "1"
 candle-core = "0.11"
 candle-nn = "0.11"

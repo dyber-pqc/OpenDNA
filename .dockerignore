@@ -1,14 +1,19 @@
+# Everything the CLI build does not read. Keeping the context small matters
+# here: `models/` and `datasets/cache/` are hundreds of megabytes that would
+# otherwise be sent to the daemon on every build.
 .git
 .github
-ui/node_modules
-ui/dist
-ui/src-tauri/target
-ui/src-tauri/binaries
-**/__pycache__
-**/*.pyc
-dist
-build
-*.egg-info
 .claude
-.pytest_cache
-docs/site
+target
+app
+training
+datasets
+pipelines
+docs
+paper
+models
+models-650m
+models-burial
+scripts
+*.md
+!crates/opendna-cli/README.md

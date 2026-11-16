@@ -23,6 +23,17 @@ allow = [
     "MIT",
     "Unicode-3.0",
     "Zlib",
+    # Weak, file-level copyleft, and it reaches the shipped binary: `colored`
+    # and `option-ext` arrive through hf-hub -> hf-xet -> xet-runtime, and
+    # hf-hub 1.0 has no feature that drops Xet support. Neither crate is
+    # modified here, so the obligation is to say that the binary contains
+    # MPL-2.0 code and where its source is -- which the CLI README does, under
+    # "Licences". Allowed with that disclosure, not because it is harmless.
+    "MPL-2.0",
+    # The root certificate list in webpki-root-certs, which is data rather
+    # than code. CDLA-Permissive-2.0 is permissive and imposes no condition on
+    # redistributing it.
+    "CDLA-Permissive-2.0",
 ]
 
 [bans]

@@ -2370,7 +2370,7 @@ checksum = "269bca4c2591a28585d6bf10d9ed0332b7d76900a1b02bec41bdc3a2cdcda107"
 
 [[package]]
 name = "opendna-analysis"
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 dependencies = [
  "approx",
  "nalgebra",
@@ -2383,7 +2383,7 @@ dependencies = [
 
 [[package]]
 name = "opendna-cli"
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 dependencies = [
  "anyhow",
  "candle-core",
@@ -2399,7 +2399,7 @@ dependencies = [
 
 [[package]]
 name = "opendna-core"
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 dependencies = [
  "proptest",
  "serde",
@@ -2410,7 +2410,7 @@ dependencies = [
 
 [[package]]
 name = "opendna-hal"
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 dependencies = [
  "anyhow",
  "serde",
@@ -2421,7 +2421,7 @@ dependencies = [
 
 [[package]]
 name = "opendna-io"
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 dependencies = [
  "opendna-core",
  "proptest",
@@ -2430,7 +2430,7 @@ dependencies = [
 
 [[package]]
 name = "opendna-ml"
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 dependencies = [
  "approx",
  "candle-core",
@@ -2445,7 +2445,7 @@ dependencies = [
 
 [[package]]
 name = "opendna-store"
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 dependencies = [
  "chrono",
  "opendna-core",

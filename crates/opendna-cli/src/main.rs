@@ -908,7 +908,7 @@ fn scorable(task: Task, proteins: &[(String, String)], model: &Esm2) -> Result<(
         let residues = sequence.chars().count();
         if residues > model.max_residues() {
             bail!(
-                "{}: {} residues exceeds the embedding model\'s {} limit. The solubility head \
+                "{}: {} residues exceeds the embedding model's {} limit. The solubility head \
                  pools over one pass and has no windowed equivalent, so this sequence cannot be \
                  scored.",
                 name,

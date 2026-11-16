@@ -3,9 +3,9 @@
 Protein property prediction that runs on your own machine. No server, no
 account, no network: sequences stay where you opened them.
 
-Three trained models score candidate sequences for per-residue disorder,
-solubility, and the stability effect of a point mutation, from a command line
-or a desktop application. The disorder head is competitive with the CAID3
+Four trained models score candidate sequences for per-residue disorder,
+per-residue solvent accessibility, solubility, and the stability effect of a
+point mutation, from a command line or a desktop application. The disorder head is competitive with the CAID3
 field — AUROC 0.941 on Disorder-PDB, against published figures of 0.925 for
 AIUPred v3 and 0.954 for MUSE-IDR.
 
@@ -16,11 +16,14 @@ not allowed.
 If you have to sign off on using this for real work, start with
 [Validation](VALIDATION.md): what has been checked, how, and what has not.
 
-This documentation set is deliberately thin. OpenDNA is mid-rewrite from a
-Python service with a React front end to a single Rust application, and most
-of what used to be here described the Python REST API, its deployment, and its
-analysis engines — all of which have been removed. Pages that documented them
-have been deleted rather than left to describe software that no longer exists.
+This documentation set is deliberately thin. OpenDNA was rewritten from a
+Python service with a React front end into Rust, and most of what used to be
+here described the Python REST API, its deployment and its analysis engines —
+all of which have been removed. Pages that documented them have been deleted
+rather than left to describe software that no longer exists.
+
+[The changelog](CHANGELOG.md) lists what the rewrite removed, and
+[the roadmap](ROADMAP.md) what is unfinished.
 
 The accurate documentation lives next to the code it describes:
 
@@ -33,6 +36,7 @@ The accurate documentation lives next to the code it describes:
 | [Models](https://github.com/dyber-pqc/OpenDNA/blob/main/models/README.md) | the trained heads, their cards, and publishing |
 | [Command line](https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/README.md) | batch predictions over a FASTA file |
 | [CAID submissions](https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/CAID.md) | the assessment format, and the two ways it fails silently |
+| [Pipelines](https://github.com/dyber-pqc/OpenDNA/blob/main/pipelines/README.md) | running parts in parallel under Nextflow or Snakemake |
 
 Each trained head carries its own model card stating its baseline, its
 measured metrics, and its limitations.
@@ -41,5 +45,5 @@ measured metrics, and its limitations.
 
 Earlier documentation advertised structure prediction, docking, molecular
 dynamics, sequence design, antibody modelling, and an HTTP API. None of those
-exists in the Rust application. They are listed here because a reader who
+exists, and none is planned — see [the roadmap](ROADMAP.md). They are listed here because a reader who
 remembers the old pages deserves a straight answer rather than silence.

@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 opendna-core.workspace = true
 opendna-io.workspace = true
-opendna-ml = { path = "../opendna-ml", version = "0.6.0-dev" }
+opendna-ml = { path = "../opendna-ml", version = "0.6.0-rc1" }
 candle-core = "0.11"
 anyhow.workspace = true
 clap = { version = "4", features = ["derive"] }

@@ -501,6 +501,30 @@ card declares no licence is reported as `unstated` and treated as possibly
 obliging — defaulting it to the permissive licence the others use would be a
 false statement about a file somebody is about to redistribute.
 
+## Third-party code in the binary
+
+Most of what `opendna` is built from is MIT or Apache-2.0. Two components are
+not, and both reach the compiled binary:
+
+| Crate | Licence | Why it is here |
+|---|---|---|
+| [`colored`](https://crates.io/crates/colored) | MPL-2.0 | via `hf-hub` -> `hf-xet` -> `xet-runtime` |
+| [`option-ext`](https://crates.io/crates/option-ext) | MPL-2.0 | via `hf-hub` -> `hf-xet` -> `xet-runtime` -> `shellexpand` -> `dirs` |
+
+The MPL is file-level copyleft: distributing a binary containing those files
+obliges whoever distributes it to say so and to make their source available.
+Neither crate is modified here, so their source is the published crate at the
+version in `Cargo.lock`, and this table is the notice. OpenDNA's own code stays
+Apache-2.0.
+
+They are not optional. `hf-hub` 1.0 has no feature that turns off Xet support,
+and `hf-hub` is how the embedding model is fetched. A build that never needs to
+fetch it still links them.
+
+`cargo deny check licenses` enforces the whole list, and `deny.toml` records why
+each non-permissive licence was accepted rather than quietly widening the
+allowed set.
+
 ## What it will not do
 
 There is no fallback. A missing head is an error naming the files it looked

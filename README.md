@@ -4,8 +4,8 @@ Protein property prediction that runs on your own machine. No server, no
 account, no network: sequences stay where you opened them.
 
 Four trained models score candidate sequences for per-residue disorder,
-per-residue solvent accessibility, solubility, and the stability effect of a
-point mutation. Each is a small head
+per-residue solvent accessibility (`burial`), solubility, and the stability
+effect of a point mutation. Each is a small head
 on frozen [ESM-2](https://huggingface.co/facebook/esm2_t30_150M_UR50D)
 embeddings. When a model is missing the answer is an error saying so — there
 is no heuristic fallback anywhere, and no number in the interface comes from
@@ -38,6 +38,12 @@ Those are either absent or unfinished, and the section below says which.
 
 ## Quick start
 
+Take `opendna` for your platform from the
+[releases page](https://github.com/dyber-pqc/OpenDNA/releases), check it
+against the `SHA256SUMS` published beside it, and put it on your path. There
+is nothing to install and no runtime to bring along. To build it instead, see
+[Build](#build).
+
 Predictions need the trained heads, which are not bundled:
 
 ```bash
@@ -45,20 +51,29 @@ hf download dyber-pqc/opendna-disorder --local-dir models
 export OPENDNA_MODELS=$PWD/models
 ```
 
+Check that this machine reproduces the numbers the heads were published with:
+
+```bash
+opendna selftest
+```
+
 Then score a whole FASTA file:
 
 ```bash
-cargo run --release -p opendna-cli -- predict --task disorder \
-    --input candidates.fasta --output disorder.csv
+opendna predict --task disorder --input candidates.fasta --output disorder.csv
 ```
 
-`--task` takes `disorder`, `solubility` or `stability`; `--format` takes
-`csv`, `tsv`, `json`, or `caid` for a CAID submission. See
+`--task` takes `disorder`, `burial`, `solubility` or `stability`; `--format`
+takes `csv`, `tsv`, `json`, or `caid` for a CAID submission. A run that will
+take hours can be made interruptible with `--checkpoint`. See
 [crates/opendna-cli](crates/opendna-cli) for the command, and
 [CAID.md](crates/opendna-cli/CAID.md) for the assessment format.
 
 The desktop application is the same models with a structure viewer; see
 [Build](#build).
+
+What changed between releases, and what each one does not cover, is in
+[docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## How good the models are
 
@@ -165,6 +180,8 @@ bounds and the PowerShell argument traps.
 | [app/](app) | `app` | Tauri desktop shell, Leptos UI, IPC protocol |
 | [datasets/](datasets) | `datasets` | the dataset builder |
 | [training/](training) | `training` | embedding cache, training, model cards, benchmarks |
+| [pipelines/](pipelines) | — | Nextflow and Snakemake modules for running parts in parallel |
+| [docs/](docs) | — | the documentation site, including [VALIDATION.md](docs/VALIDATION.md) |
 | [models/](models) | — | trained heads and their cards; weights are not committed |
 
 Each workspace is built, linted with `clippy -D warnings`, and tested in CI.

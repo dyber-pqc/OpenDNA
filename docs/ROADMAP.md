@@ -1,112 +1,132 @@
-# OpenDNA Roadmap
+# Roadmap
 
-The plan for what's coming next.
+What is coming next, and what is not.
 
-## Current Status: v0.5.0-rc1
+This file was rewritten for `v0.6.0-rc1`. The version before it listed
+nineteen phases of a Python application as done — structure prediction,
+docking, molecular dynamics, a plugin marketplace, a VR mode — none of which
+exists any more. Leaving it in place would have made the published roadmap
+contradict the software it was shipped with.
 
-A release-candidate mega-drop spanning 19 phases from foundation fixes to big-corp compliance. Working, documented, and smoke-tested. One more stabilization pass before GA.
+## Current status: v0.6.0-rc1
 
----
+Four trained heads over frozen ESM-2 embeddings — disorder, solvent
+accessibility, stability and solubility — with a command-line tool for batch
+work and a Tauri desktop application with a structure viewer. Everything a
+prediction rests on is recorded: head build, weights digest, device, batch and
+chunk size, input and output digests, and the limitations from the model card.
 
-## Done in v0.5.0-rc1
+The command-line tool is the measured and tested part. What makes this a
+release candidate rather than a release is below.
 
-All nineteen phases, at a glance (full details in [CHANGELOG.md](CHANGELOG.md)):
+## Before dropping the `-rc1`
 
-- ✅ **Phase 0** — Multi-rep Molstar viewer + click-residue popup
-- ✅ **Phase 1** — PyInstaller bundled sidecar wired into Tauri `externalBin`, per-platform CI
-- ✅ **Phase 2** — Component Manager (11 ML engines, Altium/Vivado-style UI, install/progress API)
-- ✅ **Phase 3** — Real heavy models: DiffDock, RFdiffusion, Boltz-1, ColabFold, xTB, ANI-2x, graceful fallback
-- ✅ **Phase 4** — PQC auth: ML-KEM-768 + ML-DSA-65 via liboqs, hash-chained audit log
-- ✅ **Phase 5** — Per-user workspaces with AES-256-GCM encryption-at-rest (scrypt-derived)
-- ✅ **Phase 6** — Priority job queue (interactive/normal/batch) + WebSocket job streaming + GPU pool
-- ✅ **Phase 7** — Local crash reporter with secret redaction, `@retry` decorator, `SelfHealer` thread
-- ✅ **Phase 8** — Provenance DAG + time machine + `diff_steps` / `blame_residue` / `bisect_regression`
-- ✅ **Phase 9** — Visual workflow editor (React Flow, 10 node types, provenance-recording)
-- ✅ **Phase 10** — NCBI/PubMed/UniProt/AlphaFold DB/Twist/IDT/GenScript/Slack/Teams/Discord/webhooks
-- ✅ **Phase 11** — R SDK + Jupyter magics + Galaxy/Snakemake/Nextflow plugins
-- ✅ **Phase 12** — Lab notebook + Zenodo DOI minting + PNG/SVG figure + GLTF/OBJ 3D export
-- ✅ **Phase 13** — Real-time co-editing via Yjs CRDT (y-websocket-compatible relay)
-- ✅ **Phase 14** — Academy Levels 4–7, 13 badges, daily challenges, glossary, SQLite leaderboard
-- ✅ **Phase 15** — Ollama auto-install + streaming chat + multi-turn session memory
-- ✅ **Phase 16** — CycloneDX 1.5 SBOM, air-gap capability check, GDPR export/erasure, HIPAA checklist
-- ✅ **Phase 17** — Dockerfile, Homebrew formula, Playwright E2E, pytest smoke suite
-- ✅ **Phase 18** — 7-step onboarding tour, sequence ruler with AA coloring, global FASTA/PDB drop, light-theme polish
+In order. Each is a thing that is currently unknown or unfinished, not a
+feature.
 
----
+- **Produce the artefacts at all.** The release workflow has never run. The
+  tag that triggers it is its first test, and no installer has ever been built
+  on macOS or Linux.
+- **Signed installers.** Apple notarization, Windows Authenticode, GPG for the
+  AppImage. Blocked on obtaining certificates, which costs money rather than
+  effort.
+- **Agree across platforms.** Every number in the documentation comes from one
+  Windows workstation. CI builds and tests on three operating systems, but
+  nothing has checked that they produce the same values. `opendna selftest`
+  is the tool for this; it needs running on the other two.
+- **Load the embedding model concurrently.** Two runs cannot read the Hugging
+  Face cache at the same time; on Windows the second is refused the weights
+  file. Staging a bundle works around it and is documented, but a tool whose
+  own `split` command exists to run parts in parallel should not need a
+  workaround for it.
+- **Check resuming at the scale it is for.** `--checkpoint` is verified
+  byte-identical across an interruption on runs of a few chunks, including a
+  real process kill. Nothing has tested a run of tens of thousands of
+  sequences interrupted hours in, and none of it has been repeated on a GPU.
 
-## Next: v0.5.0 GA stabilization
+## After that
 
-Short list of what has to happen before we drop the `-rc1` suffix:
+Ordered by how much it would change what somebody can conclude from a result.
 
-- **Expand Playwright coverage** — currently a smoke suite, need per-overlay regression tests and a CI matrix (chromium/webkit/firefox × win/mac/linux)
-- **Fix deprecation warnings** — pydantic v2, SQLAlchemy 2.0, FastAPI lifespan, React 19
-- **Pin all deps** — generate a reproducible `requirements.lock` and `package-lock.json` from the CycloneDX SBOM
-- **Final documentation pass** — screenshots for every overlay, updated tutorials, verified code snippets
-- **Signed installers** — Apple notarization, Windows Authenticode, Linux AppImage GPG
-- **One more benchmark run** on ubiquitin, insulin, GFP, lysozyme, p53 DBD, KRAS, EGFR kinase
+### Measurement
 
-Target: **v0.5.0 GA** within a few weeks of rc1.
+- **An external benchmark for solubility and accessibility.** Neither has one.
+  For solubility the obstacle is real: the reference sets are behind terms
+  that forbid redistribution or belong to retired services. Saying there is no
+  number beats quoting the in-domain figure as though it were comparable, but
+  it is still a gap.
+- **A CAID entry rather than a reimplementation.** The 0.941 on CAID3
+  Disorder-PDB was produced by running the published protocol against the
+  reference file, independently recomputed in numpy, and is not an official
+  entry. The CAID4 deadline needs checking.
+- **Out-of-domain detection.** The disorder head's confidence predicts error,
+  which is not the same thing: a sequence from a family it never saw can still
+  produce a confident wrong answer. The one proxy tried here — whether a
+  residue's 5-mer appeared in training — carried no information at all, and
+  that rejection is recorded so it is not retried blindly.
+- **Intervals that vary with the input.** Split conformal gives a constant
+  half-width, so a regressor's interval is wider than it needs to be where the
+  head is reliable and narrower where it is not. The conditional coverage on
+  each card shows where. A normalised or locally adaptive variant would fix
+  the shape; it also needs more held-out data than some of these splits have.
+- **Honest coverage for accessibility.** Its intervals undercover at every
+  level, because clustering the splits by sequence identity breaks the
+  exchangeability conformal assumes. Clustering is the right way to build the
+  splits, so the fix is a method that does not need the assumption.
 
----
+### Operations
 
-## v0.6.0 candidates
+- **Run the pipelines against their engines.** The Nextflow and Snakemake
+  modules have never been executed by Nextflow or Snakemake: neither is
+  installed on the machine they were written on. What is verified is the
+  behaviour they depend on.
+- **Resume inside a pipeline.** Both engines give a retried task a fresh
+  working directory, so a checkpoint has to live somewhere that outlives the
+  attempt. Where that is depends on the cluster's filesystem.
+- **A GPU other than one.** The finding that batching costs time on a GPU
+  comes from a single RTX 2000 Ada. `--batch-tokens` exists so somebody can
+  measure theirs.
 
-Items from the latest "what's still missing" audit. Not promised, but prioritized.
+### Possibly
 
-### Science
-- **Multi-fidelity folding cascade** — Tier 0 (secondary-structure instant) → Tier 1 (ESMFold) → Tier 2 (OpenFold) → Tier 3 (AlphaFold-Multimer) routed automatically by confidence
-- **Membrane protein support** — lipid-bilayer placement, implicit-membrane OpenMM, specialized scoring
-- **AbDock** — antibody-antigen docking with CDR-aware sampling
-- **DiffDock-PP** — diffusion-based protein-protein docking
-- **REMD / metadynamics** — enhanced sampling wrappers around OpenMM
-- **QM/MM coupling** — xTB inside an OpenMM region, for mechanism work
-- **FEP+** — alchemical free-energy perturbation for binding affinity
-- **Cryo-EM map fitting** — real-space refinement into density maps
-- **Electrostatic surface coloring** — APBS-backed Poisson-Boltzmann surface
+Not promised, and each would need its own justification before being started.
 
-### UX
-- **Trajectory scrubber integration with Molstar** — frame-accurate MD playback synced with sequence ruler
-- **Project explorer persistence** — sidebar tree of workspaces, provenance branches, and lab notebooks with drag-reorder
-- **Richer diff viewer** for provenance DAG — side-by-side structure + score + notebook diff
+- More heads, where a dataset exists that can be redistributed and a baseline
+  exists to be measured against.
+- A larger embedding model, if one ever helps. ESM-2 650M was tried and
+  rejected: it made disorder worse on every external metric for four times the
+  weights.
+- Structure-aware features, now that the accessibility head exists.
 
-### Compliance & operations
-- **SOC 2 audit** — controls documentation, vendor review, third-party assessment
-- **LTS line** — long-term-support branch with backports-only policy
-- **Commercial support** — paid tier for corporations needing SLAs (core stays free)
+## Not planned
 
----
+Stated so nobody waits for them. All of these were advertised by `v0.5.x` and
+removed in the rewrite:
 
-## Wild cards
+- Structure prediction, inverse folding, docking, molecular dynamics, free
+  energy perturbation
+- Antibody-specific models, plasmid tools, a model hub, project templates
+- A server deployment, a plugin marketplace, real-time co-editing, a VR mode
 
-Things we'd love to build if the universe cooperates:
+The reason for removing them is the reason for not planning them: a platform
+advertising nine things it did badly was worth less than a tool doing four
+things with numbers attached. Anything added back has to arrive with a
+measured number and a stated baseline, like the four heads did.
 
-- **VR / WebXR mode** — manipulate proteins in a Quest or Vision Pro
-- **AR mobile** — point an iPhone at your desk and see a protein floating there
-- **MIDI controller support** — knob-twiddle through rotamers like a Eurorack
-- **Twitch integration** — stream a design session, viewers vote on mutations
-- **Plugin marketplace** — signed third-party engines, themes, and analyses
-- **Auto-paper writer** — from a provenance DAG to a draft methods + results + figures bundle
+## Versioning
 
----
+[Semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH[-pre]`.
 
-## Versioning Scheme
+Pre-1.0, the command-line interface, the output formats and the head metadata
+schema may change between minor versions. When they do, the changelog says so.
+Head versions are separate from the project's: a head carries its own version
+and a build id derived from its weights, configuration and data, so a result
+can be traced to the exact model that produced it regardless of which release
+ran it.
 
-We use [Semantic Versioning](https://semver.org/):
-- **MAJOR.MINOR.PATCH-status**
-- **MAJOR**: breaking changes
-- **MINOR**: new features, no breaking changes
-- **PATCH**: bug fixes only
-- **status**: alpha, beta, rc (release candidate), or omitted for stable
+## Contributing to the roadmap
 
-Pre-1.0 releases are not API-stable, but provenance DAGs and workspace formats are versioned and migratable.
-
----
-
-## Contributing to the Roadmap
-
-Want to influence priorities? Open an issue or PR with:
-- **Use case**: who would use this and why
-- **Effort estimate**: rough complexity
-- **Dependencies**: what it needs
-
-Or just start building it. Working code beats arguing.
+Open an issue or a pull request with the use case, a rough idea of the effort,
+and what it depends on. For anything in the Measurement section, the most
+useful contribution is a number: a benchmark run, a reference set that can be
+redistributed, or a counter-measurement on hardware that is not this one.

@@ -13,7 +13,7 @@ members = [
 # directory and is not a member here.
 
 [workspace.package]
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 edition = "2021"
 rust-version = "1.95"
 license = "Apache-2.0"
@@ -22,9 +22,9 @@ homepage = "https://github.com/dyber-pqc/OpenDNA"
 authors = ["OpenDNA contributors"]
 
 [workspace.dependencies]
-opendna-core = { path = "crates/opendna-core", version = "0.6.0-dev" }
-opendna-io = { path = "crates/opendna-io", version = "0.6.0-dev" }
-opendna-analysis = { path = "crates/opendna-analysis", version = "0.6.0-dev" }
+opendna-core = { path = "crates/opendna-core", version = "0.6.0-rc1" }
+opendna-io = { path = "crates/opendna-io", version = "0.6.0-rc1" }
+opendna-analysis = { path = "crates/opendna-analysis", version = "0.6.0-rc1" }
 
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }

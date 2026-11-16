@@ -5,7 +5,7 @@ resolver = "2"
 members = ["protocol", "desktop", "ui", "xtask"]
 
 [workspace.package]
-version = "0.6.0-dev"
+version = "0.6.0-rc1"
 edition = "2021"
 rust-version = "1.95"
 license = "Apache-2.0"
@@ -13,12 +13,12 @@ repository = "https://github.com/dyber-pqc/OpenDNA"
 authors = ["OpenDNA contributors"]
 
 [workspace.dependencies]
-opendna-core = { path = "../crates/opendna-core", version = "0.6.0-dev" }
-opendna-io = { path = "../crates/opendna-io", version = "0.6.0-dev" }
-opendna-analysis = { path = "../crates/opendna-analysis", version = "0.6.0-dev" }
-opendna-store = { path = "../crates/opendna-store", version = "0.6.0-dev" }
-opendna-ml = { path = "../crates/opendna-ml", version = "0.6.0-dev" }
-opendna-app-protocol = { path = "protocol", version = "0.6.0-dev" }
+opendna-core = { path = "../crates/opendna-core", version = "0.6.0-rc1" }
+opendna-io = { path = "../crates/opendna-io", version = "0.6.0-rc1" }
+opendna-analysis = { path = "../crates/opendna-analysis", version = "0.6.0-rc1" }
+opendna-store = { path = "../crates/opendna-store", version = "0.6.0-rc1" }
+opendna-ml = { path = "../crates/opendna-ml", version = "0.6.0-rc1" }
+opendna-app-protocol = { path = "protocol", version = "0.6.0-rc1" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

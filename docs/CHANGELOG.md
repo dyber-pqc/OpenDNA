@@ -1,6 +1,195 @@
 # Changelog
 
-All notable changes to OpenDNA. Format based on [Keep a Changelog](https://keepachangelog.com/).
+Entries are written for somebody deciding whether to upgrade, so removals come
+first and known limitations are stated rather than left to be discovered.
+
+Versions follow [semantic versioning](https://semver.org). The project is
+pre-1.0: the command-line interface, the file formats and the head metadata
+schema may still change between minor versions, and when they do it will be
+said here.
+
+## v0.6.0-rc1 — unreleased
+
+**A rewrite, not an upgrade.** Everything between `v0.5.0-rc1` and here
+replaced the Python backend and the React front end with Rust. Most of what
+`v0.5.x` advertised no longer exists. Read the removals before upgrading.
+
+A release candidate rather than a release because of what has not been
+exercised: this tag is the first thing the release workflow has ever built, the
+macOS and Linux installers have never been produced on any machine, and the
+installers are unsigned. The command-line tool is the part that has been
+measured and tested.
+
+The desktop application reports version `0.6.0` rather than `0.6.0-rc1`. The
+MSI bundler requires a pre-release identifier to be numeric, so `rc1` would
+fail the Windows build outright; the JSON it is configured in cannot carry a
+comment saying so, which is why it is said here.
+
+### Removed
+
+- **The Python backend and the React user interface.** Both are gone from the
+  repository, along with the FastAPI server, the PyInstaller sidecar and the
+  wheel.
+- **ESMFold structure prediction.** No structures are predicted. The desktop
+  application can open and view a PDB or mmCIF file you already have.
+- **ESM-IF1 inverse folding.** No sequence design.
+- **Molecular dynamics.** No simulation of any kind.
+- **The antibody and plasmid tools, the model hub and the project
+  templates.** These were added after `v0.5.0-rc1` and were never part of a
+  tagged release: a commit calls itself `v0.5.0-rc2` but no such tag exists.
+- **The deployment configuration** for running OpenDNA as a server. It is not
+  a server; it opens no network port.
+
+If you depend on any of these, stay on `v0.5.0-rc1`, the last release that
+has them. They are not coming back
+in this line: the reason for the rewrite was that a platform advertising nine
+things it did badly was worth less than a tool doing four things with numbers
+attached.
+
+### Added — four trained heads with measured accuracy
+
+Each predicts one property from frozen ESM-2 150M embeddings, and each ships a
+model card generated from its own training report.
+
+| Head | In-domain test | External |
+|---|---|---|
+| Disorder | AUROC 0.883 | AUROC 0.941 on CAID3 Disorder-PDB |
+| Accessibility (burial) | Spearman 0.737 | not benchmarked externally |
+| Stability (ΔΔG) | Spearman 0.674 | Spearman 0.442 over 4 ProteinGym assays |
+| Solubility | Spearman 0.701 | none exists under usable terms |
+
+Disorder is the strong one and sits inside the published CAID3 field. Stability
+is a ranking signal and the in-domain figure overstates generalisation by about
+0.23 Spearman — the README says so beside the table, and so does the card.
+ESM-2 650M was tried and rejected: it made disorder worse on every external
+metric for four times the weights.
+
+A missing head is an error naming the files it looked for. Nothing falls back
+to a heuristic and reports it as a prediction.
+
+### Added — a command-line tool
+
+`opendna` runs the heads over a FASTA file and writes a table. The desktop
+application works on one protein at a time, which is the wrong shape for
+triaging a few hundred candidates.
+
+- `predict` for all four tasks, in `csv`, `tsv`, `json` or `caid` format.
+- `models` lists what is installed, verifies each head's weights against the
+  digest in its metadata, and can write or check a lockfile.
+- `selftest` runs the installed heads over a bundled sequence and checks 18
+  recorded values and invariants. It exists because `models` passes a correct
+  install with the wrong weights in it — the files are intact and the numbers
+  are wrong, and only running them catches that.
+- `stage` copies an installation, embedding model included, into one directory
+  that works on a machine with no network.
+- `split` and `merge` for running parts in parallel. `merge` reads each part's
+  manifest and refuses to join parts produced by different software, on
+  different devices or at different batch sizes, which `cat` cannot notice.
+- `--checkpoint` records results as they are produced and continues an
+  interrupted run from the last complete chunk. Verified byte-identical to an
+  uninterrupted run, including after a real process kill.
+
+### Added — provenance, so a number can be defended
+
+- **Every head has a build id**, derived from its weights, its training
+  configuration and its data, that a lab can pin and verify.
+- **Every output file carries** the head version, the embedding model, the
+  device and the card's limitations as comments, taken from the card rather
+  than written twice.
+- **Every run writes a manifest** beside its output: the input's digest, the
+  output's digest, the head build, the weights digest, the device, the batch
+  size, the chunk size, the licence and how long it took.
+- **Licences travel with the weights.** One head is trained on share-alike
+  data and released on the same terms; `stage` writes a `LICENSES.md` grouping
+  the heads by licence and flagging that one, because a result passed on
+  without it is an obligation somebody does not know they have.
+- **The exit status says what to do about the failure**: 2 for usage, 3 for the
+  installation, 4 for the input, 5 for a failed check, 1 for anything
+  unanticipated. Checked against the compiled binary.
+
+### Added — what the numbers mean, measured rather than asserted
+
+- **Disorder probabilities are calibrated.** They were inflated about
+  threefold by class-weighted training; where the head said 0.55, 13% of
+  residues were disordered. Platt scaling on held-out data fixed the scale and
+  moved the decision threshold, which the head now records and the CLI and the
+  application both read, so the two cannot disagree. Calibration changed the
+  meaning of the number and not the ranking: AUROC is identical before and
+  after.
+- **Confidence predicts error, and abstaining helps.** The distance from the
+  threshold recovers 55% of the reduction in error that a perfect oracle would
+  give. `--min-confidence` marks rows below a cut-off against the head's own
+  measured trade-off, and never removes them: a table quietly missing rows
+  looks exactly like a complete one. A k-mer novelty signal was tested, found
+  worse than random, and the rejection is recorded so nobody re-tests it.
+- **The regressors report prediction intervals.** Split conformal on the
+  validation split: ±1.33 kcal/mol for stability at 90% (achieving 93.7%),
+  ±38.9 percentage points for solubility, ±0.237 RSA for burial. Coverage
+  achieved is printed beside the level asked for because they differ — burial
+  undercovers at every level, since clustering the splits by sequence identity
+  breaks the exchangeability conformal assumes.
+
+### Added — the supporting workspaces
+
+- **`datasets/`** builds all four datasets from primary sources, clusters by
+  sequence identity so near-identical proteins cannot straddle a split, and
+  commits a card recording exactly what it produced.
+- **`training/`** trains, benchmarks, calibrates, measures abstention and fits
+  intervals, and generates each head's card from the measured report.
+- **`pipelines/`** holds Nextflow and Snakemake modules. Neither has been run
+  against its engine; what has been verified is the behaviour they rely on.
+- **`docs/VALIDATION.md`** is written for whoever has to sign this off, and
+  includes a section on what has not been checked.
+
+### Changed
+
+- The desktop application is Tauri 2 with a Leptos front end compiled to
+  WebAssembly. No Node toolchain, no bundled Python.
+- CI builds and tests on Windows, macOS and Linux, audits dependencies, and
+  checks the minimum supported Rust version (1.95).
+- **The dependency audit passes again.** `cargo deny check licenses` had been
+  failing, so the CI audit job was red: three dependencies carry licences the
+  allow list did not cover. Two of them, `colored` and `option-ext`, are
+  MPL-2.0 and reach the shipped binary through the Hugging Face client, and
+  `hf-hub` 1.0 has no feature that drops it. They are now allowed with the
+  reason recorded in `deny.toml` and disclosed in the command-line README and
+  the release notes, rather than by widening the list quietly.
+- **The Dockerfile builds the command-line tool.** The previous one built a
+  Python API server from directories the rewrite deleted, so it could not have
+  worked. The new one is multi-stage, runs as a non-root user, exposes no port,
+  and is built and smoke-tested by CI on every commit because the machine it
+  was written on has Docker installed but not running.
+- **`MODEL_CARD.md` and `docs/ROADMAP.md` were rewritten.** Both described the
+  removed software: the first carried cards for ESMFold, ESM-IF1 and
+  ProteinMPNN, and the second listed nineteen phases of it as done. `CITATION.cff`
+  likewise still claimed version 0.4.0 and an abstract about structure
+  prediction and inverse folding.
+- `unsafe` code is forbidden in the three workspaces that ship: the root
+  crates, the desktop application and the training tools. The dataset builder
+  is a maintainers' tool and is not covered.
+
+### Known limitations
+
+- **No signed installers.** Operating systems will warn. Code-signing
+  certificates have not been obtained.
+- **Two runs cannot load the embedding model through the Hugging Face cache at
+  once**; on Windows the second is refused the weights file. Run `opendna
+  stage` once and point `--models` at the bundle, which several runs can
+  share. This matters because `split` and the pipelines exist to run parts
+  side by side.
+- **One machine.** Every measurement in the documentation comes from a single
+  Windows workstation with an RTX 2000 Ada. Cross-platform numerical agreement
+  is untested.
+- **No clinical or diagnostic validation of any kind.**
+- **Nothing detects out-of-domain input.** The disorder head's confidence
+  predicts error, which is not the same thing.
+
+## Everything below this line
+
+The entries below describe a different program: the Python and React
+application this release replaced. They are kept because they are the
+project's history, not because a feature can be traced from them to anything
+here.
 
 ## [v0.5.0-rc1] - 2026-04-07
 
