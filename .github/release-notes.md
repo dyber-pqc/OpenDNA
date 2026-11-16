@@ -102,10 +102,12 @@ checked.
 
 ## Two licence obligations worth knowing
 
-The accessibility head is trained on share-alike data and released on the same
-terms. `opendna stage` writes a `LICENSES.md` that groups the heads by licence
-and flags that one, because a result passed on without it is an obligation
-somebody does not know they have.
+The solubility head is the one to watch. It is trained on eSOL, which is
+CC BY-SA 2.1 JP, and because that licence is share-alike the weights carry the
+same terms rather than the Apache-2.0 of the other three. `opendna stage`
+writes a `LICENSES.md` that groups the heads by licence and flags that one,
+because a result passed on without it is an obligation somebody does not know
+they have.
 
 The binaries contain two MPL-2.0 components, `colored` and `option-ext`, which
 arrive through the Hugging Face client used to fetch the embedding model.

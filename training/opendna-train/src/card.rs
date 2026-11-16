@@ -157,7 +157,10 @@ fn prose(task: Task) -> Prose {
                                    Cite the dataset.",
             inputs: "Per-residue ESM-2 embeddings. Sequences longer than the embedding model's \
                      limit are covered by overlapping windows.",
-            outputs: "One calibrated probability per residue. The threshold for a disorder \n                      call is recorded in the head's metadata and stated under Calibration \n                      below, because it is a property of the trained head rather than a \n                      convention.",
+            outputs: "One calibrated probability per residue. The threshold for a disorder \
+                      call is recorded in the head's metadata and stated under Calibration \
+                      below, because it is a property of the trained head rather than a \
+                      convention.",
             baseline: "Labelling every residue disordered.",
             limitations: &[
                 "DisProt records disorder that has been experimentally demonstrated. Residues \

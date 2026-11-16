@@ -20,10 +20,7 @@ This is a small head trained on **frozen** [facebook/esm2_t30_150M_UR50D](https:
 
 **Input.** Per-residue ESM-2 embeddings. Sequences longer than the embedding model's limit are covered by overlapping windows.
 
-**Output.** One calibrated probability per residue. The threshold for a disorder 
-                      call is recorded in the head's metadata and stated under Calibration 
-                      below, because it is a property of the trained head rather than a 
-                      convention.
+**Output.** One calibrated probability per residue. The threshold for a disorder call is recorded in the head's metadata and stated under Calibration below, because it is a property of the trained head rather than a convention.
 
 ## Results
 
