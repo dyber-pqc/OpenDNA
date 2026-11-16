@@ -168,9 +168,12 @@ fn prose(task: Task) -> Prose {
                  negative class contains an unknown number of undiscovered disordered residues.",
                 "Annotation is biased toward proteins people chose to study, and toward longer \
                  disordered regions. Short linkers are under-represented.",
-                "CAID test-set proteins are held out of training here, but numbers below are on \
-                 this dataset's own test split and are not comparable to published CAID results \
-                 without running the CAID protocol.",
+                "The CAID3 reference proteins are held out of training, and their whole \
+                 identity clusters with them, which is what makes the CAID3 figure above a \
+                 measurement rather than a leak. The results table beside it is this dataset's \
+                 own test split and is not comparable to anybody's published number: our \
+                 negative class contains undiscovered disorder and CAID masks what it did not \
+                 assess, so the two are scoring different things.",
                 "The metrics are pooled over residues, but residues within one protein are \
                  strongly correlated — neighbouring positions almost always share a label. The \
                  effective sample size is therefore closer to the few hundred proteins in each \
@@ -278,6 +281,31 @@ fn external_section(reports: &[crate::bench::BenchReport]) -> String {
         out.push('\n');
     }
     out
+}
+
+/// Which threshold the table's threshold-dependent metrics used.
+///
+/// Only for the classifier, and only because it has two different Matthews
+/// correlations on one card. The training report is written before any
+/// calibration exists, so its F1, balanced accuracy and MCC are computed at
+/// the conventional 0.5 on raw scores. The figure under Calibration is at the
+/// head's own threshold on calibrated ones. Both are honest and they are not
+/// the same measurement, and a reader comparing either to a published number
+/// has to know which they are holding.
+fn threshold_note(task: Task) -> String {
+    match task {
+        Task::Disorder => String::from(
+            "F1, balanced accuracy and MCC above are computed at a probability of 0.5 on the \
+             head's raw output, which is how the training report records them. The head's own \
+             decision threshold is lower and is stated under Calibration, along with the \
+             Matthews correlation it achieves — a different and better number, measured a \
+             different way. AUROC and AUPRC are rank statistics and do not depend on either \
+             threshold.\n\n",
+        ),
+        // The regressors' metrics are MAE, RMSE and correlations. No threshold
+        // enters them, so a note about one would be noise.
+        Task::Burial | Task::Solubility | Task::Stability => String::new(),
+    }
 }
 
 /// The Hub metadata that decides whether anybody finds the repository.
@@ -388,6 +416,7 @@ pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport
          ## Inputs and outputs\n\n**Input.** {inputs}\n\n**Output.** {outputs}\n\n\
          ## Results\n\n{table}\n\
          Baseline: {baseline}\n\n\
+         {threshold_note}\
          Validation chose the epoch that was kept (epoch {best_epoch} of {epochs_run} run). The \
          test split was evaluated once, afterwards. Splits come from the dataset builder, which \
          clusters by sequence identity so near-identical proteins cannot appear on both sides.\n\n\
@@ -435,6 +464,7 @@ pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport
             " (data order only; the training device could not seed weight initialisation)"
         },
         hub = hub_metadata(task),
+        threshold_note = threshold_note(task),
         usage = usage_section(task),
         dataset_url = p.dataset_url,
         license = p.license,
@@ -694,6 +724,30 @@ mod tests {
         assert!(card.contains("facebook/esm2_t30_150M_UR50D"));
         assert!(card.starts_with("---\nlicense: apache-2.0"), "needs YAML front matter");
         assert!(card.contains("## Limitations"));
+    }
+
+    /// Two Matthews correlations on one card need telling apart.
+    ///
+    /// The results table is at 0.5 on raw scores, because that is when the
+    /// training report is written; the calibration table is at the head's own
+    /// threshold on calibrated ones. Without the note a reader sees 0.493 and
+    /// 0.5213 for the same-sounding metric and cannot reconcile them, and
+    /// would not know which to compare against a published figure.
+    #[test]
+    fn the_classifier_card_says_which_threshold_its_metrics_used() {
+        let card = render(Task::Disorder, &report(), &[]);
+        assert!(card.contains("at a probability of 0.5 on the head's raw output"), "{card}");
+        assert!(card.contains("rank statistics and do not depend on either threshold"), "{card}");
+        // The regressors report MAE, RMSE and correlations, which no threshold
+        // enters, so the note would be noise on their cards.
+        for task in [Task::Burial, Task::Solubility, Task::Stability] {
+            let card = render(task, &report(), &[]);
+            assert!(
+                !card.contains("raw output"),
+                "{} has no decision threshold and should carry no note about one",
+                task.name()
+            );
+        }
     }
 
     /// Only the head that classifies claims a classification pipeline.

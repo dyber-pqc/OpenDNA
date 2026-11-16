@@ -62,6 +62,8 @@ A — in the baseline column means the metric is undefined for that baseline, no
 
 Baseline: Labelling every residue disordered.
 
+F1, balanced accuracy and MCC above are computed at a probability of 0.5 on the head's raw output, which is how the training report records them. The head's own decision threshold is lower and is stated under Calibration, along with the Matthews correlation it achieves — a different and better number, measured a different way. AUROC and AUPRC are rank statistics and do not depend on either threshold.
+
 Validation chose the epoch that was kept (epoch 5 of 15 run). The test split was evaluated once, afterwards. Splits come from the dataset builder, which clusters by sequence identity so near-identical proteins cannot appear on both sides.
 
 ### Against published benchmarks
@@ -115,7 +117,7 @@ Both commands take `--datasets <dir>` if the dataset is not at the default `../d
 
 - DisProt records disorder that has been experimentally demonstrated. Residues that are simply unannotated are treated as ordered during training, so the negative class contains an unknown number of undiscovered disordered residues.
 - Annotation is biased toward proteins people chose to study, and toward longer disordered regions. Short linkers are under-represented.
-- CAID test-set proteins are held out of training here, but numbers below are on this dataset's own test split and are not comparable to published CAID results without running the CAID protocol.
+- The CAID3 reference proteins are held out of training, and their whole identity clusters with them, which is what makes the CAID3 figure above a measurement rather than a leak. The results table beside it is this dataset's own test split and is not comparable to anybody's published number: our negative class contains undiscovered disorder and CAID masks what it did not assess, so the two are scoring different things.
 - The metrics are pooled over residues, but residues within one protein are strongly correlated — neighbouring positions almost always share a label. The effective sample size is therefore closer to the few hundred proteins in each split than to the hundred thousand or more residues the counts show, so small differences between splits should not be read as real. On this run the test split scored higher than validation on every metric, which is what that noise looks like rather than evidence the model generalises unusually well.
 
 ## Intended use
