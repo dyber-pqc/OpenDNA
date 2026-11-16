@@ -27,9 +27,13 @@ feature.
 - **Produce the artefacts at all.** The release workflow has never run. The
   tag that triggers it is its first test, and no installer has ever been built
   on macOS or Linux.
-- **Signed installers.** Apple notarization, Windows Authenticode, GPG for the
-  AppImage. Blocked on obtaining certificates, which costs money rather than
-  effort.
+- **Signed installers.** The pipeline is wired for all of it and uses
+  whichever credentials exist, so what is left is buying them: an Apple
+  Developer account for notarization and a Windows code-signing certificate,
+  which since June 2023 means renting signing from a cloud service rather than
+  holding a key file. [SIGNING.md](SIGNING.md) says what each one buys and what
+  secret it goes in. The checksum signature needs no certificate at all and is
+  waiting only on a key being generated.
 - **Agree across platforms.** Every number in the documentation comes from one
   Windows workstation. CI builds and tests on three operating systems, but
   nothing has checked that they produce the same values. `opendna selftest`

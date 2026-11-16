@@ -151,3 +151,57 @@ jobs:
             echo "expected exit 3 with no heads installed, got $status"
             exit 1
           fi
+
+  # The checksum-signing script is the one piece of the signing setup that
+  # needs no certificate, so it is the one piece that can be tested. This
+  # generates a key, signs a fixture, verifies it, and checks that tampering
+  # with either half is caught -- on every commit, so the script cannot rot
+  # while waiting for the certificates the other platforms need.
+  signing:
+    name: Checksum signing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Round-trip a signature
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          gpg --batch --pinentry-mode loopback --passphrase '' \
+            --quick-generate-key "OpenDNA CI <ci@invalid>" default sign never
+          fpr="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')"
+          gpg --armor --export "$fpr" > "$RUNNER_TEMP/pub.asc"
+          key="$(gpg --armor --export-secret-keys --batch --pinentry-mode loopback --passphrase '' "$fpr")"
+
+          mkdir -p "$RUNNER_TEMP/release"
+          echo hello > "$RUNNER_TEMP/release/thing.tar.gz"
+          (cd "$RUNNER_TEMP/release" && sha256sum thing.tar.gz > SHA256SUMS)
+
+          # Unset key: not a failure, and nothing written.
+          set +e
+          GPG_SIGNING_KEY= scripts/sign-release.sh "$RUNNER_TEMP/release"
+          [ "$?" -eq 3 ] || { echo "an unset key should exit 3"; exit 1; }
+          set -e
+          [ ! -f "$RUNNER_TEMP/release/SHA256SUMS.asc" ] || { echo "it signed without a key"; exit 1; }
+
+          GPG_SIGNING_KEY="$key" scripts/sign-release.sh "$RUNNER_TEMP/release"
+          OPENDNA_SIGNING_PUBKEY="$RUNNER_TEMP/pub.asc" \
+            scripts/sign-release.sh --verify "$RUNNER_TEMP/release"
+
+          # A tampered artefact: signature still good, checksum must fail.
+          echo tampered > "$RUNNER_TEMP/release/thing.tar.gz"
+          set +e
+          OPENDNA_SIGNING_PUBKEY="$RUNNER_TEMP/pub.asc" \
+            scripts/sign-release.sh --verify "$RUNNER_TEMP/release"
+          [ "$?" -ne 0 ] || { echo "a tampered artefact verified"; exit 1; }
+          set -e
+
+          # A tampered manifest: the signature must fail.
+          echo hello > "$RUNNER_TEMP/release/thing.tar.gz"
+          echo "deadbeef  evil" >> "$RUNNER_TEMP/release/SHA256SUMS"
+          set +e
+          OPENDNA_SIGNING_PUBKEY="$RUNNER_TEMP/pub.asc" \
+            scripts/sign-release.sh --verify "$RUNNER_TEMP/release"
+          [ "$?" -ne 0 ] || { echo "a tampered manifest verified"; exit 1; }
+          set -e
+          echo "every path behaved."

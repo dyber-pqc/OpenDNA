@@ -41,6 +41,7 @@ theme:
 nav:
   - Home: index.md
   - Validation: VALIDATION.md
+  - Signing: SIGNING.md
   - Roadmap: ROADMAP.md
   - Changelog: CHANGELOG.md
 

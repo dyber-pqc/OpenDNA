@@ -440,7 +440,11 @@ marketing.
   disorder head's CAID3 number was produced by running the CAID protocol; the
   others' were not.
 - **No signed installers.** Binaries are unsigned, so operating systems will
-  warn. Code-signing certificates have not been obtained.
+  warn. The signing pipeline exists and is exercised as far as it can be
+  without credentials — the checksum-signing script is round-tripped in CI on
+  every commit — but no certificate has ever signed anything here, and the
+  Windows and macOS paths have therefore never run. See
+  [SIGNING.md](SIGNING.md), which is explicit about which parts are tested.
 - **The regressors' intervals rest on an assumption the splits break.** See
   the section above. Conformal coverage assumes calibration and held-out sets
   are exchangeable; clustering by sequence identity makes them deliberately

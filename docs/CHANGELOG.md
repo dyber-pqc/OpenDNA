@@ -170,8 +170,12 @@ triaging a few hundred candidates.
 
 ### Known limitations
 
-- **No signed installers.** Operating systems will warn. Code-signing
-  certificates have not been obtained.
+- **No signed installers.** Operating systems will warn. The release pipeline
+  is wired for Windows Authenticode, Apple notarization and a GPG signature
+  over the checksums, and uses whichever credentials are present, but none has
+  been obtained yet so nothing is signed. The checksum-signing script is
+  tested; the two platform paths have never run. See
+  [SIGNING.md](SIGNING.md).
 - **Two runs cannot load the embedding model through the Hugging Face cache at
   once**; on Windows the second is refused the weights file. Run `opendna
   stage` once and point `--models` at the bundle, which several runs can

@@ -124,6 +124,19 @@ jobs:
           - platform: windows-latest
             artifact-name: desktop-windows
     runs-on: ${{ matrix.platform }}
+    # At job level rather than on the steps: a step's own `env` is not visible
+    # to that step's `if`, which is evaluated before the step environment is
+    # built, and gating on "is this secret set" is the whole point here. An
+    # unset secret is an empty string, which is what every condition tests for.
+    env:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      WINDOWS_SIGN_COMMAND: ${{ secrets.WINDOWS_SIGN_COMMAND }}
+      WINDOWS_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
     steps:
       - uses: actions/checkout@v4
 
@@ -162,11 +175,57 @@ jobs:
         working-directory: app
         run: cargo run -p xtask -- fetch-molstar
 
+      # Apple's certificate goes into a keychain of its own, created here and
+      # thrown away with the runner. Tauri picks the identity up from the
+      # environment; nothing about signing is in the committed config.
+      - name: Import the Apple certificate
+        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
+        run: |
+          keychain="$RUNNER_TEMP/opendna-signing.keychain-db"
+          password="$(openssl rand -base64 24)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
+          security list-keychain -d user -s "$keychain" login.keychain
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          security find-identity -v -p codesigning "$keychain"
+
       # tauri.conf.json runs `trunk build --release` in app/ui as its
       # beforeBuildCommand, so the WebAssembly front end is built here too.
+      #
+      # The signing overlay is merged only when there is something to sign
+      # with. Without it the build is exactly the unsigned one that has always
+      # worked, which is what a fork and a certificate-less release both need.
+      # The Apple variables are read by Tauri itself -- it signs when
+      # APPLE_SIGNING_IDENTITY is set and notarizes when the APPLE_ID trio is
+      # -- and the Windows ones by scripts/sign-windows.ps1. Both come from the
+      # job environment above.
       - name: Build the application
         working-directory: app/desktop
-        run: cargo tauri build
+        shell: bash
+        run: |
+          signing=""
+          case "${{ matrix.platform }}" in
+            windows-latest)
+              if [ -n "$WINDOWS_SIGN_COMMAND$WINDOWS_CERT_THUMBPRINT" ]; then
+                signing="--config tauri.signing.conf.json"
+              fi
+              ;;
+            macos-latest)
+              # macOS needs no config: Tauri signs when APPLE_SIGNING_IDENTITY
+              # is set and notarizes when the APPLE_ID trio is.
+              ;;
+          esac
+          if [ -n "$signing" ]; then
+            echo "Building with code signing."
+          else
+            echo "Building unsigned: no signing credential is configured for this platform."
+          fi
+          cargo tauri build $signing
 
       - name: Collect installers
         if: always()
@@ -201,6 +260,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
     steps:
       - uses: actions/checkout@v4
 
@@ -218,6 +280,17 @@ jobs:
           sha256sum * > SHA256SUMS
           ls -la
           cat SHA256SUMS
+
+      # One signature over the checksum file vouches for every artefact named
+      # in it, on every platform, and costs nothing but a key. It does not stop
+      # an operating system warning about an unsigned installer -- that needs
+      # the platform certificates -- but it is what lets somebody check that
+      # what they downloaded is what was built.
+      - name: Sign the checksums
+        if: env.GPG_SIGNING_KEY != ''
+        run: |
+          scripts/sign-release.sh release
+          scripts/sign-release.sh --verify release
 
       - name: Publish
         uses: softprops/action-gh-release@v2

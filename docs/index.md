@@ -37,6 +37,7 @@ The accurate documentation lives next to the code it describes:
 | [Command line](https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/README.md) | batch predictions over a FASTA file |
 | [CAID submissions](https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/CAID.md) | the assessment format, and the two ways it fails silently |
 | [Pipelines](https://github.com/dyber-pqc/OpenDNA/blob/main/pipelines/README.md) | running parts in parallel under Nextflow or Snakemake |
+| [Signing](SIGNING.md) | what is signed, what is not, and what each signature buys |
 
 Each trained head carries its own model card stating its baseline, its
 measured metrics, and its limitations.
