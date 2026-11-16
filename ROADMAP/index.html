@@ -991,11 +991,14 @@ with the run manifest attached, so a notebook cannot lose the provenance the
 CSV carries. Fits the local-only premise exactly and makes the four existing
 heads reachable from where this audience works. Smallest item on the list and
 first because everything after it is easier to demonstrate from a notebook.</p>
-<p><strong>2. An external-engine adapter.</strong> The structural piece. A registry that can
-discover an installed engine, verify it, record it in the manifest, and refuse
-when it is missing — the same contract the heads have. Nothing user-facing
-ships in this tranche; it is what makes tranches 3, 6 and 7 weeks of work
-instead of years.</p>
+<p><strong>2. An external-engine adapter. Done.</strong> <code>crates/opendna-engine</code> discovers an
+installed engine, identifies it by the version string it prints and the digest
+of the file that would run, and pins it in an <code>engines.lock</code> the way
+<code>models.lock</code> pins a head. <code>opendna engines</code> is the command. Four engines are
+declared — ESMFold, ColabFold, Vina and an OpenMM-capable interpreter — and
+nothing drives any of them yet, which the command says outright. What remains
+for tranche 3 is recording the engine in a run manifest, which waits until
+there is a run that used one.</p>
 <p><strong>3. Structure prediction, integrated.</strong> Drive a local ESMFold or ColabFold
 install through the adapter. The structure viewer already exists and the burial
 head already consumes coordinates, so a predicted structure has somewhere to
