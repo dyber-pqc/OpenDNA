@@ -72,8 +72,18 @@ take hours can be made interruptible with `--checkpoint`. See
 The desktop application is the same models with a structure viewer; see
 [Build](#build).
 
-What changed between releases, and what each one does not cover, is in
-[docs/CHANGELOG.md](docs/CHANGELOG.md).
+From a notebook instead, with the provenance attached to the frame rather than
+left behind in a CSV:
+
+```python
+import opendna
+run = opendna.predict("disorder", {"ubiquitin": sequence})
+run.frame.head()
+run.cite()
+```
+
+See [bindings/python](bindings/python). What changed between releases, and what
+each one does not cover, is in [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## How good the models are
 
@@ -181,6 +191,7 @@ bounds and the PowerShell argument traps.
 | [datasets/](datasets) | `datasets` | the dataset builder |
 | [training/](training) | `training` | embedding cache, training, model cards, benchmarks |
 | [pipelines/](pipelines) | — | Nextflow and Snakemake modules for running parts in parallel |
+| [bindings/](bindings/python) | — | Python package, for calling the heads from a notebook |
 | [docs/](docs) | — | the documentation site, including [VALIDATION.md](docs/VALIDATION.md) |
 | [models/](models) | — | trained heads and their cards; weights are not committed |
 

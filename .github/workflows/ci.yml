@@ -205,3 +205,27 @@ jobs:
           [ "$?" -ne 0 ] || { echo "a tampered manifest verified"; exit 1; }
           set -e
           echo "every path behaved."
+
+  # The Python bindings drive the compiled binary, so this builds it and runs
+  # the suite against it. The trained heads are not in the repository, so the
+  # prediction tests skip and the refusal tests -- a missing head, a mutation
+  # on the wrong task, a name that would corrupt the FASTA -- are what runs
+  # here. Those are the ones that encode the no-fallback rule.
+  bindings:
+    name: Python bindings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the command-line tool
+        run: cargo build --release --locked -p opendna-cli
+      - name: Install the bindings
+        run: pip install -e 'bindings/python[test,frames]'
+      - name: Test
+        env:
+          OPENDNA_BIN: ${{ github.workspace }}/target/release/opendna
+        run: pytest bindings/python -v

@@ -38,6 +38,7 @@ The accurate documentation lives next to the code it describes:
 | [CAID submissions](https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/CAID.md) | the assessment format, and the two ways it fails silently |
 | [Pipelines](https://github.com/dyber-pqc/OpenDNA/blob/main/pipelines/README.md) | running parts in parallel under Nextflow or Snakemake |
 | [Signing](SIGNING.md) | what is signed, what is not, and what each signature buys |
+| [Python bindings](https://github.com/dyber-pqc/OpenDNA/blob/main/bindings/python/README.md) | calling the heads from a notebook, with the run manifest attached |
 
 Each trained head carries its own model card stating its baseline, its
 measured metrics, and its limitations.
