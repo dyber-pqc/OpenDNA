@@ -76,6 +76,21 @@ to assume away in our own favour. Each card states its own licence and why.
 Publishing is a manual step, done by a maintainer. Nothing in this repository
 uploads automatically, and no token is stored here.
 
+`scripts/publish_hf.py` does steps 3 and 4 for all nine repositories, after
+checking each head's weights against the SHA-256 in its own metadata and each
+card's front matter. It does nothing without a flag:
+
+```bash
+python scripts/publish_hf.py             # check, and print what it would send
+python scripts/publish_hf.py --upload    # send the cards, weights and manifests
+python scripts/publish_hf.py --public    # make the repositories public
+```
+
+Upload before making anything public. A repository holds whatever was uploaded
+last, so opening one whose card predates the current one publishes a superseded
+document. The steps below are what the script does and why; read them before
+running it, and step 5 is still yours.
+
 1. Log in with your own account:
 
    ```bash
