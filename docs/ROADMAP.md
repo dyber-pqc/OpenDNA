@@ -101,27 +101,105 @@ Ordered by how much it would change what somebody can conclude from a result.
 
 Not promised, and each would need its own justification before being started.
 
-- More heads, where a dataset exists that can be redistributed and a baseline
-  exists to be measured against.
 - A larger embedding model, if one ever helps. ESM-2 650M was tried and
   rejected: it made disorder worse on every external metric for four times the
   weights.
-- Structure-aware features, now that the accessibility head exists.
+- More heads beyond the antibody one planned below, where a dataset exists that
+  can be redistributed and a baseline exists to be measured against.
+- Structure-aware features, which stop being speculative once predicted
+  coordinates are available: see tranches 3 and 5 below.
 
-## Not planned
+## Putting the removed capabilities back
 
-Stated so nobody waits for them. All of these were advertised by `v0.5.x` and
-removed in the rewrite:
+`v0.5.x` advertised structure prediction, docking, molecular dynamics,
+free-energy calculation, sequence and backbone design, antibody modelling and
+an HTTP API. The rewrite removed all of them, and the plan now is to put them
+back — under the condition that made removing them worth doing.
 
-- Structure prediction, inverse folding, docking, molecular dynamics, free
-  energy perturbation
-- Antibody-specific models, plasmid tools, a model hub, project templates
-- A server deployment, a plugin marketplace, real-time co-editing, a VR mode
+**The condition.** A capability arrives with a measured number and a stated
+baseline, or it does not arrive. That is what separates this from the version
+that listed nine things and did them badly. For a trained head it means a
+held-out split, a baseline it beats, and a generated card. For an integration
+it means recording which engine ran, at which version, with which digest, in
+the run manifest — and refusing when the engine is absent rather than
+substituting something cheaper.
 
-The reason for removing them is the reason for not planning them: a platform
-advertising nine things it did badly was worth less than a tool doing four
-things with numbers attached. Anything added back has to arrive with a
-measured number and a stated baseline, like the four heads did.
+**Implement or integrate.** Six of these are decades of specialist work that
+other people have already done and published. Writing a force field, a docking
+search or an AlphaFold trunk here would produce a worse version of software
+that already exists, which is the failure this project was rewritten to
+escape. So the plan distinguishes:
+
+- **Implemented here** where the model is small enough to port honestly and
+  the licence permits it, and where doing so keeps the no-network, no-runtime
+  promise.
+- **Integrated** where the right answer is to drive an existing engine, with
+  the same provenance discipline the heads get. OpenDNA has no concept of an
+  external engine today; building one is the prerequisite for four of these,
+  and it is the next structural piece of work.
+
+### Order of work
+
+Each tranche is shippable on its own, and each later one depends on an earlier
+one rather than on all of them.
+
+**1. Python bindings.** The notebook integration from the list. A package
+wrapping the command-line tool, returning per-residue results as data frames
+with the run manifest attached, so a notebook cannot lose the provenance the
+CSV carries. Fits the local-only premise exactly and makes the four existing
+heads reachable from where this audience works. Smallest item on the list and
+first because everything after it is easier to demonstrate from a notebook.
+
+**2. An external-engine adapter.** The structural piece. A registry that can
+discover an installed engine, verify it, record it in the manifest, and refuse
+when it is missing — the same contract the heads have. Nothing user-facing
+ships in this tranche; it is what makes tranches 3, 6 and 7 weeks of work
+instead of years.
+
+**3. Structure prediction, integrated.** Drive a local ESMFold or ColabFold
+install through the adapter. The structure viewer already exists and the burial
+head already consumes coordinates, so a predicted structure has somewhere to
+go. Not a port: ESMFold is 2.6 GB with a folding trunk whose faithful
+reimplementation is a project of its own, and a half-faithful one would produce
+coordinates nobody should trust.
+
+**4. An antibody head.** The only item on the list that adds science rather
+than access, and the one that fits the existing architecture without any new
+machinery: a dataset built from OAS or SAbDab, a head trained on frozen ESM-2
+embeddings, a measured baseline, a generated card. Developability or humanness
+rather than structure. Licence terms of both sources need reading before
+anything is built, as they did for eSOL.
+
+**5. Sequence design.** ProteinMPNN is small enough to port honestly — on the
+order of a million parameters, published under a permissive licence — and
+inverse folding is a real capability rather than a wrapper. It needs a backbone
+as input, so it is worth little before tranche 3 and worth a lot after it.
+
+**6. Docking, integrated.** AutoDock Vina through the adapter. A scoring
+function and a conformational search written here would be a worse Vina.
+
+**7. Molecular dynamics, integrated.** OpenMM through the adapter, which means
+a Python dependency returning to the project — as a declared, optional engine
+rather than as the backend the rewrite deleted. Free-energy calculation sits on
+top of this and comes after it, not beside it.
+
+**8. An HTTP API, if it is still wanted.** Technically days of work and the
+only item here that cuts against the project's own premise: "no server, no
+account, no network: sequences stay where you opened them" is in the first
+paragraph of the README and is why some people can use this at all. If it
+ships it ships as a separate opt-in binary, bound to loopback, off by default,
+and documented as what it is. A hosted service is a different proposition
+again, and this roadmap does not plan one: it would move other people's
+unpublished sequences onto somebody else's machine, which is the problem
+OpenDNA exists to avoid.
+
+### Still not planned
+
+- A plugin marketplace, real-time co-editing, a VR mode, plasmid tools and a
+  model hub. These were in `v0.5.x` and nothing on the current list needs them.
+- Backbone design by diffusion. RFdiffusion-class models are large, depend on
+  the structure machinery of tranche 3, and would be an integration at best.
+  Revisit after tranche 5, not before.
 
 ## Versioning
 
