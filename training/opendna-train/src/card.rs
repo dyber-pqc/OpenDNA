@@ -141,8 +141,16 @@ fn prose(task: Task) -> Prose {
                 "Trained on frozen embeddings, so accuracy is bounded by what ESM-2 already \
                  encodes about the position.",
             ],
-            citation: "Tien, M. Z. et al. Maximum allowed solvent accessibilites of residues in \
-                       proteins. PLOS ONE 8, e80635 (2013).",
+            // Two references, and the card has to say which is which: the
+            // labels are computed from CATH domains and wwPDB coordinates,
+            // and Tien supplies the per-residue maxima they are divided by.
+            // Crediting Tien as the source of the data was an attribution
+            // error.
+            citation: "Sillitoe, I. et al. CATH: increased structural coverage of functional \
+                       space. Nucleic Acids Research 49, D266-D273 (2021).\n>\n> The labels are \
+                       computed from wwPDB coordinates and normalised by the theoretical maxima \
+                       of: Tien, M. Z. et al. Maximum allowed solvent accessibilites of residues \
+                       in proteins. PLOS ONE 8, e80635 (2013).",
         },
         Task::Disorder => Prose {
             summary: "Predicts, for each residue, whether it lies in an intrinsically disordered \
@@ -310,6 +318,70 @@ fn external_section(reports: &[crate::bench::BenchReport]) -> String {
         out.push('\n');
     }
     out
+}
+
+/// Say outright whether the intervals cover less than they promise.
+///
+/// A reader can compare two columns, and a reader skimming will not. Burial
+/// falls short at every level and that is the fact most worth not missing on
+/// its card, so it is stated in words rather than left in the table.
+fn coverage_direction(intervals: &opendna_ml::heads::Intervals) -> String {
+    let short = |l: &opendna_ml::heads::IntervalLevel| l.achieved < l.nominal;
+    if intervals.levels.is_empty() {
+        return String::new();
+    }
+    if intervals.levels.iter().all(short) {
+        return String::from(
+            "On this head it points the same way at every level: the intervals cover less than \
+             they say, so read each one as the lower bound of a range that ought to be wider.",
+        );
+    }
+    if !intervals.levels.iter().any(short) {
+        return String::from(
+            "On this head it points the other way at every level: the intervals cover more than \
+             they say, so they are conservative rather than optimistic.",
+        );
+    }
+    String::from("On this head it falls short at some levels and not others; read the column.")
+}
+
+/// What the interval's quantile actually rests on, which is not the residual
+/// count.
+///
+/// Different for each regressor, and the difference is not cosmetic. Burial
+/// and stability produce many residuals per protein and those residuals are
+/// correlated, so the effective count is nearer the number of proteins.
+/// Solubility produces exactly one per protein, so its residuals are
+/// independent and the only caveat is how few there are — stating a
+/// correlation there would be inventing a problem, and stating it in
+/// stability's vocabulary on the burial card, which has no wild types and no
+/// substitutions, was how this paragraph read when it was written once for all
+/// three.
+fn independence_note(task: Task) -> String {
+    match task {
+        Task::Stability => String::from(
+            "It rests on fewer observations than the residual count suggests. Residuals from \
+             one wild-type protein are correlated — substitutions in the same fold share \
+             whatever the head has got wrong about it — so the effective number of independent \
+             observations behind each quantile is nearer the number of distinct wild types in \
+             the split than the number of substitutions. The dataset card records both.",
+        ),
+        Task::Burial => String::from(
+            "It rests on fewer observations than the residual count suggests. Residuals from \
+             one domain are correlated — neighbouring residues share a local environment and \
+             whatever the head has got wrong about that fold — so the effective number of \
+             independent observations behind each quantile is nearer the number of domains in \
+             the split than the number of residues. The dataset card records both.",
+        ),
+        Task::Solubility => String::from(
+            "Each protein contributes exactly one residual, so unlike the per-residue heads \
+             these observations are independent. There are simply few of them: the split the \
+             quantile is fitted on holds a few hundred proteins, which is why the interval is \
+             wide and why it should be read as the honest width rather than a tight one.",
+        ),
+        // No intervals on a classifier, so this is never asked for.
+        Task::Disorder => String::new(),
+    }
 }
 
 /// Which threshold the table's threshold-dependent metrics used.
@@ -637,7 +709,7 @@ fn confidence_section(abstention: Option<&opendna_ml::heads::Abstention>) -> Str
 }
 
 /// What the card says about prediction intervals.
-fn interval_section(intervals: Option<&opendna_ml::heads::Intervals>) -> String {
+fn interval_section(task: Task, intervals: Option<&opendna_ml::heads::Intervals>) -> String {
     let Some(i) = intervals else {
         return String::new();
     };
@@ -668,16 +740,16 @@ fn interval_section(intervals: Option<&opendna_ml::heads::Intervals>) -> String 
          clusters by sequence identity so that near-identical proteins cannot straddle a split, \
          which makes the held-out set systematically more distant than a random sample. That is \
          the right way to build the splits, and the cost is that the guarantee is approximate. \
-         The measured column is the one to believe, in whichever direction it points.\n\n\
-         It rests on fewer observations than the residual count suggests. Residuals from one \
-         wild-type protein are correlated — neighbouring positions and related substitutions \
-         share whatever the head has got wrong about that fold — so the effective number of \
-         independent observations behind each quantile is nearer the number of distinct \
-         proteins in the split than the number of residuals. The dataset card records both.\n\n\
+         The measured column is the one to believe, in whichever direction it points. \
+         {direction}\n\n\
+         {independence}\n\n\
          The half-width is constant, which is the method's main limitation: the interval is \
          wider than it needs to be where the head is reliable and narrower than it should be \
          where it is not.\n",
-        i.held_out_mae, i.units
+        i.held_out_mae,
+        i.units,
+        direction = coverage_direction(i),
+        independence = independence_note(task)
     );
     out
 }
@@ -712,7 +784,7 @@ pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> 
     let body = render(task, report, &external)
         + &calibration_section(task, calibration.as_ref())
         + &confidence_section(abstention.as_ref())
-        + &interval_section(intervals.as_ref());
+        + &interval_section(task, intervals.as_ref());
     std::fs::write(&path, body).with_context(|| format!("writing {}", path.display()))?;
     println!(
         "Wrote {} ({} external benchmark{})",
@@ -764,6 +836,70 @@ mod tests {
         assert!(card.contains("facebook/esm2_t30_150M_UR50D"));
         assert!(card.starts_with("---\nlicense: apache-2.0"), "needs YAML front matter");
         assert!(card.contains("## Limitations"));
+    }
+
+    fn levels(pairs: &[(f64, f64)]) -> opendna_ml::heads::Intervals {
+        opendna_ml::heads::Intervals {
+            units: "RSA".into(),
+            levels: pairs
+                .iter()
+                .map(|(nominal, achieved)| opendna_ml::heads::IntervalLevel {
+                    nominal: *nominal,
+                    half_width: 0.1,
+                    achieved: *achieved,
+                })
+                .collect(),
+            held_out_mae: 0.1,
+        }
+    }
+
+    /// Whether an interval covers what it promises is the fact most worth not
+    /// missing, and it is the one a reader skimming two columns misses.
+    #[test]
+    fn the_card_says_which_way_the_coverage_misses() {
+        let under = levels(&[(0.5, 0.433), (0.8, 0.760), (0.9, 0.875)]);
+        assert!(
+            coverage_direction(&under).contains("cover less than they say"),
+            "burial's measured coverage is short at every level"
+        );
+        let over = levels(&[(0.5, 0.546), (0.8, 0.852), (0.9, 0.937)]);
+        assert!(
+            coverage_direction(&over).contains("cover more than they say"),
+            "stability's is long at every level"
+        );
+        let mixed = levels(&[(0.5, 0.502), (0.8, 0.770), (0.9, 0.911)]);
+        assert!(
+            coverage_direction(&mixed).contains("some levels and not others"),
+            "solubility's goes both ways"
+        );
+    }
+
+    /// The per-residue heads produce correlated residuals; solubility produces
+    /// one per protein, so claiming a correlation there invents a problem.
+    #[test]
+    fn each_head_gets_its_own_account_of_what_the_quantile_rests_on() {
+        let burial = independence_note(Task::Burial);
+        assert!(burial.contains("one domain are correlated"), "{burial}");
+        assert!(!burial.contains("wild-type"), "burial has no wild types: {burial}");
+        assert!(!burial.contains("substitution"), "burial has no substitutions: {burial}");
+
+        let stability = independence_note(Task::Stability);
+        assert!(stability.contains("wild-type protein are correlated"), "{stability}");
+
+        let solubility = independence_note(Task::Solubility);
+        assert!(solubility.contains("exactly one residual"), "{solubility}");
+        assert!(!solubility.contains("correlated"), "one residual per protein is independent: {solubility}");
+    }
+
+    /// The burial card credited Tien et al. as the source of its training
+    /// data. Tien supplies the maxima the labels are divided by; the data is
+    /// CATH domains and wwPDB coordinates.
+    #[test]
+    fn the_burial_card_credits_the_data_and_not_only_the_normalisation() {
+        let card = render(Task::Burial, &report(), &[]);
+        assert!(card.contains("Sillitoe"), "CATH is the source of the domains:\n{card}");
+        assert!(card.contains("normalised by the theoretical maxima"), "{card}");
+        assert!(card.contains("Tien"), "Tien still has to be cited, for what it is:\n{card}");
     }
 
     /// The dash in the baseline column has two opposite causes.

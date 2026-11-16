@@ -883,7 +883,7 @@ fn regressor_predictions(
                 }
                 Ok(out)
             };
-            Ok((read(Split::Validation)?, read(Split::Test)?, "%"))
+            Ok((read(Split::Validation)?, read(Split::Test)?, "percentage points"))
         }
         Task::Burial => {
             let head = heads

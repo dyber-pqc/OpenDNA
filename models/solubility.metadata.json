@@ -9,7 +9,7 @@
   "calibration": null,
   "abstention": null,
   "intervals": {
-    "units": "%",
+    "units": "percentage points",
     "levels": [
       {
         "nominal": 0.5,

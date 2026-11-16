@@ -110,7 +110,9 @@ Ranking and triage during protein engineering: comparing candidate mutations or 
 
 The training data comes from:
 
-> Tien, M. Z. et al. Maximum allowed solvent accessibilites of residues in proteins. PLOS ONE 8, e80635 (2013).
+> Sillitoe, I. et al. CATH: increased structural coverage of functional space. Nucleic Acids Research 49, D266-D273 (2021).
+>
+> The labels are computed from wwPDB coordinates and normalised by the theoretical maxima of: Tien, M. Z. et al. Maximum allowed solvent accessibilites of residues in proteins. PLOS ONE 8, e80635 (2013).
 
 Please cite that work as well as this model.
 
@@ -126,8 +128,8 @@ A point estimate invites being read as a measurement. These intervals say how wi
 
 Mean absolute error on the same split is 0.115 RSA.
 
-The achieved column is there because it differs from the nominal one, and it can differ either way. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. The measured column is the one to believe, in whichever direction it points.
+The achieved column is there because it differs from the nominal one, and it can differ either way. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. The measured column is the one to believe, in whichever direction it points. On this head it points the same way at every level: the intervals cover less than they say, so read each one as the lower bound of a range that ought to be wider.
 
-It rests on fewer observations than the residual count suggests. Residuals from one wild-type protein are correlated — neighbouring positions and related substitutions share whatever the head has got wrong about that fold — so the effective number of independent observations behind each quantile is nearer the number of distinct proteins in the split than the number of residuals. The dataset card records both.
+It rests on fewer observations than the residual count suggests. Residuals from one domain are correlated — neighbouring residues share a local environment and whatever the head has got wrong about that fold — so the effective number of independent observations behind each quantile is nearer the number of domains in the split than the number of residues. The dataset card records both.
 
 The half-width is constant, which is the method's main limitation: the interval is wider than it needs to be where the head is reliable and narrower than it should be where it is not.

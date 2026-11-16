@@ -118,14 +118,14 @@ A point estimate invites being read as a measurement. These intervals say how wi
 
 | Confidence | Interval | Coverage achieved on held-out data |
 |---|---|---|
-| 50% | ±15.675 % | 50.2% |
-| 80% | ±29.515 % | 77.0% |
-| 90% | ±38.945 % | 91.1% |
+| 50% | ±15.675 percentage points | 50.2% |
+| 80% | ±29.515 percentage points | 77.0% |
+| 90% | ±38.945 percentage points | 91.1% |
 
-Mean absolute error on the same split is 18.823 %.
+Mean absolute error on the same split is 18.823 percentage points.
 
-The achieved column is there because it differs from the nominal one, and it can differ either way. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. The measured column is the one to believe, in whichever direction it points.
+The achieved column is there because it differs from the nominal one, and it can differ either way. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. The measured column is the one to believe, in whichever direction it points. On this head it falls short at some levels and not others; read the column.
 
-It rests on fewer observations than the residual count suggests. Residuals from one wild-type protein are correlated — neighbouring positions and related substitutions share whatever the head has got wrong about that fold — so the effective number of independent observations behind each quantile is nearer the number of distinct proteins in the split than the number of residuals. The dataset card records both.
+Each protein contributes exactly one residual, so unlike the per-residue heads these observations are independent. There are simply few of them: the split the quantile is fitted on holds a few hundred proteins, which is why the interval is wide and why it should be read as the honest width rather than a tight one.
 
 The half-width is constant, which is the method's main limitation: the interval is wider than it needs to be where the head is reliable and narrower than it should be where it is not.
