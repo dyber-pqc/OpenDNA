@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://dyber-pqc.github.io/OpenDNA/ROADMAP/">
       
       
-        <link rel="prev" href="../VALIDATION/">
+        <link rel="prev" href="../SIGNING/">
       
       
         <link rel="next" href="../CHANGELOG/">
@@ -261,6 +261,25 @@
   
   
   
+  
+    <li class="md-tabs__item">
+      <a href="../SIGNING/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Signing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
     
   
   
@@ -384,6 +403,33 @@
     
   
     Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SIGNING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Signing
   
 
     
@@ -535,13 +581,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#not-planned" class="md-nav__link">
+  <a href="#putting-the-removed-capabilities-back" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Not planned
+        Putting the removed capabilities back
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Putting the removed capabilities back">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#order-of-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Order of work
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#still-not-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Still not planned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -701,13 +775,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#not-planned" class="md-nav__link">
+  <a href="#putting-the-removed-capabilities-back" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Not planned
+        Putting the removed capabilities back
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Putting the removed capabilities back">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#order-of-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Order of work
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#still-not-planned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Still not planned
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -775,9 +877,13 @@ feature.</p>
 <li><strong>Produce the artefacts at all.</strong> The release workflow has never run. The
   tag that triggers it is its first test, and no installer has ever been built
   on macOS or Linux.</li>
-<li><strong>Signed installers.</strong> Apple notarization, Windows Authenticode, GPG for the
-  AppImage. Blocked on obtaining certificates, which costs money rather than
-  effort.</li>
+<li><strong>Signed installers.</strong> The pipeline is wired for all of it and uses
+  whichever credentials exist, so what is left is buying them: an Apple
+  Developer account for notarization and a Windows code-signing certificate,
+  which since June 2023 means renting signing from a cloud service rather than
+  holding a key file. <a href="../SIGNING/">SIGNING.md</a> says what each one buys and what
+  secret it goes in. The checksum signature needs no certificate at all and is
+  waiting only on a key being generated.</li>
 <li><strong>Agree across platforms.</strong> Every number in the documentation comes from one
   Windows workstation. CI builds and tests on three operating systems, but
   nothing has checked that they produce the same values. <code>opendna selftest</code>
@@ -842,26 +948,93 @@ feature.</p>
 <h3 id="possibly">Possibly<a class="headerlink" href="#possibly" title="Permanent link">&para;</a></h3>
 <p>Not promised, and each would need its own justification before being started.</p>
 <ul>
-<li>More heads, where a dataset exists that can be redistributed and a baseline
-  exists to be measured against.</li>
 <li>A larger embedding model, if one ever helps. ESM-2 650M was tried and
   rejected: it made disorder worse on every external metric for four times the
   weights.</li>
-<li>Structure-aware features, now that the accessibility head exists.</li>
+<li>More heads beyond the antibody one planned below, where a dataset exists that
+  can be redistributed and a baseline exists to be measured against.</li>
+<li>Structure-aware features, which stop being speculative once predicted
+  coordinates are available: see tranches 3 and 5 below.</li>
 </ul>
-<h2 id="not-planned">Not planned<a class="headerlink" href="#not-planned" title="Permanent link">&para;</a></h2>
-<p>Stated so nobody waits for them. All of these were advertised by <code>v0.5.x</code> and
-removed in the rewrite:</p>
+<h2 id="putting-the-removed-capabilities-back">Putting the removed capabilities back<a class="headerlink" href="#putting-the-removed-capabilities-back" title="Permanent link">&para;</a></h2>
+<p><code>v0.5.x</code> advertised structure prediction, docking, molecular dynamics,
+free-energy calculation, sequence and backbone design, antibody modelling and
+an HTTP API. The rewrite removed all of them, and the plan now is to put them
+back — under the condition that made removing them worth doing.</p>
+<p><strong>The condition.</strong> A capability arrives with a measured number and a stated
+baseline, or it does not arrive. That is what separates this from the version
+that listed nine things and did them badly. For a trained head it means a
+held-out split, a baseline it beats, and a generated card. For an integration
+it means recording which engine ran, at which version, with which digest, in
+the run manifest — and refusing when the engine is absent rather than
+substituting something cheaper.</p>
+<p><strong>Implement or integrate.</strong> Six of these are decades of specialist work that
+other people have already done and published. Writing a force field, a docking
+search or an AlphaFold trunk here would produce a worse version of software
+that already exists, which is the failure this project was rewritten to
+escape. So the plan distinguishes:</p>
 <ul>
-<li>Structure prediction, inverse folding, docking, molecular dynamics, free
-  energy perturbation</li>
-<li>Antibody-specific models, plasmid tools, a model hub, project templates</li>
-<li>A server deployment, a plugin marketplace, real-time co-editing, a VR mode</li>
+<li><strong>Implemented here</strong> where the model is small enough to port honestly and
+  the licence permits it, and where doing so keeps the no-network, no-runtime
+  promise.</li>
+<li><strong>Integrated</strong> where the right answer is to drive an existing engine, with
+  the same provenance discipline the heads get. OpenDNA has no concept of an
+  external engine today; building one is the prerequisite for four of these,
+  and it is the next structural piece of work.</li>
 </ul>
-<p>The reason for removing them is the reason for not planning them: a platform
-advertising nine things it did badly was worth less than a tool doing four
-things with numbers attached. Anything added back has to arrive with a
-measured number and a stated baseline, like the four heads did.</p>
+<h3 id="order-of-work">Order of work<a class="headerlink" href="#order-of-work" title="Permanent link">&para;</a></h3>
+<p>Each tranche is shippable on its own, and each later one depends on an earlier
+one rather than on all of them.</p>
+<p><strong>1. Python bindings.</strong> The notebook integration from the list. A package
+wrapping the command-line tool, returning per-residue results as data frames
+with the run manifest attached, so a notebook cannot lose the provenance the
+CSV carries. Fits the local-only premise exactly and makes the four existing
+heads reachable from where this audience works. Smallest item on the list and
+first because everything after it is easier to demonstrate from a notebook.</p>
+<p><strong>2. An external-engine adapter.</strong> The structural piece. A registry that can
+discover an installed engine, verify it, record it in the manifest, and refuse
+when it is missing — the same contract the heads have. Nothing user-facing
+ships in this tranche; it is what makes tranches 3, 6 and 7 weeks of work
+instead of years.</p>
+<p><strong>3. Structure prediction, integrated.</strong> Drive a local ESMFold or ColabFold
+install through the adapter. The structure viewer already exists and the burial
+head already consumes coordinates, so a predicted structure has somewhere to
+go. Not a port: ESMFold is 2.6 GB with a folding trunk whose faithful
+reimplementation is a project of its own, and a half-faithful one would produce
+coordinates nobody should trust.</p>
+<p><strong>4. An antibody head.</strong> The only item on the list that adds science rather
+than access, and the one that fits the existing architecture without any new
+machinery: a dataset built from OAS or SAbDab, a head trained on frozen ESM-2
+embeddings, a measured baseline, a generated card. Developability or humanness
+rather than structure. Licence terms of both sources need reading before
+anything is built, as they did for eSOL.</p>
+<p><strong>5. Sequence design.</strong> ProteinMPNN is small enough to port honestly — on the
+order of a million parameters, published under a permissive licence — and
+inverse folding is a real capability rather than a wrapper. It needs a backbone
+as input, so it is worth little before tranche 3 and worth a lot after it.</p>
+<p><strong>6. Docking, integrated.</strong> AutoDock Vina through the adapter. A scoring
+function and a conformational search written here would be a worse Vina.</p>
+<p><strong>7. Molecular dynamics, integrated.</strong> OpenMM through the adapter, which means
+a Python dependency returning to the project — as a declared, optional engine
+rather than as the backend the rewrite deleted. Free-energy calculation sits on
+top of this and comes after it, not beside it.</p>
+<p><strong>8. An HTTP API, if it is still wanted.</strong> Technically days of work and the
+only item here that cuts against the project's own premise: "no server, no
+account, no network: sequences stay where you opened them" is in the first
+paragraph of the README and is why some people can use this at all. If it
+ships it ships as a separate opt-in binary, bound to loopback, off by default,
+and documented as what it is. A hosted service is a different proposition
+again, and this roadmap does not plan one: it would move other people's
+unpublished sequences onto somebody else's machine, which is the problem
+OpenDNA exists to avoid.</p>
+<h3 id="still-not-planned">Still not planned<a class="headerlink" href="#still-not-planned" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A plugin marketplace, real-time co-editing, a VR mode, plasmid tools and a
+  model hub. These were in <code>v0.5.x</code> and nothing on the current list needs them.</li>
+<li>Backbone design by diffusion. RFdiffusion-class models are large, depend on
+  the structure machinery of tranche 3, and would be an integration at best.
+  Revisit after tranche 5, not before.</li>
+</ul>
 <h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
 <p><a href="https://semver.org">Semantic versioning</a>: <code>MAJOR.MINOR.PATCH[-pre]</code>.</p>
 <p>Pre-1.0, the command-line interface, the output formats and the head metadata

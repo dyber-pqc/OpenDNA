@@ -261,6 +261,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="../SIGNING/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Signing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="../ROADMAP/" class="md-tabs__link">
         
   
@@ -382,6 +401,33 @@
     
   
     Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SIGNING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Signing
   
 
     
@@ -1994,8 +2040,12 @@ triaging a few hundred candidates.</p>
 </ul>
 <h3 id="known-limitations">Known limitations<a class="headerlink" href="#known-limitations" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>No signed installers.</strong> Operating systems will warn. Code-signing
-  certificates have not been obtained.</li>
+<li><strong>No signed installers.</strong> Operating systems will warn. The release pipeline
+  is wired for Windows Authenticode, Apple notarization and a GPG signature
+  over the checksums, and uses whichever credentials are present, but none has
+  been obtained yet so nothing is signed. The checksum-signing script is
+  tested; the two platform paths have never run. See
+  <a href="../SIGNING/">SIGNING.md</a>.</li>
 <li><strong>Two runs cannot load the embedding model through the Hugging Face cache at
   once</strong>; on Windows the second is refused the weights file. Run <code>opendna
   stage</code> once and point <code>--models</code> at the bundle, which several runs can

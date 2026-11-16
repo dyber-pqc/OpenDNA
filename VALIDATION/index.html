@@ -16,7 +16,7 @@
         <link rel="prev" href="..">
       
       
-        <link rel="next" href="../ROADMAP/">
+        <link rel="next" href="../SIGNING/">
       
       
         
@@ -253,6 +253,25 @@
     
   
   Validation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../SIGNING/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Signing
 
       </a>
     </li>
@@ -604,6 +623,33 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SIGNING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Signing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1404,7 +1450,11 @@ marketing.</p>
   disorder head's CAID3 number was produced by running the CAID protocol; the
   others' were not.</li>
 <li><strong>No signed installers.</strong> Binaries are unsigned, so operating systems will
-  warn. Code-signing certificates have not been obtained.</li>
+  warn. The signing pipeline exists and is exercised as far as it can be
+  without credentials — the checksum-signing script is round-tripped in CI on
+  every commit — but no certificate has ever signed anything here, and the
+  Windows and macOS paths have therefore never run. See
+  <a href="../SIGNING/">SIGNING.md</a>, which is explicit about which parts are tested.</li>
 <li><strong>The regressors' intervals rest on an assumption the splits break.</strong> See
   the section above. Conformal coverage assumes calibration and held-out sets
   are exchangeable; clustering by sequence identity makes them deliberately
