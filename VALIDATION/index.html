@@ -1,0 +1,1511 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A local-first protein engineering desktop application">
+      
+      
+      
+        <link rel="canonical" href="https://dyber-pqc.github.io/OpenDNA/VALIDATION/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../ROADMAP/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>Validation - OpenDNA</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#validation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenDNA" class="md-header__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenDNA
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Validation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Validation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenDNA" class="md-nav__button md-logo" aria-label="OpenDNA" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenDNA
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dyber-pqc/OpenDNA" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dyber-pqc/OpenDNA
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-software-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the software is
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-identify-what-i-ran" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I identify what I ran?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-prove-it-works-on-this-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I prove it works on this machine?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-reproducible-are-the-numbers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How reproducible are the numbers?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#do-the-probabilities-mean-anything" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do the probabilities mean anything?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-wrong-is-a-regressors-number-likely-to-be" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How wrong is a regressor's number likely to be?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#should-i-trust-every-residue-equally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Should I trust every residue equally?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-continue-a-run-that-was-interrupted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I continue a run that was interrupted?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-run-it-without-a-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I run it without a network?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-does-a-failure-tell-my-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What does a failure tell my pipeline?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-show-what-produced-a-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I show what produced a result?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-are-my-obligations-if-i-pass-this-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What are my obligations if I pass this on?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-several-runs-go-at-once-on-one-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can several runs go at once on one machine?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-has-not-been-checked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What has not been checked
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproducing-the-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducing the checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-software-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the software is
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-identify-what-i-ran" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I identify what I ran?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-prove-it-works-on-this-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I prove it works on this machine?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-reproducible-are-the-numbers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How reproducible are the numbers?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#do-the-probabilities-mean-anything" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do the probabilities mean anything?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-wrong-is-a-regressors-number-likely-to-be" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How wrong is a regressor's number likely to be?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#should-i-trust-every-residue-equally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Should I trust every residue equally?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-continue-a-run-that-was-interrupted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I continue a run that was interrupted?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-run-it-without-a-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I run it without a network?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-does-a-failure-tell-my-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What does a failure tell my pipeline?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-show-what-produced-a-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I show what produced a result?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-are-my-obligations-if-i-pass-this-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What are my obligations if I pass this on?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-several-runs-go-at-once-on-one-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can several runs go at once on one machine?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-has-not-been-checked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What has not been checked
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproducing-the-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducing the checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h1>
+<p>This page is for whoever has to sign off on using OpenDNA for real work: a QA
+reviewer, a core facility lead, somebody writing a methods section. It states
+what has been checked, by whom, how, and what has not been.</p>
+<p>It is not a claim that OpenDNA is validated for your purpose. Validation is
+against an intended use, and only you know yours. What this gives you is the
+evidence to do that assessment, and an honest account of where the evidence
+runs out.</p>
+<p>Everything below was measured on the hardware named with it. Where a number
+comes from one machine, it says so, because a number from one machine is
+weaker evidence than it looks.</p>
+<h2 id="what-the-software-is">What the software is<a class="headerlink" href="#what-the-software-is" title="Permanent link">&para;</a></h2>
+<p>Four small networks on top of frozen ESM-2 embeddings. The language model is
+never fine-tuned, so each head is a few hundred kilobytes of weights over a
+568 MB embedding model that is itself a published third-party checkpoint
+(<code>facebook/esm2_t30_150M_UR50D</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Head</th>
+<th>Predicts</th>
+<th>Honest out-of-domain performance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>disorder</code></td>
+<td>per-residue intrinsic disorder</td>
+<td>AUROC 0.941 on CAID3 Disorder-PDB</td>
+</tr>
+<tr>
+<td><code>burial</code></td>
+<td>per-residue relative solvent accessibility</td>
+<td>see model card</td>
+</tr>
+<tr>
+<td><code>solubility</code></td>
+<td>whole-protein solubility, <em>E. coli</em> cell-free</td>
+<td>see model card</td>
+</tr>
+<tr>
+<td><code>stability</code></td>
+<td>ΔΔG for a named point substitution</td>
+<td>~0.44 Spearman out of domain</td>
+</tr>
+</tbody>
+</table>
+<p>The stability figure is the one to read carefully. 0.44 Spearman makes it a
+ranking signal for prioritising constructs, not a measurement of ΔΔG. Each
+head's model card states its own limitations and the CLI copies them into
+every output file, so a number cannot travel without them.</p>
+<p>There is no fallback anywhere. A missing head is an error naming the files it
+looked for. A sequence too long for the solubility head is refused rather than
+scored by a different method. Nothing in OpenDNA estimates a property without
+a trained model for it.</p>
+<h2 id="can-i-identify-what-i-ran">Can I identify what I ran?<a class="headerlink" href="#can-i-identify-what-i-ran" title="Permanent link">&para;</a></h2>
+<p>Yes, and it is checkable rather than asserted.</p>
+<p>Each head records a semantic version, a build id digesting everything that
+determined the weights (the dataset manifest, the hyperparameters, the
+embedding model, the training code version), and the SHA-256 of its weights
+file. <code>opendna models</code> rehashes the weights and reports <code>verified</code>,
+<code>NOT VERIFIABLE</code> (metadata predating hashes) or <code>CORRUPT</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>opendna<span class="w"> </span>models<span class="w"> </span>--lock<span class="w"> </span>models.lock<span class="w">    </span><span class="c1"># pin</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>opendna<span class="w"> </span>models<span class="w"> </span>--check<span class="w"> </span>models.lock<span class="w">   </span><span class="c1"># fail unless the install is still that</span>
+</span></code></pre></div>
+<p><code>--check</code> catches a retrain that kept the same version number, because the
+build id changes even when the version does not. Commit the lockfile beside
+the analysis it produced.</p>
+<p><strong>Checked:</strong> appending one byte to a weights file is reported <code>CORRUPT</code>, makes
+<code>opendna models</code> exit 3, and makes <code>opendna predict</code> refuse before loading
+anything. A head whose build id differs from a lockfile fails <code>--check</code> with
+both values named.</p>
+<h2 id="can-i-prove-it-works-on-this-machine">Can I prove it works on this machine?<a class="headerlink" href="#can-i-prove-it-works-on-this-machine" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>opendna<span class="w"> </span>selftest
+</span></code></pre></div>
+<p>Seventeen checks over a bundled ubiquitin sequence, through the same code path
+<code>predict</code> uses rather than a parallel harness. Eight are invariants that hold
+for any build of these heads — one value per residue, probabilities within
+<code>[0,1]</code>, accessibility within <code>[0,1.25]</code>, the hydrophobic core less accessible
+than the chain-forming lysines, L8P more destabilising than L8M, and a second
+identical run giving identical values. Nine are numbers recorded from named
+builds, with tolerances.</p>
+<p>A pinned number is checked only against the build it was recorded from.
+Against another build it reports <code>not checked</code> and names both, because nobody
+has measured what that head does on this fixture. A retrain is therefore
+expected to leave those unchecked until new values are recorded; the invariants
+still run.</p>
+<p><strong>Checked, and this is the part worth reading:</strong> burial's weights were copied
+over the disorder head and the metadata rewritten so the file hashes correctly.
+<code>opendna models</code> passed that installation completely clean — every head
+<code>verified</code>. The self-test failed three pinned checks and exited 5. A checksum
+cannot detect a model that is intact and wrong; this can.</p>
+<p>The fixture's positions were chosen for that case. Disorder and burial share
+an architecture and differ only in the squash on the output, so at some
+positions their numbers agree to 0.004 and a pin there would survive the
+swap. The positions used are ones where the two disagree by more than a
+quarter.</p>
+<p><strong>Tolerances are a judgement, not a measurement.</strong> They were set wide enough
+to absorb a different BLAS or device and narrow enough that a wrong model
+fails. A failure that lands just outside one is worth reporting, not widening.</p>
+<h2 id="how-reproducible-are-the-numbers">How reproducible are the numbers?<a class="headerlink" href="#how-reproducible-are-the-numbers" title="Permanent link">&para;</a></h2>
+<p>Exactly this much:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Same input, same device, same <code>--batch-tokens</code></td>
+<td><strong>byte-identical</strong></td>
+</tr>
+<tr>
+<td>Same input, same device, different <code>--batch-tokens</code></td>
+<td>~0.2% of values differ</td>
+</tr>
+<tr>
+<td>Same input, CPU vs GPU</td>
+<td>~0.3% of values differ</td>
+</tr>
+</tbody>
+</table>
+<p>Measured on 200 sequences and 35,033 residues. Across devices, 102 of 35,033
+disorder probabilities differed, by at most 0.0001 and 0.0000003 on average.
+That is the f32 rounding floor, not a disagreement about biology, and it moves
+no disorder call at any sensible threshold.</p>
+<p>It does mean a result file from a GPU and one from a CPU are <strong>not the same
+bytes</strong>. Do not diff them and do not compare their checksums.</p>
+<p>The cause in both cases is the order of floating-point summation: padding
+changes it, and so does different silicon. Device and batch size are recorded
+in every run manifest, which makes the table above checkable — two manifests
+agreeing on input digest, head build, device and batch size should have
+produced the same output digest, and if they did not, something is wrong worth
+finding.</p>
+<p>Driving one model from several threads at once on CUDA perturbs the low bits,
+because cuBLAS picks differently shaped reductions under concurrent load. The
+CLI is serial, which is why.</p>
+<p><strong>Checked:</strong> byte-identical repeat runs on both CPU and an RTX 2000 Ada. All
+seventeen self-test checks pass on both, with values pinned on CPU.</p>
+<h2 id="do-the-probabilities-mean-anything">Do the probabilities mean anything?<a class="headerlink" href="#do-the-probabilities-mean-anything" title="Permanent link">&para;</a></h2>
+<p>For the disorder head, now yes, and the correction was substantial.</p>
+<p>The head is trained with weighted cross-entropy so that it does not predict
+"ordered" everywhere. That helps the ranking and inflates the probabilities,
+and the inflation was never measured. It is large:</p>
+<table>
+<thead>
+<tr>
+<th>the head said</th>
+<th>actually disordered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.95</td>
+<td>65%</td>
+</tr>
+<tr>
+<td>0.85</td>
+<td>50%</td>
+</tr>
+<tr>
+<td>0.75</td>
+<td>32%</td>
+</tr>
+<tr>
+<td>0.55</td>
+<td><strong>13%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Expected calibration error on the held-out split was 0.217. A Platt map
+(<code>p = sigmoid(0.7237·logit − 1.5665)</code>) fitted on the validation split brings it
+to 0.032, and the Brier score from 0.168 to 0.099. The map is monotonic, so
+AUROC is identical before and after — 0.8833 on the internal test split either
+way, which is the check that nothing was traded away.</p>
+<p><strong>It also moved the decision threshold</strong>, which matters more than the
+probabilities for anyone thresholding them. 0.5 was a convention and was never
+right for this head: on the raw scale its own optimum is 0.73. On the
+calibrated scale the threshold chosen on validation is 0.34, and it scores MCC
+0.5213 on test against 0.4934 for the old raw-0.5 default — close to the 0.5284
+upper bound that could only be found by looking at the test labels. Both the
+map and the threshold are recorded in the head's metadata, and the CLI and the
+desktop application both read them from there rather than compiling in a
+number.</p>
+<p>Because the head now reports different numbers from the same weights, it is a
+different model: its version went to 1.1.0 and its build id changed, so a
+lockfile taken before the calibration correctly fails against it.</p>
+<p><strong>The threshold is a property of a distribution, not of the head, and this one
+does not suit every set.</strong> On the CAID3 reference set, MCC falls from 0.7292 to
+0.7096, F1 from 0.8182 to 0.7788 and balanced accuracy from 0.8777 to 0.8250 at
+the new threshold — because 0.34 calibrated is about 0.78 raw, and that set
+wants a lower cut than ours does. The reason is measurable rather than
+hand-waved: 31.6% of CAID's assessed residues are disordered against 17.9% of
+our internal test split's, so it is nearly twice as positive a set, with a
+PDB-derived definition of disorder rather than DisProt's. AUROC and AUPRC are identical
+(0.9410 and 0.8996), which is why those are the figures to compare against
+published work. If you threshold these probabilities for a decision of your
+own, the right cut depends on your class balance and on what a false positive
+costs you. Calibration is what makes that reasoning possible; it does not make
+the choice for you.</p>
+<p><strong>What this is calibrated against is the annotation, not nature.</strong> DisProt
+records disorder demonstrated experimentally and unannotated residues are
+treated as ordered in training. If that under-reports disorder — and it does,
+by an unknown amount — these probabilities inherit it. A calibrated 0.3 means
+"three in ten of residues like this are annotated disordered in DisProt",
+which is a weaker statement than it looks.</p>
+<p>Intervals on every figure above are bootstrapped over <strong>proteins</strong>, not
+residues. Neighbouring residues almost always share a label, so resampling
+residues would report an interval several times too narrow.</p>
+<h2 id="how-wrong-is-a-regressors-number-likely-to-be">How wrong is a regressor's number likely to be?<a class="headerlink" href="#how-wrong-is-a-regressors-number-likely-to-be" title="Permanent link">&para;</a></h2>
+<p>Each of the three regressors now reports an interval beside its point, fitted
+by split conformal prediction on the validation split and measured on the
+held-out one:</p>
+<table>
+<thead>
+<tr>
+<th>Head</th>
+<th>90% interval</th>
+<th>Coverage achieved</th>
+<th>Held-out MAE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>stability</td>
+<td>±1.33 kcal/mol</td>
+<td>93.7%</td>
+<td>0.53 kcal/mol</td>
+</tr>
+<tr>
+<td>solubility</td>
+<td>±38.9 percentage points</td>
+<td>91.1%</td>
+<td>18.8 pp</td>
+</tr>
+<tr>
+<td>burial</td>
+<td>±0.237 RSA</td>
+<td>87.5%</td>
+<td>0.115 RSA</td>
+</tr>
+</tbody>
+</table>
+<p>Read the stability row before acting on a ddG. A predicted −0.78 kcal/mol
+comes with an interval of −2.11 to +0.55, which <strong>spans zero</strong>: at 90%
+confidence that head cannot tell you whether the mutation is destabilising at
+all. A prediction of −1.59 gives −2.92 to −0.26, which does not. That
+distinction is the useful content, and a point estimate alone hides it.</p>
+<p>Read the solubility row the same way. ±39 percentage points on a 0–100 scale
+is most of the range, which is the honest measure of how much a single
+solubility number is worth. Intervals there can extend past 100%, because the
+head is an unbounded regressor that was never constrained to the physical
+range — an interval reaching 139% is the head saying it does not know.</p>
+<p><strong>Coverage is measured, not assumed, and burial falls short.</strong> A conformal
+guarantee assumes the calibration and held-out sets are exchangeable. This
+project's splits are deliberately not: the dataset builder clusters by
+sequence identity so near-identical proteins cannot straddle a split, which
+makes the held-out set systematically more distant than a random sample would
+be. That is the right way to build the splits and it costs the guarantee its
+exactness. Burial achieves 87.5% where 90% was asked for, 76.0% where 80% was,
+and 43.3% where 50% was — short at every level.</p>
+<p><strong>Coverage is also marginal, not conditional.</strong> The half-width is constant, so
+the interval is wider than needed where the head is reliable and narrower than
+needed where it is not. For burial at the 90% level, coverage runs from 96.8%
+for residues predicted to be buried down to 79.1% in the middle of the range.
+Somebody holding a mid-range prediction has a 79% interval labelled 90%. Each
+model card lists the conditional coverage by band.</p>
+<p>One more caveat specific to stability, and it is worse than an earlier version
+of this page said. Its 37,983 calibration residuals come from the validation
+split, which the dataset manifest records as <strong>18</strong> sequence-identity clusters
+of wild-type proteins; coverage was then measured on a test split of 24. This
+page previously said 36, a figure nothing supports — the manifest is the
+source, and it is in <code>datasets/cards/stability/manifest.json</code>. Residuals from
+one wild-type protein are correlated, so each quantile rests on something
+nearer 18 independent observations than 37,983, and coverage on a protein
+unlike those 18 may be worse than the table says.</p>
+<h2 id="should-i-trust-every-residue-equally">Should I trust every residue equally?<a class="headerlink" href="#should-i-trust-every-residue-equally" title="Permanent link">&para;</a></h2>
+<p>No, and the disorder head now says which ones. How far the calibrated
+probability sits from the decision threshold orders residues by how likely the
+call is to be wrong, measured on the held-out split:</p>
+<table>
+<thead>
+<tr>
+<th>Minimum confidence</th>
+<th>Residues kept</th>
+<th>Error among them</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.00 (everything)</td>
+<td>100%</td>
+<td>15.7%</td>
+</tr>
+<tr>
+<td>0.05</td>
+<td>89%</td>
+<td>12.0%</td>
+</tr>
+<tr>
+<td>0.10</td>
+<td>80%</td>
+<td>9.3%</td>
+</tr>
+<tr>
+<td>0.20</td>
+<td>66%</td>
+<td>6.5%</td>
+</tr>
+<tr>
+<td>0.25</td>
+<td>57%</td>
+<td>5.3%</td>
+</tr>
+</tbody>
+</table>
+<p>The signal captures <strong>55%</strong> of the error reduction an oracle shows is
+available — an oracle being a rule that discards exactly the wrong calls. Half
+of what is there. Worth having, not a guarantee.</p>
+<p>Every disorder output carries a <code>confidence</code> column.
+<code>predict --min-confidence &lt;c&gt;</code> additionally marks the rows below a cut-off in a
+<code>low_confidence</code> column and prints what that cut-off was measured to buy.
+Nothing is ever removed: a table quietly missing rows looks exactly like a
+complete one, and the cut-off is the caller's because the right one depends on
+what a wrong call costs them.</p>
+<p><strong>A signal that failed, recorded so nobody re-tests it.</strong> The obvious
+out-of-domain proxy — whether the 5-mer centred on a residue was seen in
+training — carries no information about error. Its area under the risk–coverage
+curve was 0.171 against 0.158 for discarding residues at random, so marginally
+<em>worse</em> than nothing, despite 44.9% of held-out residues sitting on an unseen
+5-mer. Error on novel k-mers is not higher than on familiar ones. A plausible
+story about why a signal should work is not evidence that it does.</p>
+<h2 id="can-i-continue-a-run-that-was-interrupted">Can I continue a run that was interrupted?<a class="headerlink" href="#can-i-continue-a-run-that-was-interrupted" title="Permanent link">&para;</a></h2>
+<p>Yes, and the thing worth checking is not that it continues but that
+continuing gives the same answer as not having stopped.</p>
+<p><code>--checkpoint &lt;file&gt;</code> records results as they are produced and syncs them to
+disk after every chunk of <code>--chunk</code> sequences. Running the same command again
+continues from the last complete chunk. The results file is written only when
+the run finishes.</p>
+<p><strong>Verified byte-identical.</strong> On a twelve-sequence file predicted in chunks of
+four, a checkpoint was cut back to one complete chunk plus a half-written
+record — what a process killed mid-write leaves behind — and the run was
+started again. It reported the incomplete tail, dropped it, continued from
+chunk one, and produced the same 854 rows as the uninterrupted run, byte for
+byte, with the same output digest recorded in both manifests. The checkpoint
+files themselves also ended up identical.</p>
+<p>This holds because the chunk boundaries are fixed and recorded rather than
+falling wherever the interruption did. Sequences are batched for embedding
+within their chunk, and batch composition changes the order of
+floating-point sums, so an arbitrary cut would not reproduce. The cost is that
+the chunk size is itself a setting that changes the numbers:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>any <code>--chunk</code>, with <code>--batch-tokens 0</code></td>
+<td>identical to a run with no checkpoint</td>
+</tr>
+<tr>
+<td><code>--chunk 1</code> or <code>4</code>, at the CPU default of 8192</td>
+<td>1 of 853 burial values differs, by 0.0001</td>
+</tr>
+</tbody>
+</table>
+<p>That is the same mechanism and the same order of magnitude as the batch-size
+effect already measured above, and it is why the chunk size is recorded in
+every run manifest and compared by <code>opendna merge</code>.</p>
+<p>Resuming is refused, naming the field that differs, when the input bytes, the
+chunk size, the head build, the head's weights digest, the embedding model,
+the device, the batch size, the mutation file or the confidence cut-off is not
+what the checkpoint was written with. A file that is not a checkpoint is
+refused without being modified.</p>
+<h2 id="can-i-run-it-without-a-network">Can I run it without a network?<a class="headerlink" href="#can-i-run-it-without-a-network" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>opendna<span class="w"> </span>stage<span class="w"> </span>--to<span class="w"> </span>/mnt/usb/opendna-models<span class="w">   </span><span class="c1"># on a connected machine</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>opendna<span class="w"> </span>--models<span class="w"> </span>./opendna-models<span class="w"> </span>--offline<span class="w"> </span>selftest
+</span></code></pre></div>
+<p><code>stage</code> writes one directory holding the four heads, their model cards, the
+embedding model's own files, <code>models.lock</code>, a <code>sha256sums.txt</code> in the format
+<code>sha256sum -c</code> reads, and a <code>LICENSES.md</code>. It copies what the staging machine
+already resolved rather than re-fetching on the target, so the bundle is what
+was tested. It refuses to stage an installation that does not verify.</p>
+<p><code>--offline</code> is a hard promise: nothing reaches the network, and a missing
+embedding model is an error naming the two files it wanted and the command
+that makes them, rather than a stall.</p>
+<p><strong>Checked:</strong> with <code>HF_HOME</code> pointed at an empty directory so the cache held
+nothing, <code>--offline</code> passed all seventeen self-test checks against a staged
+bundle and produced disorder values identical to the online run.
+<code>sha256sum -c sha256sums.txt</code> verified all fourteen files (four heads with
+weights, metadata and card each, plus the embedding model's two). With nothing
+staged, <code>--offline</code> exits 3 with the staging instructions.</p>
+<h2 id="what-does-a-failure-tell-my-pipeline">What does a failure tell my pipeline?<a class="headerlink" href="#what-does-a-failure-tell-my-pipeline" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>it worked</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1</td>
+<td>an unanticipated failure</td>
+<td>report it</td>
+</tr>
+<tr>
+<td>2</td>
+<td>the command asked for something that does not exist</td>
+<td>fix the command</td>
+</tr>
+<tr>
+<td>3</td>
+<td>the installation is wrong</td>
+<td>fix the machine; retrying will not help</td>
+</tr>
+<tr>
+<td>4</td>
+<td>the data is wrong</td>
+<td>fix the input; retrying will not help</td>
+</tr>
+<tr>
+<td>5</td>
+<td>the checks ran and did not hold</td>
+<td>do not use results from this machine</td>
+</tr>
+</tbody>
+</table>
+<p>Anything not classified is 1, deliberately: a failure nobody anticipated is
+not one a caller can be told how to handle.</p>
+<p><code>predict</code> streams results to standard output, so a failing run leaves standard
+output empty — a pipe collecting results never receives an error as though it
+were data.</p>
+<p><strong>Checked:</strong> all twelve cases in
+<a href="https://github.com/dyber-pqc/OpenDNA/blob/main/crates/opendna-cli/tests/exit_codes.rs"><code>tests/exit_codes.rs</code></a>,
+against the compiled binary, with the corrupt and swapped fixtures built from
+a copy of the real models.</p>
+<h2 id="can-i-show-what-produced-a-result">Can I show what produced a result?<a class="headerlink" href="#can-i-show-what-produced-a-result" title="Permanent link">&para;</a></h2>
+<p>Every run that writes an output file writes <code>out.manifest.json</code> beside it:
+input path and SHA-256 <strong>of the bytes read</strong>, output path and SHA-256, row
+count, head task/version/build/weights-hash, embedding model, device, batch
+size, UTC start, wall-clock duration, the arguments as given, the head's
+licence, and the model card's limitations.</p>
+<p>The input is hashed from the bytes in memory rather than by re-reading the
+file, so the digest describes what was used even when the input arrived
+through a pipe and has no path.</p>
+<p>The embedding model is not hashed by default: at 568 MB it costs about as long
+as a small run. A staged bundle already records the digest, so a staged install
+carries it for free; otherwise the field is null and <code>sha256_source</code> says why.
+An absent field with a reason is honest. A missing field somebody assumes was
+checked is not.</p>
+<h2 id="what-are-my-obligations-if-i-pass-this-on">What are my obligations if I pass this on?<a class="headerlink" href="#what-are-my-obligations-if-i-pass-this-on" title="Permanent link">&para;</a></h2>
+<p>Three heads are Apache-2.0. The <code>solubility</code> head is <strong>CC BY-SA 2.1 JP</strong>: it is
+trained on eSOL, which carries that licence, and because the licence is
+share-alike — and because whether trained weights are a derivative work of
+their training data is an open legal question this project will not answer in
+its own favour — the weights carry the same terms.</p>
+<p>A staged bundle is a redistribution. <code>opendna stage</code> writes a <code>LICENSES.md</code>
+grouping heads by licence and stating when passing the bundle on carries
+obligations, and each card travels beside its weights with the attribution its
+licence requires. Required attribution for eSOL: <em>"eSOL © Hideki Taguchi
+(Tokyo Institute of Technology) licensed under CC Attribution-Share Alike 2.1
+Japan"</em>.</p>
+<p>All of it is read out of the model cards rather than written into the program,
+so a notice cannot claim terms the file beside the weights does not. A head
+whose card declares no licence is reported as <code>unstated</code> and treated as
+possibly obliging.</p>
+<h2 id="can-several-runs-go-at-once-on-one-machine">Can several runs go at once on one machine?<a class="headerlink" href="#can-several-runs-go-at-once-on-one-machine" title="Permanent link">&para;</a></h2>
+<p>Only against a staged bundle. Measured:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two runs loading the embedding model through the Hugging Face cache</td>
+<td>one failed, exit 3</td>
+</tr>
+<tr>
+<td>Three runs against a directory produced by <code>opendna stage</code></td>
+<td>all three fine</td>
+</tr>
+</tbody>
+</table>
+<p>The cache is not safe for two processes to read at the same time; on Windows
+the second is refused the weights file by the operating system. A staged
+bundle is opened read-only and shares without trouble. So a node running
+several parts of a split in parallel needs <code>opendna stage</code> once and then
+<code>--models &lt;bundle&gt; --offline</code> on each task, which is what the cluster section
+of the CLI README now says. The error a failed concurrent run prints names
+this as the likely cause.</p>
+<h2 id="what-has-not-been-checked">What has not been checked<a class="headerlink" href="#what-has-not-been-checked" title="Permanent link">&para;</a></h2>
+<p>Stated plainly, because a validation document that lists only successes is
+marketing.</p>
+<ul>
+<li><strong>One machine.</strong> Every number here comes from a single Windows workstation
+  with an RTX 2000 Ada. CI builds on three operating systems, but the
+  measurements above were not repeated on them. Cross-platform numerical
+  agreement is untested.</li>
+<li><strong>No GPU other than one.</strong> The finding that batching costs time on a GPU is
+  from that one card. Another may behave differently, which is why
+  <code>--batch-tokens</code> is a flag.</li>
+<li><strong>Timing figures are approximate.</strong> The CPU gain from batching measured a
+  tenth in one session and a sixth in another. Two earlier attempts, taken
+  while a compile competed for the cores, produced an overstated figure and
+  then none at all. If you benchmark, interleave the settings and report the
+  spread.</li>
+<li><strong>Tolerances in the self-test are a judgement</strong>, set on one machine, not a
+  measured bound on acceptable variation.</li>
+<li><strong>No clinical or diagnostic validation of any kind.</strong> These are research
+  tools. The stability head in particular is a ranking signal at ~0.44
+  Spearman out of domain.</li>
+<li><strong>Metrics on each head's own test split are not comparable to published
+  leaderboard figures</strong> without running that leaderboard's protocol. The
+  disorder head's CAID3 number was produced by running the CAID protocol; the
+  others' were not.</li>
+<li><strong>No signed installers.</strong> Binaries are unsigned, so operating systems will
+  warn. Code-signing certificates have not been obtained.</li>
+<li><strong>The regressors' intervals rest on an assumption the splits break.</strong> See
+  the section above. Conformal coverage assumes calibration and held-out sets
+  are exchangeable; clustering by sequence identity makes them deliberately
+  not. The achieved coverage is measured rather than assumed, and for burial
+  it falls short at every level.</li>
+<li><strong>Resuming was checked on small runs, on the CPU only.</strong> The byte-identical
+  result above comes from files of two to twelve sequences predicted in two to
+  twelve chunks, with a real process kill in one case and a hand-truncated
+  checkpoint in the others. All four heads were covered. What was not
+  exercised is the thing the feature is for: a run of tens of thousands of
+  sequences interrupted hours in. Nor was any of it repeated on the GPU, where
+  the batch default differs.</li>
+<li><strong>Nothing detects out-of-domain input.</strong> The disorder head reports a
+  confidence that predicts error (see above), but that is not the same thing: a
+  sequence from a family it never saw can still produce a confident wrong
+  answer. The one out-of-domain proxy measured here, whether a residue's 5-mer
+  was seen in training, carried no information about error at all.</li>
+</ul>
+<h2 id="reproducing-the-checks">Reproducing the checks<a class="headerlink" href="#reproducing-the-checks" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>opendna<span class="w"> </span>models<span class="w"> </span>--check<span class="w"> </span>models.lock<span class="w">   </span><span class="c1"># the install is what it was</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>opendna<span class="w"> </span>selftest<span class="w">                     </span><span class="c1"># it computes what it recorded</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>opendna<span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>selftest<span class="w">        </span><span class="c1"># and on the CPU too, where a GPU exists</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace<span class="w">               </span><span class="c1"># unit and contract tests</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>opendna-cli<span class="w"> </span>--<span class="w"> </span>--ignored<span class="w">   </span><span class="c1"># the two needing inference</span>
+</span></code></pre></div>
+<p>The exit-code test needs trained heads installed and skips with a message when
+they are absent, because a test that fails on every machine without them gets
+disabled and then checks nothing at all.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dyber-pqc/OpenDNA" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
