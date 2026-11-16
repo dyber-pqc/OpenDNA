@@ -480,6 +480,54 @@ The contract is exercised against the compiled binary in
 skips with a message when they are not, because a test that fails on every
 machine without them gets disabled and then checks nothing at all.
 
+## External engines, when there are any
+
+Some of what this field wants is decades of other people's software: folding a
+sequence, docking a ligand, running a simulation. OpenDNA drives those rather
+than reimplementing them badly, and `opendna engines` is how an installation
+is checked before anything depends on it.
+
+```bash
+opendna engines
+```
+
+```text
+External engines OpenDNA can drive:
+
+  esmfold     not installed
+                structure prediction from sequence -- esmfold is not installed. ...
+  vina        AutoDock Vina v1.2.5  3f1a9c2e5b7d0411  /usr/local/bin/vina
+                ligand docking -- executable
+```
+
+Each one found is identified by the version string it prints, verbatim, and
+the SHA-256 of the file that would be run. The version is not parsed into a
+number: third-party tools word it however they like and change the wording
+between releases, so a manifest recording what the tool actually said can be
+checked by eye, while a parsed number can be wrong without anyone noticing.
+
+`--lock` and `--check` work as they do for `models`:
+
+```bash
+opendna engines --lock engines.lock
+opendna engines --check engines.lock
+```
+
+An engine that is absent is simply not written down, rather than pinned to its
+absence — a lockfile saying "vina was not installed" would start failing the
+day somebody installs it.
+
+**What a digest here covers is worth knowing.** For a self-contained program
+it identifies what runs. For an entry point — a script, a launcher, a Python
+interpreter that imports a library — it identifies that file and not the
+environment behind it, and the version string carries most of the identity.
+The listing and the lockfile both say which case each engine is in, rather
+than letting a reader assume the stronger one.
+
+**Nothing drives any of these yet.** They are listed so an installation can be
+checked and pinned before the commands that use them exist. The order the
+commands arrive in is in [docs/ROADMAP.md](../../docs/ROADMAP.md).
+
 ## Licences travel with the weights
 
 Three heads are Apache-2.0. The solubility head is not: it is trained on eSOL,

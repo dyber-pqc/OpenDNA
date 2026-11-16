@@ -5,6 +5,7 @@ members = [
     "crates/opendna-io",
     "crates/opendna-analysis",
     "crates/opendna-store",
+    "crates/opendna-engine",
     "crates/opendna-ml",
     "crates/opendna-hal",
     "crates/opendna-cli",

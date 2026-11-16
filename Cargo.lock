@@ -2390,6 +2390,7 @@ dependencies = [
  "chrono",
  "clap",
  "opendna-core",
+ "opendna-engine",
  "opendna-io",
  "opendna-ml",
  "serde",
@@ -2404,6 +2405,14 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "opendna-engine"
+version = "0.6.0-rc1"
+dependencies = [
  "sha2 0.10.9",
  "thiserror 2.0.21",
 ]

@@ -141,6 +141,21 @@ fn every_kind_of_failure_returns_the_status_the_contract_promises() {
     // list numbered against a different construct must stop the run.
     std::fs::write(&wrong_mutation, "name,mutation\nubiquitin,Q8P\n").unwrap();
 
+    // A lockfile pinning an engine that is certainly not installed, so the
+    // check has something to fail against. Engines are a different kind of
+    // dependency from heads and reach the same exit code, which is the part
+    // worth holding: a pipeline reads the number, not the noun.
+    let engines_lock = base.join("engines.lock");
+    std::fs::write(
+        &engines_lock,
+        "engine vina version = AutoDock Vina v1.2.5 sha256 = ".to_owned()
+            + &"ab".repeat(32)
+            + " identification = executable
+",
+    )
+    .unwrap();
+    let engines_lock = engines_lock.to_str().unwrap().to_owned();
+
     let checkpoint = base.join("run.jsonl");
     let checkpoint = checkpoint.to_str().unwrap().to_owned();
     let installed = installed.to_str().unwrap().to_owned();
@@ -173,6 +188,7 @@ fn every_kind_of_failure_returns_the_status_the_contract_promises() {
             "a file that is not FASTA",
             vec!["--models", &installed, "predict", "--task", "disorder", "-i", bad_fasta],
         ),
+        (3, "an engine lockfile that no longer matches", vec!["engines", "--check", &engines_lock]),
         (
             2,
             "a chunk size of zero",

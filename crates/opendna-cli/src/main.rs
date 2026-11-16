@@ -260,6 +260,26 @@ impl Global {
 enum Command {
     /// Predict a property for every sequence in a FASTA file.
     Predict(PredictArgs),
+    /// Report which external engines are installed, and optionally pin them.
+    ///
+    /// Some work -- folding a sequence, docking a ligand, running a
+    /// simulation -- is decades of other people's software, and OpenDNA
+    /// drives it rather than reimplementing it badly. This says which of
+    /// those tools it can find, which version each reports, and the digest of
+    /// the file it would run.
+    ///
+    /// Being listed is not the same as being used. No command drives any of
+    /// these yet; this exists so an installation can be checked and pinned
+    /// before the commands that need them arrive.
+    Engines {
+        /// Write a lockfile naming the version and digest of every engine
+        /// found.
+        #[arg(long)]
+        lock: Option<PathBuf>,
+        /// Fail unless the installed engines match this lockfile exactly.
+        #[arg(long)]
+        check: Option<PathBuf>,
+    },
     /// Report which heads are installed, whether their weights verify, and
     /// optionally pin them.
     Models {
@@ -551,6 +571,7 @@ fn run() -> Result<(), Failure> {
         Command::Models { lock, check } => {
             models(&dir, lock.as_deref(), check.as_deref()).blame(Fault::Install)
         }
+        Command::Engines { lock, check } => engines(lock.as_deref(), check.as_deref()).blame(Fault::Install),
         Command::Merge { inputs, output, allow_unverified } => {
             merge::run(&inputs, output.as_deref(), !allow_unverified).blame(Fault::Input)
         }
@@ -1039,6 +1060,57 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
     write_output(output.as_deref(), &rendered)?;
     if let Some(path) = output.as_deref() {
         record(path, &rendered, table.rows.len(), mutations.as_deref())?;
+    }
+    Ok(())
+}
+
+/// Report which external engines are present, and pin or check them.
+///
+/// The same shape as [`models`], because it answers the same question about a
+/// different kind of dependency: what is here, which one is it, and is it what
+/// the last run used.
+///
+/// An engine being absent is not a failure. Nothing drives these yet, and a
+/// lab that does not dock ligands has no reason to install a docking program.
+/// What fails is a `--check` against a lockfile that no longer matches.
+///
+/// # Errors
+/// If a lockfile cannot be written or read, or if the installed engines
+/// differ from a lockfile given to `--check`.
+fn engines(lock: Option<&Path>, check: Option<&Path>) -> Result<()> {
+    let found = opendna_engine::discover_all();
+
+    println!("External engines OpenDNA can drive:\n");
+    for (requirement, outcome) in &found {
+        match outcome {
+            Ok(engine) => {
+                println!("  {:11} {}", requirement.name, engine.describe());
+                println!("  {:11}   {} -- {}", "", requirement.purpose, engine.identification);
+            }
+            Err(error) => {
+                println!("  {:11} not installed", requirement.name);
+                println!("  {:11}   {} -- {}", "", requirement.purpose, error);
+            }
+        }
+    }
+
+    // Said plainly, because a listing that implies otherwise would be the
+    // same overclaim the rewrite removed.
+    println!(
+        "\nNo command drives any of these yet. They are listed so an installation can be \
+         checked and pinned\nbefore the commands that use them exist. See docs/ROADMAP.md for \
+         which tranche picks up each one."
+    );
+
+    if let Some(path) = lock {
+        std::fs::write(path, opendna_engine::lockfile(&found))
+            .with_context(|| format!("writing {}", path.display()))?;
+        println!("\nWrote {}", path.display());
+    }
+    if let Some(path) = check {
+        let pinned = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        opendna_engine::check(&pinned, &found)?;
+        println!("\nThe installed engines match {}.", path.display());
     }
     Ok(())
 }
