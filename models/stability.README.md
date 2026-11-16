@@ -5,6 +5,11 @@ tags:
   - protein
   - biology
   - protein-language-model
+  - stability
+  - ddg
+  - mutation-effect
+  - variant-effect
+  - regression
 datasets:
   - dyber-pqc/opendna-stability
 base_model: facebook/esm2_t30_150M_UR50D

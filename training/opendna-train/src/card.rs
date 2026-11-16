@@ -280,6 +280,46 @@ fn external_section(reports: &[crate::bench::BenchReport]) -> String {
     out
 }
 
+/// The Hub metadata that decides whether anybody finds the repository.
+///
+/// Returns the `pipeline_tag` line, empty when no tag is honest, followed by
+/// the task's own tags.
+///
+/// Hugging Face recognises a fixed list of pipeline tags and puts a repository
+/// under a task filter only if it carries one. One of these four heads fits a
+/// tag on that list: disorder assigns a label to each residue, which is token
+/// classification. The others are regressions — accessibility per residue,
+/// solubility per protein, stability per substitution — and the list has no
+/// entry for a continuous output over a sequence. `tabular-regression`
+/// describes feature tables, and `text-classification` would advertise classes
+/// these heads do not have. A wrong tag also drives a widget that would submit
+/// a sequence and show nothing useful.
+///
+/// Free-form tags carry the rest. They are what text search matches on, and
+/// they can say "regression" without claiming a pipeline.
+fn hub_metadata(task: Task) -> String {
+    let (pipeline, tags) = match task {
+        Task::Disorder => (
+            Some("token-classification"),
+            &["intrinsic-disorder", "idp", "per-residue", "token-classification"][..],
+        ),
+        Task::Burial => (None, &["solvent-accessibility", "burial", "rsa", "per-residue", "regression"][..]),
+        Task::Solubility => (None, &["solubility", "expression", "regression"][..]),
+        Task::Stability => {
+            (None, &["stability", "ddg", "mutation-effect", "variant-effect", "regression"][..])
+        }
+    };
+    let mut out = String::new();
+    if let Some(pipeline) = pipeline {
+        let _ = writeln!(out, "pipeline_tag: {pipeline}");
+    }
+    out.push_str("tags:\n  - protein\n  - biology\n  - protein-language-model\n");
+    for tag in tags {
+        let _ = writeln!(out, "  - {tag}");
+    }
+    out
+}
+
 /// How to actually run these weights, in the card itself.
 ///
 /// Hugging Face renders a "Use this model" snippet for libraries it knows how
@@ -338,9 +378,8 @@ pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport
     let mut out = String::new();
     let _ = write!(
         out,
-        "---\nlicense: {weights_license}\nlibrary_name: opendna\ntags:\n  - protein\n  - \
-         biology\n  - protein-language-model\ndatasets:\n  - {dataset}\nbase_model: \
-         {base}\n---\n\n\
+        "---\nlicense: {weights_license}\nlibrary_name: opendna\n{hub}datasets:\n  - \
+         {dataset}\nbase_model: {base}\n---\n\n\
          # OpenDNA {task} head\n\n{summary}\n\n\
          This is a small head trained on **frozen** [{base}](https://huggingface.co/{base}) \
          embeddings. It is not a fine-tuned language model: the embedding model is unchanged, and \
@@ -395,6 +434,7 @@ pub fn render(task: Task, report: &Report, external: &[crate::bench::BenchReport
         } else {
             " (data order only; the training device could not seed weight initialisation)"
         },
+        hub = hub_metadata(task),
         usage = usage_section(task),
         dataset_url = p.dataset_url,
         license = p.license,
@@ -654,6 +694,58 @@ mod tests {
         assert!(card.contains("facebook/esm2_t30_150M_UR50D"));
         assert!(card.starts_with("---\nlicense: apache-2.0"), "needs YAML front matter");
         assert!(card.contains("## Limitations"));
+    }
+
+    /// Only the head that classifies claims a classification pipeline.
+    ///
+    /// A `pipeline_tag` puts the repository under a task filter and drives an
+    /// inference widget. Disorder labels each residue, so token classification
+    /// is what it does. The other three return a number, and the Hub's list has
+    /// no tag for that over a sequence, so they carry none — a tag that
+    /// advertises classes a regressor does not have would be a false claim
+    /// about the output, for a bit of discoverability.
+    #[test]
+    fn the_pipeline_tag_goes_only_where_it_is_true() {
+        let classifier = render(Task::Disorder, &report(), &[]);
+        assert!(
+            classifier.contains("pipeline_tag: token-classification"),
+            "the disorder card should claim the pipeline it fits:\n{classifier}"
+        );
+        for task in [Task::Burial, Task::Solubility, Task::Stability] {
+            let card = render(task, &report(), &[]);
+            assert!(
+                !card.contains("pipeline_tag:"),
+                "{} is a regressor and should claim no pipeline tag",
+                task.name()
+            );
+            assert!(
+                card.contains("  - regression"),
+                "{} should still be findable as a regression",
+                task.name()
+            );
+        }
+    }
+
+    /// Front matter the Hub cannot parse is front matter the Hub ignores, and
+    /// then none of the metadata counts — licence included.
+    #[test]
+    fn the_front_matter_is_one_well_formed_block() {
+        for task in [Task::Stability, Task::Solubility, Task::Disorder, Task::Burial] {
+            let card = render(task, &report(), &[]);
+            let rest = card.strip_prefix("---\n").expect("front matter opens the card");
+            let (front, body) = rest.split_once("\n---\n").expect("front matter closes");
+            assert!(body.starts_with("\n# OpenDNA"), "{} card: body follows the block", task.name());
+            for line in front.lines() {
+                // A list item, `key: value`, or `key:` opening a block —
+                // which is what `tags:` and `datasets:` are.
+                let shaped = line.starts_with("  - ")
+                    || line.strip_suffix(':').is_some_and(|key| !key.contains(' '))
+                    || line.split_once(": ").is_some_and(|(key, _)| !key.contains(' '));
+                assert!(shaped, "{} card: `{line}` is neither a key nor a list item", task.name());
+            }
+            assert!(front.contains("library_name: opendna"), "{} card", task.name());
+            assert!(front.contains("base_model: "), "{} card", task.name());
+        }
     }
 
     /// A reader who lands on the card has to be able to run the thing.

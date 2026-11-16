@@ -5,6 +5,11 @@ tags:
   - protein
   - biology
   - protein-language-model
+  - solvent-accessibility
+  - burial
+  - rsa
+  - per-residue
+  - regression
 datasets:
   - dyber-pqc/opendna-burial
 base_model: facebook/esm2_t30_150M_UR50D

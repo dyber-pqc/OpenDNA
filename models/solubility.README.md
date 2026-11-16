@@ -7,6 +7,9 @@ tags:
   - protein
   - biology
   - protein-language-model
+  - solubility
+  - expression
+  - regression
 datasets:
   - dyber-pqc/opendna-solubility
 base_model: facebook/esm2_t30_150M_UR50D

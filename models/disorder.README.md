@@ -1,10 +1,15 @@
 ---
 license: apache-2.0
 library_name: opendna
+pipeline_tag: token-classification
 tags:
   - protein
   - biology
   - protein-language-model
+  - intrinsic-disorder
+  - idp
+  - per-residue
+  - token-classification
 datasets:
   - dyber-pqc/opendna-disorder
 base_model: facebook/esm2_t30_150M_UR50D
