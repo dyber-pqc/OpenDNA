@@ -89,3 +89,19 @@ The training data comes from:
 > Niwa, T. et al. Bimodal protein solubility distribution revealed by an aggregation analysis of the entire ensemble of Escherichia coli proteins. PNAS 106, 4201-4206 (2009).
 
 Please cite that work as well as this model.
+
+## How wrong the number is likely to be
+
+A point estimate invites being read as a measurement. These intervals say how wide the range around it has to be, fitted by split conformal prediction on the validation split: the half-width is whatever the residuals require, with no assumption about the shape of the error.
+
+| Confidence | Interval | Coverage achieved on held-out data |
+|---|---|---|
+| 50% | ±15.675 % | 50.2% |
+| 80% | ±29.515 % | 77.0% |
+| 90% | ±38.945 % | 91.1% |
+
+Mean absolute error on the same split is 18.823 %.
+
+The achieved column is there because it differs from the nominal one. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. Where coverage falls short, it falls short in the direction that matters, so the measured figure is the one to believe.
+
+The half-width is constant, which is the method's main limitation: the interval is wider than it needs to be where the head is reliable and narrower than it should be where it is not.

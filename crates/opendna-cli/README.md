@@ -157,6 +157,35 @@ A head carrying no recorded calibration falls back to 0.5 and its card says
 calibration was not measured. "Measured and left alone" and "never measured"
 are different states and the card distinguishes them.
 
+## Regressor outputs carry an interval
+
+`stability`, `solubility` and `burial` report `interval_low` and
+`interval_high` beside their point estimate, and a `#` comment saying what
+confidence they carry and what coverage that confidence actually achieved.
+
+```
+# interval_low/high: 90% prediction interval, +/-1.327 kcal/mol, which covered
+# 93.7% of held-out cases. ...
+name,mutation,ddg_kcal_per_mol,log_odds,interval_low,interval_high
+ubiquitin,L8P,-0.779,-4.878,-2.1061,0.5481
+ubiquitin,I44D,-1.589,-12.891,-2.9161,-0.2619
+```
+
+L8P's interval spans zero: at 90% confidence the head cannot say whether that
+mutation destabilises. I44D's does not. That distinction is the useful
+content, and it is invisible in the point estimate alone.
+
+The intervals come from split conformal prediction, fitted on the validation
+split and measured on the held-out one. The coverage actually achieved is
+reported beside the level asked for, because they differ — the splits are
+clustered by sequence identity, which is the right way to build them and
+breaks the exchangeability a conformal guarantee assumes. The burial head
+undercovers at every level. See each model card, and
+[docs/VALIDATION.md](../../docs/VALIDATION.md).
+
+A head with no recorded intervals gets no interval columns rather than
+invented ones.
+
 ## Not every residue deserves equal trust
 
 Every disorder output carries a `confidence` column: how far the calibrated

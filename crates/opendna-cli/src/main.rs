@@ -619,6 +619,60 @@ fn prepare(dir: &Path, global: Global, task: Task) -> Result<Prepared, Failure> 
     Ok(Prepared { heads, model, device, description, prov, metadata, files })
 }
 
+/// Produce the result table for one task.
+///
+/// Split out of `predict` because this is the part that grows: every head
+/// that gains a column, an interval or a confidence measure adds to the
+/// dispatch, and none of it has anything to do with reading the input or
+/// loading the models.
+///
+/// # Errors
+/// If the head is missing, or a sequence cannot be scored by it.
+fn predict_table(
+    task: Task,
+    proteins: &[(String, String)],
+    resolved: Option<&[(String, Vec<Substitution>)]>,
+    ready: &Prepared,
+    budget: usize,
+    min_confidence: Option<f64>,
+) -> Result<Table, Failure> {
+    let Prepared { heads, model, device, metadata, .. } = ready;
+    Ok(match task {
+        Task::Disorder => {
+            let threshold = disorder_threshold(metadata);
+            if let Some(cut) = min_confidence {
+                report_confidence_cut(metadata, cut);
+            }
+            disorder_table(
+                &disorder(proteins, heads, model, device, budget, threshold).blame(Fault::Input)?,
+                threshold,
+                min_confidence,
+            )
+        }
+        Task::Burial => with_interval(
+            burial(proteins, heads, model, device, budget).blame(Fault::Input)?,
+            "accessibility",
+            interval_of(metadata),
+        )
+        .blame(Fault::Unexpected)?,
+        Task::Solubility => with_interval(
+            solubility(proteins, heads, model, device, budget).blame(Fault::Input)?,
+            "solubility_percent",
+            interval_of(metadata),
+        )
+        .blame(Fault::Unexpected)?,
+        Task::Stability => {
+            let resolved = resolved.unwrap_or_default();
+            with_interval(
+                stability(proteins, resolved, heads, model, device).blame(Fault::Input)?,
+                "ddg_kcal_per_mol",
+                interval_of(metadata),
+            )
+            .blame(Fault::Unexpected)?
+        }
+    })
+}
+
 /// Run one prediction and record what produced it.
 ///
 /// # Errors
@@ -665,7 +719,7 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
     };
 
     let ready = prepare(dir, global, task)?;
-    let Prepared { heads, model, device, description, prov, metadata, files } = &ready;
+    let Prepared { device, description, prov, metadata, files, .. } = &ready;
     let budget = global.budget(device);
 
     // One manifest writer for every format, so no output can end up described
@@ -713,25 +767,8 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
         return Ok(());
     }
 
-    let table = match task {
-        Task::Disorder => {
-            let threshold = disorder_threshold(metadata);
-            if let Some(cut) = min_confidence {
-                report_confidence_cut(metadata, cut);
-            }
-            disorder_table(
-                &disorder(&proteins, heads, model, device, budget, threshold).blame(Fault::Input)?,
-                threshold,
-                min_confidence,
-            )
-        }
-        Task::Burial => burial(&proteins, heads, model, device, budget).blame(Fault::Input)?,
-        Task::Solubility => solubility(&proteins, heads, model, device, budget).blame(Fault::Input)?,
-        Task::Stability => {
-            let resolved = resolved.as_deref().unwrap_or_default();
-            stability(&proteins, resolved, heads, model, device).blame(Fault::Input)?
-        }
-    };
+    let table = predict_table(task, &proteins, resolved.as_deref(), &ready, budget, min_confidence)?;
+
     let rendered = table.render(format, prov)?;
     write_output(output.as_deref(), &rendered)?;
     if let Some(path) = output.as_deref() {
@@ -872,6 +909,49 @@ fn embed_all(
 ///
 /// Both the table and the CAID file are derived from this, so the two cannot
 /// contain different numbers for the same residue.
+/// The interval level a run reports, when the head records one.
+///
+/// 90% by default: the convention, and the level whose coverage was closest
+/// to nominal on the heads measured here. A head that records nothing gets no
+/// interval columns rather than a made-up one.
+const INTERVAL_LEVEL: f64 = 0.9;
+
+/// The recorded interval at [`INTERVAL_LEVEL`], if the head has one.
+fn interval_of(metadata: &opendna_ml::heads::HeadMetadata) -> Option<&opendna_ml::heads::IntervalLevel> {
+    metadata.intervals.as_ref()?.levels.iter().find(|l| (l.nominal - INTERVAL_LEVEL).abs() < 1e-9)
+}
+
+/// Add low and high columns to a table of point predictions.
+///
+/// The half-width is constant, which is what split conformal gives and what
+/// its caveat is: the interval is too wide where the head is reliable and too
+/// narrow where it is not. The model card carries the conditional coverage
+/// that shows where.
+fn with_interval(
+    mut table: Table,
+    column: &str,
+    level: Option<&opendna_ml::heads::IntervalLevel>,
+) -> Result<Table> {
+    let Some(level) = level else { return Ok(table) };
+    let index = table
+        .columns
+        .iter()
+        .position(|c| *c == column)
+        .ok_or_else(|| anyhow!("the result table has no {column} column"))?;
+    for row in &mut table.rows {
+        let value: f64 = row
+            .get(index)
+            .ok_or_else(|| anyhow!("a row is missing its {column} field"))?
+            .parse()
+            .with_context(|| format!("parsing {column} as a number"))?;
+        row.push(format!("{:.4}", value - level.half_width));
+        row.push(format!("{:.4}", value + level.half_width));
+    }
+    table.columns.push("interval_low");
+    table.columns.push("interval_high");
+    Ok(table)
+}
+
 /// The threshold this head says to use, or the fallback.
 fn disorder_threshold(metadata: &opendna_ml::heads::HeadMetadata) -> f64 {
     metadata.calibration.as_ref().map_or(DISORDER_THRESHOLD, |c| c.threshold)
@@ -1282,6 +1362,7 @@ mod tests {
             embedding_model: "m".into(),
             device: "CPU".into(),
             limitations: vec![],
+            interval: None,
         };
         let csv = table.render(Format::Csv, &prov).unwrap();
         assert!(csv.contains("\"a,b\",1"), "{csv}");
@@ -1298,6 +1379,7 @@ mod tests {
             embedding_model: "m".into(),
             device: "CPU".into(),
             limitations: vec!["careful".into()],
+            interval: None,
         };
         let out = table.render(Format::Json, &prov).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&out).unwrap();

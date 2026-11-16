@@ -263,6 +263,7 @@ pub fn stamp(
         // are the ones the calibration was fitted against and it still holds.
         calibration: existing.calibration,
         abstention: existing.abstention,
+        intervals: existing.intervals,
     };
     std::fs::write(&files.metadata, serde_json::to_string_pretty(&metadata)?)
         .with_context(|| format!("writing {}", files.metadata.display()))?;
@@ -315,6 +316,9 @@ fn save(varmap: &VarMap, s: &Saved<'_>) -> Result<()> {
         // Void for the same reason: a confidence/error trade-off measured
         // against other weights says nothing about these.
         abstention: None,
+        // And an interval fitted to another model's residuals is not this
+        // model's interval.
+        intervals: None,
     };
     std::fs::write(
         out_dir.join(format!("{}.metadata.json", task.name())),
@@ -833,6 +837,205 @@ fn disorder_predictions(
         sequences.push(row.sequence.clone());
     }
     Ok(Predictions { proteins, sequences })
+}
+
+/// Predictions against truth for one regressor, on two splits.
+///
+/// The validation split calibrates and the test split measures, which is the
+/// same division the rest of the training code uses. Grouping matters:
+/// mutations in one protein and residues in one chain move together, so they
+/// are kept together rather than treated as independent observations.
+///
+/// # Errors
+/// If the head is missing, or a cache does not cover the split.
+fn regressor_predictions(
+    task: Task,
+    datasets_root: &Path,
+    cache_dir: &Path,
+    out_dir: &Path,
+    model_size: ModelSize,
+) -> Result<(Vec<crate::conformal::Group>, Vec<crate::conformal::Group>, &'static str)> {
+    use crate::conformal::{Group, Prediction};
+
+    let device = opendna_ml::best_device()?;
+    let hidden = model_size.hidden_size();
+    let heads = opendna_ml::heads::Heads::load(out_dir, model_size, &device)?;
+
+    match task {
+        Task::Solubility => {
+            let head = heads
+                .solubility
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("no solubility head in {}", out_dir.display()))?;
+            let cache = MatrixCache::open(
+                cache_dir,
+                &crate::embed::embedding_cache_name(Task::Solubility, model_size),
+                model_size.repo(),
+                hidden,
+            )?;
+            let read = |split: Split| -> Result<Vec<Group>> {
+                let mut out = Vec::new();
+                for row in &data::solubility(datasets_root, split)? {
+                    let (values, _) = cache.get(&row.sequence)?;
+                    let predicted = f64::from(head.predict(&values, &device)?);
+                    // One protein, one number: nothing to group.
+                    out.push(Group(vec![Prediction { predicted, actual: row.solubility }]));
+                }
+                Ok(out)
+            };
+            Ok((read(Split::Validation)?, read(Split::Test)?, "%"))
+        }
+        Task::Burial => {
+            let head = heads
+                .burial
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("no burial head in {}", out_dir.display()))?;
+            let cache = MatrixCache::open(
+                cache_dir,
+                &crate::embed::embedding_cache_name(Task::Burial, model_size),
+                model_size.repo(),
+                hidden,
+            )?;
+            let read = |split: Split| -> Result<Vec<Group>> {
+                let mut out = Vec::new();
+                for row in &data::burial(datasets_root, split)? {
+                    let (values, residues) = cache.get(&row.sequence)?;
+                    if residues != row.rsa.len() {
+                        bail!(
+                            "cached embedding has {residues} residues but the label array has {}",
+                            row.rsa.len()
+                        );
+                    }
+                    let predicted = head.predict(&values, residues, &device)?;
+                    // One group per chain: neighbouring residues are not
+                    // independent of each other.
+                    out.push(Group(
+                        predicted
+                            .iter()
+                            .zip(&row.rsa)
+                            .map(|(p, a)| Prediction { predicted: f64::from(*p), actual: f64::from(*a) })
+                            .collect(),
+                    ));
+                }
+                Ok(out)
+            };
+            Ok((read(Split::Validation)?, read(Split::Test)?, "RSA"))
+        }
+        Task::Stability => {
+            let head = heads
+                .stability
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("no stability head in {}", out_dir.display()))?;
+            let vocab = opendna_ml::esm2::alphabet::TOKENS.len();
+            let embeddings_cache = MatrixCache::open(
+                cache_dir,
+                &crate::embed::embedding_cache_name(Task::Stability, model_size),
+                model_size.repo(),
+                hidden,
+            )?;
+            let log_probs_cache = MatrixCache::open(
+                cache_dir,
+                &crate::embed::log_prob_cache_name(model_size),
+                model_size.repo(),
+                vocab,
+            )?;
+            let splits: Vec<Vec<data::StabilityRow>> = [Split::Validation, Split::Test]
+                .iter()
+                .map(|s| data::stability(datasets_root, *s))
+                .collect::<Result<_>>()?;
+
+            let mut embeddings = HashMap::new();
+            let mut log_probs = HashMap::new();
+            for split in &splits {
+                for row in split {
+                    if !embeddings.contains_key(&row.wt_sequence) {
+                        embeddings.insert(row.wt_sequence.clone(), embeddings_cache.get(&row.wt_sequence)?);
+                        log_probs.insert(row.wt_sequence.clone(), log_probs_cache.get(&row.wt_sequence)?);
+                    }
+                }
+            }
+
+            let build = |rows: &[data::StabilityRow]| -> Result<Vec<Group>> {
+                let built = stability_features(rows, &embeddings, &log_probs, hidden, vocab, None)?;
+                let tensor = Tensor::from_slice(&built.features, (built.len(), built.width), &device)?;
+                let predicted: Vec<f64> =
+                    head.forward(&tensor)?.to_vec1::<f32>()?.into_iter().map(f64::from).collect();
+                // Grouped by wild-type sequence: hundreds of mutations in one
+                // small protein are not hundreds of independent tests.
+                let mut by_protein: std::collections::BTreeMap<&str, Vec<Prediction>> =
+                    std::collections::BTreeMap::new();
+                for (index, row) in rows.iter().enumerate() {
+                    by_protein.entry(row.wt_sequence.as_str()).or_default().push(Prediction {
+                        predicted: predicted[index],
+                        actual: f64::from(built.targets[index]),
+                    });
+                }
+                Ok(by_protein.into_values().map(Group).collect())
+            };
+            Ok((build(&splits[0])?, build(&splits[1])?, "kcal/mol"))
+        }
+        Task::Disorder => bail!(
+            "disorder is a classifier, not a regressor. Its uncertainty is a calibrated \
+             probability -- see `calibrate` and `abstain`."
+        ),
+    }
+}
+
+/// Fit conformal prediction intervals and measure the coverage they achieve.
+///
+/// Calibrates on the validation split and measures on the test split, which
+/// is deliberately the hard case: the dataset builder clusters by sequence
+/// identity so near-identical proteins cannot straddle a split, which is
+/// exactly the exchangeability conformal assumes. Whether the guarantee
+/// survives that is the question, and it is measured rather than asserted.
+///
+/// # Errors
+/// If the head is missing or a cache does not cover the split.
+pub fn intervals(
+    task: Task,
+    datasets_root: &Path,
+    cache_dir: &Path,
+    out_dir: &Path,
+    model_size: ModelSize,
+    apply: bool,
+) -> Result<()> {
+    let (calibration, held_out, units) =
+        regressor_predictions(task, datasets_root, cache_dir, out_dir, model_size)?;
+    println!(
+        "{}: {} calibration groups, {} held-out groups\n",
+        task.name(),
+        calibration.len(),
+        held_out.len()
+    );
+
+    let report = crate::conformal::run(&calibration, &held_out, units);
+    print!("{}", report.summary());
+
+    if !apply {
+        println!("\nNothing written. Re-run with --apply to record these intervals beside the head.");
+        return Ok(());
+    }
+
+    let files = opendna_ml::heads::HeadFiles::in_dir(out_dir, task.name());
+    let mut metadata = opendna_ml::heads::read_metadata(&files, task.name(), model_size)?;
+    metadata.intervals = Some(opendna_ml::heads::Intervals {
+        units: units.to_string(),
+        levels: report
+            .levels
+            .iter()
+            .map(|l| opendna_ml::heads::IntervalLevel {
+                nominal: l.nominal,
+                half_width: l.half_width,
+                achieved: l.achieved,
+            })
+            .collect(),
+        held_out_mae: report.mae,
+    });
+    std::fs::write(&files.metadata, serde_json::to_string_pretty(&metadata)? + "\n")
+        .with_context(|| format!("writing {}", files.metadata.display()))?;
+    println!("\nRecorded in {}.", files.metadata.display());
+    println!("No prediction changes: an interval is reported beside the number, not instead of it.");
+    Ok(())
 }
 
 /// Measure whether abstaining on low-confidence predictions would help.

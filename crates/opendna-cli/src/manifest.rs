@@ -219,6 +219,7 @@ mod tests {
             with_burial: false,
             calibration: None,
             abstention: None,
+            intervals: None,
         }
     }
 

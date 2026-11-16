@@ -43,6 +43,25 @@ Validation chose the epoch that was kept (epoch 1 of 11 run). The test split was
 
 | Metric | Value |
 |---|---:|
+| spearman::ESTA_BACSU_Nutschel_2020 | 0.2897 |
+| spearman::NUD15_HUMAN_Suiter_2020 | 0.4570 |
+| spearman::PTEN_HUMAN_Matreyek_2021 | 0.3965 |
+| spearman::TPMT_HUMAN_Matreyek_2018 | 0.5057 |
+| spearman::mean_over_assays | 0.4122 |
+
+- These assays measure variant abundance or thermostability in whole proteins, not ΔΔG by calorimetry. They are correlates of folding stability, so a positive Spearman means the head orders destabilising substitutions correctly; the magnitude is not comparable to a ΔΔG-against-ΔΔG correlation.
+- Every ProteinGym assay derived from Tsuboyama 2023 is excluded. Those 64 assays are the head's own training data, and scoring them would measure memorisation.
+- ProteinGym scores are higher-is-fitter, and the head predicts higher-is-more-stable, so the expected sign is positive. A negative correlation here would mean the head is ordering mutations backwards on this protein, not that the convention is flipped.
+- 4 assays, 13747 mutants scored. This is a handful of proteins, so the mean across assays has no useful confidence interval; read the per-assay numbers.
+- ESTA_BACSU_Nutschel_2020: thermostability in a 212-residue protein, 2172 single substitutions.
+- NUD15_HUMAN_Suiter_2020: VAMP-seq, drug sensitivity in a 164-residue protein, 2844 single substitutions.
+- PTEN_HUMAN_Matreyek_2021: Protein stability in a 403-residue protein, 5083 single substitutions.
+- TPMT_HUMAN_Matreyek_2018: Protein stability in a 245-residue protein, 3648 single substitutions.
+
+**proteingym-stability-out-of-domain** — 13747 items scored.
+
+| Metric | Value |
+|---|---:|
 | spearman::ESTA_BACSU_Nutschel_2020 | 0.3163 |
 | spearman::NUD15_HUMAN_Suiter_2020 | 0.5351 |
 | spearman::PTEN_HUMAN_Matreyek_2021 | 0.4253 |
@@ -106,3 +125,19 @@ The training data comes from:
 > Tsuboyama, K. et al. Mega-scale experimental analysis of protein folding stability in biology and design. Nature 620, 434-444 (2023).
 
 Please cite that work as well as this model.
+
+## How wrong the number is likely to be
+
+A point estimate invites being read as a measurement. These intervals say how wide the range around it has to be, fitted by split conformal prediction on the validation split: the half-width is whatever the residuals require, with no assumption about the shape of the error.
+
+| Confidence | Interval | Coverage achieved on held-out data |
+|---|---|---|
+| 50% | ±0.465 kcal/mol | 54.6% |
+| 80% | ±0.970 kcal/mol | 85.2% |
+| 90% | ±1.327 kcal/mol | 93.7% |
+
+Mean absolute error on the same split is 0.532 kcal/mol.
+
+The achieved column is there because it differs from the nominal one. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. Where coverage falls short, it falls short in the direction that matters, so the measured figure is the one to believe.
+
+The half-width is constant, which is the method's main limitation: the interval is wider than it needs to be where the head is reliable and narrower than it should be where it is not.

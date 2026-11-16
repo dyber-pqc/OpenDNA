@@ -480,6 +480,48 @@ fn confidence_section(abstention: Option<&opendna_ml::heads::Abstention>) -> Str
     out
 }
 
+/// What the card says about prediction intervals.
+fn interval_section(intervals: Option<&opendna_ml::heads::Intervals>) -> String {
+    let Some(i) = intervals else {
+        return String::new();
+    };
+    let mut out = String::from(
+        "\n## How wrong the number is likely to be\n\n\
+         A point estimate invites being read as a measurement. These intervals say how wide the \
+         range around it has to be, fitted by split conformal prediction on the validation split: \
+         the half-width is whatever the residuals require, with no assumption about the shape of \
+         the error.\n\n\
+         | Confidence | Interval | Coverage achieved on held-out data |\n|---|---|---|\n",
+    );
+    for level in &i.levels {
+        let _ = writeln!(
+            out,
+            "| {:.0}% | ±{:.3} {} | {:.1}% |",
+            100.0 * level.nominal,
+            level.half_width,
+            i.units,
+            100.0 * level.achieved
+        );
+    }
+    let _ = write!(
+        out,
+        "\nMean absolute error on the same split is {:.3} {}.\n\n\
+         The achieved column is there because it differs from the nominal one. A conformal \
+         guarantee assumes the calibration and held-out sets are exchangeable, and this \
+         project's splits are deliberately not: the dataset builder clusters by sequence \
+         identity so that near-identical proteins cannot straddle a split, which makes the \
+         held-out set systematically more distant than a random sample. That is the right way \
+         to build the splits, and the cost is that the guarantee is approximate. Where coverage \
+         falls short, it falls short in the direction that matters, so the measured figure is \
+         the one to believe.\n\n\
+         The half-width is constant, which is the method's main limitation: the interval is \
+         wider than it needs to be where the head is reliable and narrower than it should be \
+         where it is not.\n",
+        i.held_out_mae, i.units
+    );
+    out
+}
+
 pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> Result<()> {
     // Benchmark reports are matched on the embedding model, so a card can
     // never quote a figure measured on a different one than it documents.
@@ -496,9 +538,14 @@ pub fn write(task: Task, report: &Report, out_dir: &Path, benchmarks: &Path) -> 
         .ok()
         .and_then(|t| serde_json::from_str::<opendna_ml::heads::HeadMetadata>(&t).ok())
         .and_then(|m| m.abstention);
+    let intervals = std::fs::read_to_string(&files.metadata)
+        .ok()
+        .and_then(|t| serde_json::from_str::<opendna_ml::heads::HeadMetadata>(&t).ok())
+        .and_then(|m| m.intervals);
     let body = render(task, report, &external)
         + &calibration_section(task, calibration.as_ref())
-        + &confidence_section(abstention.as_ref());
+        + &confidence_section(abstention.as_ref())
+        + &interval_section(intervals.as_ref());
     std::fs::write(&path, body).with_context(|| format!("writing {}", path.display()))?;
     println!(
         "Wrote {} ({} external benchmark{})",

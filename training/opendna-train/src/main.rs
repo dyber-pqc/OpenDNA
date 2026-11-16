@@ -16,6 +16,7 @@ mod bench;
 mod cache;
 mod calibrate;
 mod card;
+mod conformal;
 mod data;
 mod embed;
 mod metrics;
@@ -167,6 +168,25 @@ enum Command {
         #[arg(long, default_value = "../models")]
         out: PathBuf,
     },
+    /// Fit prediction intervals for a regressor and measure the coverage
+    /// they achieve on held-out data.
+    ///
+    /// Split conformal: the interval is as wide as the calibration split's
+    /// residuals say it must be, with no assumption about the shape of the
+    /// error. Coverage on the held-out split is measured rather than assumed,
+    /// because the splits are clustered by sequence identity and that breaks
+    /// the exchangeability the guarantee rests on.
+    Intervals {
+        /// Which head. The regressors only.
+        #[arg(long, value_enum)]
+        task: Task,
+        /// Directory holding the head.
+        #[arg(long, default_value = "../models")]
+        out: PathBuf,
+        /// Record the intervals in the head's metadata.
+        #[arg(long)]
+        apply: bool,
+    },
     /// Measure whether abstaining on low-confidence predictions would improve
     /// what is left.
     ///
@@ -293,6 +313,9 @@ fn main() -> Result<()> {
             let report: train::Report =
                 serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
             train::stamp(task, &out, model, &report, &cli.datasets)?;
+        }
+        Command::Intervals { task, out, apply } => {
+            train::intervals(task, &cli.datasets, &cli.cache, &out, model, apply)?;
         }
         Command::Abstain { task, out, apply } => {
             train::abstain(task, &cli.datasets, &cli.cache, &out, model, apply)?;

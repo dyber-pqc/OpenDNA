@@ -168,6 +168,7 @@ mod tests {
                 with_burial: false,
                 calibration: None,
                 abstention: None,
+                intervals: None,
             }),
             problem: None,
             integrity: if sha.is_some() { Integrity::Verified } else { Integrity::Unrecorded },

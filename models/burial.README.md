@@ -89,3 +89,19 @@ The training data comes from:
 > Tien, M. Z. et al. Maximum allowed solvent accessibilites of residues in proteins. PLOS ONE 8, e80635 (2013).
 
 Please cite that work as well as this model.
+
+## How wrong the number is likely to be
+
+A point estimate invites being read as a measurement. These intervals say how wide the range around it has to be, fitted by split conformal prediction on the validation split: the half-width is whatever the residuals require, with no assumption about the shape of the error.
+
+| Confidence | Interval | Coverage achieved on held-out data |
+|---|---|---|
+| 50% | ±0.072 RSA | 43.3% |
+| 80% | ±0.170 RSA | 76.0% |
+| 90% | ±0.237 RSA | 87.5% |
+
+Mean absolute error on the same split is 0.115 RSA.
+
+The achieved column is there because it differs from the nominal one. A conformal guarantee assumes the calibration and held-out sets are exchangeable, and this project's splits are deliberately not: the dataset builder clusters by sequence identity so that near-identical proteins cannot straddle a split, which makes the held-out set systematically more distant than a random sample. That is the right way to build the splits, and the cost is that the guarantee is approximate. Where coverage falls short, it falls short in the direction that matters, so the measured figure is the one to believe.
+
+The half-width is constant, which is the method's main limitation: the interval is wider than it needs to be where the head is reliable and narrower than it should be where it is not.

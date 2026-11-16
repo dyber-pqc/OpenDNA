@@ -5,5 +5,28 @@
   "version": "1.0.0",
   "build": "5ecb3f9d62ea7fae",
   "weights_sha256": "425b84fbc9536fdf63eb075a7143e9b22a43074195ba5afe599997cd61072168",
-  "with_burial": false
+  "with_burial": false,
+  "calibration": null,
+  "abstention": null,
+  "intervals": {
+    "units": "%",
+    "levels": [
+      {
+        "nominal": 0.5,
+        "half_width": 15.674957275390625,
+        "achieved": 0.5015974440894568
+      },
+      {
+        "nominal": 0.8,
+        "half_width": 29.5150146484375,
+        "achieved": 0.7699680511182109
+      },
+      {
+        "nominal": 0.9,
+        "half_width": 38.94545364379883,
+        "achieved": 0.9105431309904153
+      }
+    ],
+    "held_out_mae": 18.82340471527447
+  }
 }

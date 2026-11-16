@@ -5,5 +5,28 @@
   "version": "1.0.0",
   "build": "0f87e0457b663d81",
   "weights_sha256": "1289de0142836b0d3e030ee032acede46a952bac9bb30d007a628df53f6dcd38",
-  "with_burial": false
+  "with_burial": false,
+  "calibration": null,
+  "abstention": null,
+  "intervals": {
+    "units": "kcal/mol",
+    "levels": [
+      {
+        "nominal": 0.5,
+        "half_width": 0.4652844965457916,
+        "achieved": 0.5460969506997718
+      },
+      {
+        "nominal": 0.8,
+        "half_width": 0.9700316190719604,
+        "achieved": 0.8524017707388161
+      },
+      {
+        "nominal": 0.9,
+        "half_width": 1.327087640762329,
+        "achieved": 0.9367868239434683
+      }
+    ],
+    "held_out_mae": 0.5318118143550767
+  }
 }

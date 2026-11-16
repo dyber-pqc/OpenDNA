@@ -5,5 +5,28 @@
   "version": "0.1.0",
   "build": "1853a82710875d5e",
   "weights_sha256": "390b750a771305e896405c9054a7a377ed115441d7375bc178cbb284648782c8",
-  "with_burial": false
+  "with_burial": false,
+  "calibration": null,
+  "abstention": null,
+  "intervals": {
+    "units": "RSA",
+    "levels": [
+      {
+        "nominal": 0.5,
+        "half_width": 0.07223328948020935,
+        "achieved": 0.43296540584197063
+      },
+      {
+        "nominal": 0.8,
+        "half_width": 0.17001113668084145,
+        "achieved": 0.7599273118858527
+      },
+      {
+        "nominal": 0.9,
+        "half_width": 0.23660532385110855,
+        "achieved": 0.8753533449993269
+      }
+    ],
+    "held_out_mae": 0.11538975006498242
+  }
 }

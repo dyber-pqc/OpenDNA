@@ -106,6 +106,38 @@ impl Calibration {
     }
 }
 
+/// One confidence level of a conformal prediction interval.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IntervalLevel {
+    /// The coverage asked for, between 0 and 1.
+    pub nominal: f64,
+    /// Half-width of the interval, in the head's own units.
+    pub half_width: f64,
+    /// Coverage actually achieved on the held-out split.
+    ///
+    /// Recorded beside the nominal figure rather than instead of it, because
+    /// the two differ: the splits are clustered by sequence identity, which
+    /// is the right way to build them and breaks the exchangeability a
+    /// conformal guarantee assumes.
+    pub achieved: f64,
+}
+
+/// How wrong a regressor's number is likely to be.
+///
+/// A point estimate invites being read as a measurement. These say how wide
+/// the interval around it has to be, measured rather than modelled: no
+/// assumption is made about the shape of the error, which matters for a head
+/// whose errors are nothing like Gaussian.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Intervals {
+    /// The units the half-widths are in.
+    pub units: String,
+    /// One entry per confidence level.
+    pub levels: Vec<IntervalLevel>,
+    /// Mean absolute error on the held-out split, for scale.
+    pub held_out_mae: f64,
+}
+
 /// What a head was trained against. Stored next to the weights so inference
 /// cannot silently pair a head with the wrong embedding model.
 ///
@@ -156,4 +188,7 @@ pub struct HeadMetadata {
     /// What abstaining on low-confidence calls was measured to buy.
     #[serde(default)]
     pub abstention: Option<Abstention>,
+    /// Prediction intervals for a regressor, and the coverage they achieved.
+    #[serde(default)]
+    pub intervals: Option<Intervals>,
 }

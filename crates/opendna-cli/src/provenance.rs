@@ -24,6 +24,13 @@ pub struct Provenance {
     /// from the model card's limitations, not written here, so the two cannot
     /// drift apart.
     pub limitations: Vec<String>,
+    /// What the interval columns mean, when the output carries them.
+    ///
+    /// Stated in the file rather than left to the card, because two columns
+    /// named `interval_low` and `interval_high` are two unexplained numbers
+    /// without the confidence level beside them -- and because the coverage
+    /// actually achieved differs from the level asked for.
+    pub interval: Option<String>,
 }
 
 impl Provenance {
@@ -35,12 +42,25 @@ impl Provenance {
         device: &str,
         limitations: Vec<String>,
     ) -> Self {
+        let interval = metadata.intervals.as_ref().and_then(|i| {
+            let level = i.levels.iter().find(|l| (l.nominal - 0.9).abs() < 1e-9)?;
+            Some(format!(
+                "interval_low/high: {:.0}% prediction interval, +/-{:.3} {}, which covered \
+                 {:.1}% of held-out cases. The half-width is constant, so it is wider than \
+                 needed where the head is reliable and narrower than needed where it is not.",
+                100.0 * level.nominal,
+                level.half_width,
+                i.units,
+                100.0 * level.achieved
+            ))
+        });
         Self {
             task,
             head_version: metadata.version.clone(),
             embedding_model: embedder.repo().to_string(),
             device: device.to_string(),
             limitations,
+            interval,
         }
     }
 
@@ -55,6 +75,10 @@ impl Provenance {
         let _ = writeln!(out, "# head version: {}", self.head_version);
         let _ = writeln!(out, "# embedding model: {}", self.embedding_model);
         let _ = writeln!(out, "# device: {}", self.device);
+        if let Some(interval) = &self.interval {
+            let flat = interval.split_whitespace().collect::<Vec<_>>().join(" ");
+            let _ = writeln!(out, "# {flat}");
+        }
         if self.limitations.is_empty() {
             let _ = writeln!(out, "# limitations: see the model card next to the weights");
         } else {
@@ -82,6 +106,7 @@ mod tests {
             embedding_model: "facebook/esm2_t30_150M_UR50D".into(),
             device: "CUDA GPU".into(),
             limitations: vec!["Annotated, not exhaustive.".into()],
+            interval: None,
         };
         let block = p.comment_block();
         assert!(block.lines().all(|l| l.starts_with('#')), "{block}");
@@ -100,6 +125,7 @@ mod tests {
             embedding_model: "m".into(),
             device: "CPU".into(),
             limitations: vec!["one\n  two\n  three".into()],
+            interval: None,
         };
         let block = p.comment_block();
         assert!(block.contains("#   - one two three"), "{block}");

@@ -189,6 +189,51 @@ Intervals on every figure above are bootstrapped over **proteins**, not
 residues. Neighbouring residues almost always share a label, so resampling
 residues would report an interval several times too narrow.
 
+## How wrong is a regressor's number likely to be?
+
+Each of the three regressors now reports an interval beside its point, fitted
+by split conformal prediction on the validation split and measured on the
+held-out one:
+
+| Head | 90% interval | Coverage achieved | Held-out MAE |
+|---|---|---|---|
+| stability | ±1.33 kcal/mol | 93.7% | 0.53 kcal/mol |
+| solubility | ±38.9 percentage points | 91.1% | 18.8 pp |
+| burial | ±0.237 RSA | 87.5% | 0.115 RSA |
+
+Read the stability row before acting on a ddG. A predicted −0.78 kcal/mol
+comes with an interval of −2.11 to +0.55, which **spans zero**: at 90%
+confidence that head cannot tell you whether the mutation is destabilising at
+all. A prediction of −1.59 gives −2.92 to −0.26, which does not. That
+distinction is the useful content, and a point estimate alone hides it.
+
+Read the solubility row the same way. ±39 percentage points on a 0–100 scale
+is most of the range, which is the honest measure of how much a single
+solubility number is worth. Intervals there can extend past 100%, because the
+head is an unbounded regressor that was never constrained to the physical
+range — an interval reaching 139% is the head saying it does not know.
+
+**Coverage is measured, not assumed, and burial falls short.** A conformal
+guarantee assumes the calibration and held-out sets are exchangeable. This
+project's splits are deliberately not: the dataset builder clusters by
+sequence identity so near-identical proteins cannot straddle a split, which
+makes the held-out set systematically more distant than a random sample would
+be. That is the right way to build the splits and it costs the guarantee its
+exactness. Burial achieves 87.5% where 90% was asked for, 76.0% where 80% was,
+and 43.3% where 50% was — short at every level.
+
+**Coverage is also marginal, not conditional.** The half-width is constant, so
+the interval is wider than needed where the head is reliable and narrower than
+needed where it is not. For burial at the 90% level, coverage runs from 96.8%
+for residues predicted to be buried down to 79.1% in the middle of the range.
+Somebody holding a mid-range prediction has a 79% interval labelled 90%. Each
+model card lists the conditional coverage by band.
+
+One more caveat specific to stability: its 37,983 calibration residuals come
+from only 36 distinct wild-type proteins. The quantile is estimated from far
+fewer independent observations than the count suggests, so coverage on a
+protein unlike those 36 may be worse than the table says.
+
 ## Should I trust every residue equally?
 
 No, and the disorder head now says which ones. How far the calibrated
@@ -335,10 +380,11 @@ marketing.
   others' were not.
 - **No signed installers.** Binaries are unsigned, so operating systems will
   warn. Code-signing certificates have not been obtained.
-- **Calibration is measured for the disorder head only.** See the section
-  above. The three regressors have no equivalent: nothing establishes how
-  often a predicted ddG of 1.2 kcal/mol lands within any stated distance of
-  the truth, so those outputs remain scores for ranking.
+- **The regressors' intervals rest on an assumption the splits break.** See
+  the section above. Conformal coverage assumes calibration and held-out sets
+  are exchangeable; clustering by sequence identity makes them deliberately
+  not. The achieved coverage is measured rather than assumed, and for burial
+  it falls short at every level.
 - **Nothing detects out-of-domain input.** The disorder head reports a
   confidence that predicts error (see above), but that is not the same thing: a
   sequence from a family it never saw can still produce a confident wrong
