@@ -23,8 +23,10 @@ mod caid;
 mod exit;
 mod inventory;
 mod manifest;
+mod merge;
 mod provenance;
 mod selftest;
+mod split;
 mod staging;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -237,6 +239,41 @@ enum Command {
     /// against recorded values. Exits non-zero if this machine does not
     /// reproduce them.
     Selftest,
+    /// Join result files from parallel parts, refusing a mixture.
+    ///
+    /// Checks each part's run manifest and stops if they were not produced
+    /// the same way — a different head build, a different device, a different
+    /// batch size. Those change the numbers, and concatenating them produces
+    /// a file nobody can describe.
+    Merge {
+        /// Result files, merged in the order given.
+        inputs: Vec<PathBuf>,
+        /// Where to write. Omit for standard output.
+        #[arg(long, short = 'o')]
+        output: Option<PathBuf>,
+        /// Merge parts that have no manifest beside them.
+        #[arg(long)]
+        allow_unverified: bool,
+    },
+    /// Cut a FASTA into parts a scheduler can run in parallel.
+    ///
+    /// Parts are balanced by residue count rather than by sequence count,
+    /// because runtime scales with residues and a scheduler waits for the
+    /// slowest part.
+    Split {
+        /// FASTA file to cut.
+        #[arg(long, short = 'i')]
+        input: PathBuf,
+        /// Directory for the parts. Created if it does not exist.
+        #[arg(long)]
+        out_dir: PathBuf,
+        /// How many parts to produce.
+        #[arg(long, conflicts_with = "per_chunk")]
+        parts: Option<usize>,
+        /// Or: at most this many sequences per part.
+        #[arg(long)]
+        per_chunk: Option<usize>,
+    },
     /// Copy this installation, embedding model included, into one directory
     /// that can be carried to a machine with no network.
     Stage {
@@ -477,6 +514,24 @@ fn run() -> Result<(), Failure> {
         // Everything these two can fail at is a property of the install.
         Command::Models { lock, check } => {
             models(&dir, lock.as_deref(), check.as_deref()).blame(Fault::Install)
+        }
+        Command::Merge { inputs, output, allow_unverified } => {
+            merge::run(&inputs, output.as_deref(), !allow_unverified).blame(Fault::Input)
+        }
+        Command::Split { input, out_dir, parts, per_chunk } => {
+            let cut = match (parts, per_chunk) {
+                (Some(n), _) => split::Cut::Parts(n),
+                (None, Some(n)) => split::Cut::PerChunk(n),
+                // Neither given: one part per sequence is not a useful
+                // default and neither is the whole file, so say so.
+                (None, None) => {
+                    return Err(Failure {
+                        fault: Fault::Usage,
+                        error: anyhow!("give --parts <n> or --per-chunk <n>"),
+                    })
+                }
+            };
+            split::run(&input, &out_dir, cut).blame(Fault::Input).map(|_| ())
         }
         Command::Stage { to } => staging::stage(&dir, &to, EMBEDDER).blame(Fault::Install),
         Command::Selftest => {

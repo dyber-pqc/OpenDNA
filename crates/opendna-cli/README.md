@@ -322,6 +322,25 @@ CUDA changes the low bits, because cuBLAS picks differently shaped reductions
 under concurrent load. The CLI is serial, so this does not arise here, but it
 is why it is serial.
 
+## Running it across a cluster
+
+`split` cuts a FASTA into parts balanced by residue count, because runtime
+scales with residues and a scheduler waits for the slowest part. `merge` joins
+the results back, reading each part's run manifest and refusing to join parts
+produced with a different head build, on a different device, or at a different
+batch size — which `cat` cannot notice and a cluster upgraded one node at a
+time will eventually produce.
+
+```bash
+opendna split -i candidates.fasta --out-dir parts --parts 20
+# ... one task per part ...
+opendna merge --output disorder.csv parts/part-*.csv
+```
+
+Nextflow and Snakemake modules are in [pipelines/](../../pipelines), along with
+the measurement showing that splitting and merging reproduces a whole-file run
+exactly at `--batch-tokens 0`, and does not above it.
+
 ## What the exit status means
 
 A pipeline cannot read an error message. It reads a number, and what it needs
