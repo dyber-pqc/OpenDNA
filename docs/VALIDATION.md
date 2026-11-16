@@ -267,6 +267,45 @@ curve was 0.171 against 0.158 for discarding residues at random, so marginally
 5-mer. Error on novel k-mers is not higher than on familiar ones. A plausible
 story about why a signal should work is not evidence that it does.
 
+## Can I continue a run that was interrupted?
+
+Yes, and the thing worth checking is not that it continues but that
+continuing gives the same answer as not having stopped.
+
+`--checkpoint <file>` records results as they are produced and syncs them to
+disk after every chunk of `--chunk` sequences. Running the same command again
+continues from the last complete chunk. The results file is written only when
+the run finishes.
+
+**Verified byte-identical.** On a twelve-sequence file predicted in chunks of
+four, a checkpoint was cut back to one complete chunk plus a half-written
+record — what a process killed mid-write leaves behind — and the run was
+started again. It reported the incomplete tail, dropped it, continued from
+chunk one, and produced the same 854 rows as the uninterrupted run, byte for
+byte, with the same output digest recorded in both manifests. The checkpoint
+files themselves also ended up identical.
+
+This holds because the chunk boundaries are fixed and recorded rather than
+falling wherever the interruption did. Sequences are batched for embedding
+within their chunk, and batch composition changes the order of
+floating-point sums, so an arbitrary cut would not reproduce. The cost is that
+the chunk size is itself a setting that changes the numbers:
+
+| | |
+|---|---|
+| any `--chunk`, with `--batch-tokens 0` | identical to a run with no checkpoint |
+| `--chunk 1` or `4`, at the CPU default of 8192 | 1 of 853 burial values differs, by 0.0001 |
+
+That is the same mechanism and the same order of magnitude as the batch-size
+effect already measured above, and it is why the chunk size is recorded in
+every run manifest and compared by `opendna merge`.
+
+Resuming is refused, naming the field that differs, when the input bytes, the
+chunk size, the head build, the head's weights digest, the embedding model,
+the device, the batch size, the mutation file or the confidence cut-off is not
+what the checkpoint was written with. A file that is not a checkpoint is
+refused without being modified.
+
 ## Can I run it without a network?
 
 ```bash
@@ -352,6 +391,23 @@ so a notice cannot claim terms the file beside the weights does not. A head
 whose card declares no licence is reported as `unstated` and treated as
 possibly obliging.
 
+## Can several runs go at once on one machine?
+
+Only against a staged bundle. Measured:
+
+| | |
+|---|---|
+| Two runs loading the embedding model through the Hugging Face cache | one failed, exit 3 |
+| Three runs against a directory produced by `opendna stage` | all three fine |
+
+The cache is not safe for two processes to read at the same time; on Windows
+the second is refused the weights file by the operating system. A staged
+bundle is opened read-only and shares without trouble. So a node running
+several parts of a split in parallel needs `opendna stage` once and then
+`--models <bundle> --offline` on each task, which is what the cluster section
+of the CLI README now says. The error a failed concurrent run prints names
+this as the likely cause.
+
 ## What has not been checked
 
 Stated plainly, because a validation document that lists only successes is
@@ -385,6 +441,13 @@ marketing.
   are exchangeable; clustering by sequence identity makes them deliberately
   not. The achieved coverage is measured rather than assumed, and for burial
   it falls short at every level.
+- **Resuming was checked on small runs, on the CPU only.** The byte-identical
+  result above comes from files of two to twelve sequences predicted in two to
+  twelve chunks, with a real process kill in one case and a hand-truncated
+  checkpoint in the others. All four heads were covered. What was not
+  exercised is the thing the feature is for: a run of tens of thousands of
+  sequences interrupted hours in. Nor was any of it repeated on the GPU, where
+  the batch default differs.
 - **Nothing detects out-of-domain input.** The disorder head reports a
   confidence that predicts error (see above), but that is not the same thing: a
   sequence from a family it never saw can still produce a confident wrong

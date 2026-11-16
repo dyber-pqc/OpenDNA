@@ -36,6 +36,11 @@ struct Agreement {
     device: String,
     /// Padded tokens per batch.
     batch_tokens: String,
+    /// Sequences per checkpoint chunk, or `unrecorded` for a part that was
+    /// run without one. Chunking decides which sequences are embedded
+    /// together, so two parts chunked differently differ in the last digit of
+    /// some values, which is the mixture this refuses.
+    chunk: String,
 }
 
 impl Agreement {
@@ -56,14 +61,15 @@ impl Agreement {
             embedding_model: field("/embedding_model/repo"),
             device: field("/run/device"),
             batch_tokens: field("/run/batch_tokens"),
+            chunk: field("/run/chunk"),
         })
     }
 
     /// How to show it in a disagreement report.
     fn describe(&self) -> String {
         format!(
-            "{} head {} on {} via {} at batch-tokens {}",
-            self.task, self.build, self.device, self.embedding_model, self.batch_tokens
+            "{} head {} on {} via {} at batch-tokens {}, chunk {}",
+            self.task, self.build, self.device, self.embedding_model, self.batch_tokens, self.chunk
         )
     }
 }

@@ -327,6 +327,8 @@ Exactly as reproducible as this, and no more:
 |---|---|
 | Same input, same device, same `--batch-tokens` | **byte-identical**, verified on both CPU and GPU |
 | Same input, same device, different `--batch-tokens` | differs in the last digit of ~0.2% of values |
+| Same input, interrupted and resumed at the same `--chunk` | **byte-identical** |
+| Same input, different `--chunk`, above `--batch-tokens 0` | differs in the last digit of ~0.1% of values |
 | Same input, CPU vs GPU | differs in the last digit of ~0.3% of values |
 
 Across devices, 102 of 35,033 disorder probabilities differed, by at most
@@ -361,14 +363,83 @@ batch size — which `cat` cannot notice and a cluster upgraded one node at a
 time will eventually produce.
 
 ```bash
+opendna stage --to /mnt/shared/opendna
 opendna split -i candidates.fasta --out-dir parts --parts 20
-# ... one task per part ...
+# ... one task per part, each with --models /mnt/shared/opendna --offline ...
 opendna merge --output disorder.csv parts/part-*.csv
 ```
+
+**Stage the bundle first if parts will run at the same time.** This is not an
+optimisation. Two runs that both load the embedding model through the Hugging
+Face cache cannot do it at once: on Windows the second is refused the weights
+file by the operating system and exits 3 saying the installation needs
+fixing, which is unhelpful but not wrong — what needs fixing is that the
+model is being read out of a cache instead of a bundle. Measured here: two
+concurrent runs through the cache, one failed; three concurrent runs against a
+staged directory, all three fine. A staged bundle is opened read-only and
+shares without trouble, which is also why `--offline` is the right flag for a
+cluster task.
 
 Nextflow and Snakemake modules are in [pipelines/](../../pipelines), along with
 the measurement showing that splitting and merging reproduces a whole-file run
 exactly at `--batch-tokens 0`, and does not above it.
+
+## Resuming a run that was interrupted
+
+A run over fifty thousand sequences takes hours, and the things that stop it
+are ordinary: a scheduler's wall-clock limit, a power cut, somebody else
+needing the GPU. `--checkpoint` makes that survivable.
+
+```bash
+opendna predict --task disorder -i candidates.fasta -o disorder.csv \
+  --checkpoint disorder.ckpt --chunk 64
+```
+
+Results are recorded in `disorder.ckpt` as they are produced and flushed to
+disk after every chunk, so a process that is killed loses at most one chunk.
+Give the same command again and it continues from where it stopped. The
+results file is written only when the run finishes: the checkpoint is a record
+of work done, not a results file.
+
+**Being interrupted does not change the answer.** That is the point, and it is
+the reason `--chunk` exists rather than the work being resumed at whatever
+sequence it happened to reach. Sequences are batched for embedding within the
+chunk they fall in, and batch composition changes the order of floating-point
+sums, so a run cut at an arbitrary point would not match an uninterrupted one.
+Cutting at the same boundaries every time removes the question. Verified on a
+twelve-sequence file: a run resumed from a checkpoint whose last record had
+been truncated mid-write produced the same 854 rows, byte for byte, as a run
+that was never interrupted — the same output digest in both manifests.
+
+What it costs is that chunking is itself a setting that changes the numbers,
+in the same way and to the same degree as `--batch-tokens` does. Measured on
+the same file, against a run with no checkpoint at all:
+
+| | |
+|---|---|
+| `--chunk` anything, with `--batch-tokens 0` | **identical** |
+| `--chunk 1` or `4`, at the CPU default of 8192 | 1 of 853 accessibility values differs, by 0.0001 |
+
+At `--batch-tokens 0` every sequence is its own batch, so how the file is
+divided cannot matter and chunking is free. Above it, the chunk size joins the
+list of things a manifest has to record, and it does: a run that used a
+checkpoint records its chunk size, a run that did not records nothing there,
+and `opendna merge` treats those as different runs and refuses to join them.
+
+Resuming is refused, naming the field that differs, if the input bytes, the
+head build, the head's weights digest, the embedding model, the device, the
+batch size, the mutation file or the confidence cut-off is not the one the
+checkpoint was written with — or if the chunk size differs. A table that is
+half one run and half another is the mixture `merge` exists to refuse between
+files, and creating it inside one file would be worse, not better.
+
+Two more things it does deliberately:
+
+- A file that is not an OpenDNA checkpoint is refused and left alone. A
+  mistyped `--checkpoint` must not destroy what it was pointed at.
+- A truncated last record is dropped with a message saying so, and the file is
+  cut back to its last complete record before anything is appended. An
+  interrupted write costs one chunk, not the run.
 
 ## What the exit status means
 

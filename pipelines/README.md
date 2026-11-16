@@ -78,6 +78,18 @@ rather have the time and your results do not need to be independent of how the
 work was divided — the batch size is recorded in every run manifest either
 way.
 
+## Stage the bundle before running parts in parallel
+
+Both pipelines take a models directory. Point it at a directory produced by
+`opendna stage`, not at a bare heads directory, and pass `--offline`.
+
+The reason is measured rather than stylistic: a run with no staged bundle
+loads the embedding model through the Hugging Face cache, and two processes
+cannot read that cache at once — on Windows the second is refused the weights
+file and exits 3. A pipeline whose whole purpose is to run parts side by side
+will hit this on the first node that gets two tasks. Three concurrent runs
+against a staged bundle were fine.
+
 ## Checking it yourself
 
 ```bash
@@ -103,8 +115,17 @@ and merging reproduces a whole-file run exactly, and that a mixture is
 refused. Treat the engine files as a starting point to adapt, not as something
 known to run.
 
-There is also no resume support beyond what the engines give for free.
-Snakemake rebuilds only what is missing, which works here because
-`opendna split` is deterministic — the same input and part count give the same
-chunks byte for byte — but a part that fails halfway leaves no partial output
-to continue from, so it reruns whole.
+Neither pipeline uses `opendna predict --checkpoint`, which would let a part
+that failed halfway continue instead of rerunning whole. The CLI supports it
+and it is verified to produce byte-identical results across an interruption,
+but wiring it in here is not a one-line change: both engines give a retried
+task a fresh working directory, so the checkpoint has to live somewhere that
+outlives the attempt, and that choice depends on the cluster's filesystem
+rather than on anything testable here. What the pipelines get for free is
+Snakemake rebuilding only what is missing, which works because `opendna split`
+is deterministic — the same input and part count give the same chunks byte for
+byte.
+
+Chunking would at least be numerically free in these pipelines: they set
+`--batch-tokens 0`, where every sequence is its own batch and how the work is
+divided cannot change a value. Measured, not assumed.

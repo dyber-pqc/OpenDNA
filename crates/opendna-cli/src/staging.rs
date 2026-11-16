@@ -79,7 +79,17 @@ pub fn open_embedder(
             dir.display()
         );
     }
-    Esm2::from_pretrained(size, device).map_err(Into::into)
+    // The Hugging Face cache is not safe to read from two processes at once.
+    // On Windows the second one is refused the weights file outright, with an
+    // operating-system error that says nothing about why, so the reason is
+    // attached here. Measured: three staged runs side by side all succeed,
+    // while two runs through the cache leave one of them failing.
+    Esm2::from_pretrained(size, device).map_err(anyhow::Error::from).context(
+        "loading the embedding model through the Hugging Face cache. If another OpenDNA run is \
+         going at the same time, that is the likely cause: the cache is not safe for two \
+         processes to read at once. Run `opendna stage --to <dir>` once and point --models at \
+         that directory; several runs can share a staged bundle.",
+    )
 }
 
 /// Summarise the licences of the heads being staged.

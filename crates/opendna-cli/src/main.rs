@@ -20,6 +20,7 @@
 #![allow(clippy::doc_markdown)]
 
 mod caid;
+mod checkpoint;
 mod exit;
 mod inventory;
 mod manifest;
@@ -100,6 +101,18 @@ const CPU_BATCH_TOKENS: usize = 8192;
 /// device. Another GPU may well behave differently; `--batch-tokens` is there
 /// so somebody can measure theirs rather than inherit this one.
 const GPU_BATCH_TOKENS: usize = 0;
+
+/// Units of work per checkpoint chunk.
+///
+/// Only used when `--checkpoint` is given. It is a trade-off between how much
+/// an interruption costs and how often the run stops to sync a file, and 64
+/// sits where neither is noticeable: on the machine measured here a chunk of
+/// 64 sequences takes a few seconds on the GPU and under a minute on the CPU,
+/// against a sync that takes milliseconds.
+///
+/// It also fixes the embedding batch composition, which is why it is recorded
+/// and why resuming at a different value is refused rather than accommodated.
+const DEFAULT_CHUNK: usize = 64;
 
 #[derive(Parser)]
 #[command(
@@ -182,6 +195,29 @@ struct PredictArgs {
     /// `ubiquitin,L8P`. Mutations are 1-based, as they are written.
     #[arg(long)]
     mutations: Option<PathBuf>,
+    /// Record results as they are produced, and continue an interrupted run
+    /// from this file.
+    ///
+    /// Written as the run goes and synced to disk after every chunk, so a
+    /// process that is killed loses at most one chunk. Giving the same path
+    /// again continues from where it stopped, after checking that the input,
+    /// the head, the device and the settings are the same ones — a table that
+    /// is partly one run and partly another is the mixture `opendna merge`
+    /// refuses between files, and it would be odd to create it inside one.
+    ///
+    /// Results are still written to `--output` only when the run finishes.
+    /// The checkpoint is a record of work done, not a results file.
+    #[arg(long)]
+    checkpoint: Option<PathBuf>,
+    /// Sequences per chunk, when `--checkpoint` is given.
+    ///
+    /// Bounds what an interruption costs. It also fixes which sequences are
+    /// embedded together, and batch composition changes the order of
+    /// floating-point sums, so a resumed run matches an uninterrupted one
+    /// exactly when this value matches. Resuming with a different value is
+    /// refused.
+    #[arg(long, default_value_t = DEFAULT_CHUNK)]
+    chunk: usize,
     /// For `disorder` only: mark calls whose confidence is below this.
     ///
     /// Confidence is the distance of the calibrated probability from the
@@ -640,9 +676,6 @@ fn predict_table(
     Ok(match task {
         Task::Disorder => {
             let threshold = disorder_threshold(metadata);
-            if let Some(cut) = min_confidence {
-                report_confidence_cut(metadata, cut);
-            }
             disorder_table(
                 &disorder(proteins, heads, model, device, budget, threshold).blame(Fault::Input)?,
                 threshold,
@@ -673,6 +706,220 @@ fn predict_table(
     })
 }
 
+/// Resolve the requested mutations against the sequences, for the one task
+/// that takes them.
+///
+/// Done before the model is loaded. Everything that can be wrong with a
+/// mutation list needs only the FASTA, so checking it first means a typo is
+/// reported in a moment rather than after several hundred megabytes have
+/// loaded for a run that cannot work.
+///
+/// # Errors
+/// If stability was asked for without a mutation file, if the file cannot be
+/// read, or if any mutation does not resolve against its sequence.
+fn requested_mutations(
+    task: Task,
+    proteins: &[(String, String)],
+    mutations: Option<&Path>,
+) -> Result<Option<Resolved>, Failure> {
+    if task != Task::Stability {
+        return Ok(None);
+    }
+    let path = mutations.ok_or_else(|| Failure {
+        fault: Fault::Usage,
+        error: anyhow!(
+            "--mutations <file> is required for stability: the head scores named substitutions, \
+             so it needs to be told which ones. The file is a CSV of `name,mutation` rows, for \
+             example `ubiquitin,L8P`."
+        ),
+    })?;
+    let wanted = read_mutations(path).blame(Fault::Input)?;
+    Ok(Some(resolve_mutations(proteins, &wanted).blame(Fault::Input)?))
+}
+
+/// The settings a chunked run needs beyond the models and the sequences.
+///
+/// Grouped because they travel together and separately from everything else:
+/// each one is a thing that makes two runs different, which is exactly what
+/// the checkpoint has to compare.
+#[derive(Copy, Clone)]
+struct Chunked<'a> {
+    /// Where the checkpoint lives.
+    path: &'a Path,
+    /// Units of work per chunk.
+    chunk: usize,
+    /// The confidence cut-off, which adds a column.
+    min_confidence: Option<f64>,
+    /// The input's bytes, hashed into the header.
+    input: &'a [u8],
+    /// The mutation file, likewise.
+    mutations: Option<&'a Path>,
+}
+
+/// Everything about a run that its checkpoint has to record.
+///
+/// Gathered in one place so that the list of things which make two runs
+/// different is readable as a list. Anything missing from it is something a
+/// resumed run could silently change.
+///
+/// # Errors
+/// If the mutation file cannot be read for its digest.
+fn resume_header(
+    task: Task,
+    units: usize,
+    run: &Chunked<'_>,
+    ready: &Prepared,
+    budget: usize,
+) -> Result<checkpoint::Header, Failure> {
+    let mutations_sha256 = run
+        .mutations
+        .map(|p| {
+            std::fs::read(p)
+                .with_context(|| format!("reading {}", p.display()))
+                .map(|bytes| manifest::sha256(&bytes))
+        })
+        .transpose()
+        .blame(Fault::Input)?;
+    Ok(checkpoint::Header {
+        format: checkpoint::FORMAT,
+        task: task.name().to_string(),
+        // The bytes, not the path: the same name holding different contents is
+        // the mistake most worth catching.
+        input_sha256: manifest::sha256(run.input),
+        units,
+        chunk: run.chunk,
+        head_build: ready.metadata.build.clone(),
+        head_weights_sha256: ready.metadata.weights_sha256.clone(),
+        embedding_model: EMBEDDER.repo().to_string(),
+        device: ready.description.clone(),
+        batch_tokens: budget,
+        mutations_sha256,
+        min_confidence: run.min_confidence,
+    })
+}
+
+/// Run a prediction in chunks, recording each one as it finishes.
+///
+/// The loop is deliberately dull: for every chunk not already in the
+/// checkpoint, run the same dispatch a whole-file run would, and append the
+/// rows. What makes a resumed run agree with an uninterrupted one is that the
+/// chunk boundaries are the same, so the embedding batches are the same, so
+/// the floating-point sums happen in the same order.
+///
+/// Rows come back from the checkpoint rather than from memory even for chunks
+/// this process computed, so that the assembled table is the one the file
+/// describes. If the two could differ, the checkpoint would not be worth
+/// having.
+///
+/// # Errors
+/// If the checkpoint describes a different run, cannot be written, or holds
+/// chunks that cannot be assembled into one table; or if a chunk fails to
+/// predict, in which case the chunks already recorded survive.
+fn predict_resumable(
+    task: Task,
+    proteins: &[(String, String)],
+    resolved: Option<&[(String, Vec<Substitution>)]>,
+    ready: &Prepared,
+    budget: usize,
+    run: Chunked<'_>,
+) -> Result<Table, Failure> {
+    let Chunked { path, chunk, min_confidence, .. } = run;
+    let units = match task {
+        Task::Stability => resolved.map_or(0, <[_]>::len),
+        Task::Disorder | Task::Burial | Task::Solubility => proteins.len(),
+    };
+    let total = checkpoint::chunks(units, chunk).blame(Fault::Usage)?;
+    let header = resume_header(task, units, &run, ready, budget)?;
+    // A sequence too long for this head fails the chunk it lands in, which on
+    // a long run means hours of work before being told. The check needs only
+    // the lengths, so it runs over the whole file first.
+    scorable(task, proteins, &ready.model).blame(Fault::Input)?;
+
+    let mut writer = checkpoint::open(path, &header).blame(Fault::Input)?;
+    let done = writer.records().len();
+    if done > 0 {
+        let rows: usize = writer.records().iter().map(|r| r.rows.len()).sum();
+        eprintln!("Resuming {}: {done} of {total} chunks already done, {rows} rows", path.display());
+    }
+
+    let mut columns: Option<Vec<&'static str>> = None;
+    for index in done..total {
+        let from = index * chunk;
+        let to = ((index + 1) * chunk).min(units);
+        let table = match task {
+            Task::Stability => {
+                predict_table(task, proteins, resolved.map(|r| &r[from..to]), ready, budget, min_confidence)?
+            }
+            Task::Disorder | Task::Burial | Task::Solubility => {
+                predict_table(task, &proteins[from..to], None, ready, budget, min_confidence)?
+            }
+        };
+        let names = table.columns.iter().map(|c| (*c).to_string()).collect();
+        columns = Some(table.columns);
+        writer
+            .append(checkpoint::Record { chunk: index, columns: names, rows: table.rows })
+            .blame(Fault::Unexpected)?;
+        eprintln!("Chunk {} of {total} recorded in {}", index + 1, path.display());
+    }
+
+    // The table needs its column names, and a completed checkpoint being
+    // rendered again ran no chunk to take them from. Running the dispatch over
+    // nothing costs nothing and is authoritative about the shape.
+    let columns = match columns {
+        Some(columns) => columns,
+        None => predict_table(task, &[], Some(&[]), ready, budget, min_confidence)?.columns,
+    };
+    let expected: Vec<String> = columns.iter().map(|c| (*c).to_string()).collect();
+    let mut rows = Vec::new();
+    for record in writer.records() {
+        if record.columns != expected {
+            return Err(Failure {
+                fault: Fault::Input,
+                error: anyhow!(
+                    "{} holds a chunk with columns {:?} where this run produces {:?}. The \
+                     checkpoint was written by a different version of OpenDNA; start the run \
+                     again against a new file.",
+                    path.display(),
+                    record.columns,
+                    expected
+                ),
+            });
+        }
+        rows.extend(record.rows.iter().cloned());
+    }
+    Ok(Table { columns, rows })
+}
+
+/// Refuse sequences this task cannot score, before any of them is embedded.
+///
+/// Only solubility has a limit of its own: it pools over a single pass and has
+/// no windowed equivalent, so a sequence past the embedder's limit cannot be
+/// scored at all rather than scored less well. Disorder and burial window.
+/// Stability checks each sequence as it reaches it, and its own limit is the
+/// same one.
+///
+/// # Errors
+/// Naming the sequence and its length.
+fn scorable(task: Task, proteins: &[(String, String)], model: &Esm2) -> Result<()> {
+    if task != Task::Solubility {
+        return Ok(());
+    }
+    for (name, sequence) in proteins {
+        let residues = sequence.chars().count();
+        if residues > model.max_residues() {
+            bail!(
+                "{}: {} residues exceeds the embedding model\'s {} limit. The solubility head \
+                 pools over one pass and has no windowed equivalent, so this sequence cannot be \
+                 scored.",
+                name,
+                residues,
+                model.max_residues()
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Run one prediction and record what produced it.
 ///
 /// # Errors
@@ -681,7 +928,7 @@ fn predict_table(
 /// [`Fault`] on the failure distinguishes the install's problems from the
 /// data's, because a caller can only act on the difference.
 fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure> {
-    let PredictArgs { task, input, output, format, mutations, min_confidence } = args;
+    let PredictArgs { task, input, output, format, mutations, min_confidence, checkpoint, chunk } = args;
     let started_utc = chrono::Utc::now();
     let started = std::time::Instant::now();
     // Nothing installed can make this combination meaningful, so it is
@@ -695,32 +942,40 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
             ),
         });
     }
+    // The CAID writer assembles one document from every target at once rather
+    // than a table of rows, so there is nothing for a chunk to hold. Saying so
+    // is better than accepting the flag and ignoring it.
+    if format == Format::Caid && checkpoint.is_some() {
+        return Err(Failure {
+            fault: Fault::Usage,
+            error: anyhow!(
+                "--checkpoint cannot be used with --format caid: that format is written as one \
+                 document rather than as rows, so there is no chunk to resume from. Run it as \
+                 --format csv with a checkpoint and convert afterwards, or run it without one."
+            ),
+        });
+    }
+    // Checked here rather than where the chunks are counted, so that a typo in
+    // an argument is reported before six hundred megabytes of model have
+    // loaded for a run that cannot start.
+    if chunk == 0 {
+        return Err(Failure { fault: Fault::Usage, error: anyhow!("--chunk must be at least 1") });
+    }
 
     let Request { proteins, text } = read_request(&input)?;
 
-    // Resolve what was asked for against the data before loading the model.
-    // Everything that can be wrong with a mutation list needs only the FASTA,
-    // so checking it first means a typo is reported in a moment rather than
-    // after several hundred megabytes have loaded for a run that cannot work.
-    let resolved = match task {
-        Task::Stability => {
-            let path = mutations.as_deref().ok_or_else(|| Failure {
-                fault: Fault::Usage,
-                error: anyhow!(
-                    "--mutations <file> is required for stability: the head scores named \
-                     substitutions, so it needs to be told which ones. The file is a CSV of \
-                     `name,mutation` rows, for example `ubiquitin,L8P`."
-                ),
-            })?;
-            let wanted = read_mutations(path).blame(Fault::Input)?;
-            Some(resolve_mutations(&proteins, &wanted).blame(Fault::Input)?)
-        }
-        Task::Disorder | Task::Burial | Task::Solubility => None,
-    };
+    let resolved = requested_mutations(task, &proteins, mutations.as_deref())?;
 
     let ready = prepare(dir, global, task)?;
     let Prepared { device, description, prov, metadata, files, .. } = &ready;
     let budget = global.budget(device);
+
+    // Said once per run rather than once per chunk: a chunked run calls the
+    // same dispatch forty times, and forty copies of the same paragraph on
+    // standard error is how a person stops reading them.
+    if let (Task::Disorder, Some(cut)) = (task, min_confidence) {
+        report_confidence_cut(metadata, cut);
+    }
 
     // One manifest writer for every format, so no output can end up described
     // differently from another.
@@ -737,6 +992,7 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
                 started: started_utc,
                 elapsed: started.elapsed(),
                 batch_tokens: budget,
+                chunk: checkpoint.as_ref().map(|_| chunk),
                 input: manifest::Input {
                     label: &label,
                     bytes: text.as_bytes(),
@@ -767,7 +1023,17 @@ fn predict(dir: &Path, global: Global, args: PredictArgs) -> Result<(), Failure>
         return Ok(());
     }
 
-    let table = predict_table(task, &proteins, resolved.as_deref(), &ready, budget, min_confidence)?;
+    let table = match checkpoint.as_deref() {
+        None => predict_table(task, &proteins, resolved.as_deref(), &ready, budget, min_confidence)?,
+        Some(path) => predict_resumable(
+            task,
+            &proteins,
+            resolved.as_deref(),
+            &ready,
+            budget,
+            Chunked { path, chunk, min_confidence, input: text.as_bytes(), mutations: mutations.as_deref() },
+        )?,
+    };
 
     let rendered = table.render(format, prov)?;
     write_output(output.as_deref(), &rendered)?;
@@ -1100,22 +1366,10 @@ fn solubility(
     let head = heads.solubility.as_ref().ok_or_else(|| anyhow!("the solubility head did not load"))?;
     let mut rows = Vec::new();
     // Refused before embedding anything: a file with one over-long sequence
-    // would otherwise spend the whole run before failing.
-    for (name, sequence) in proteins {
-        if sequence.chars().count() > model.max_residues() {
-            // The head was trained on a mean over a single pass. Pooling
-            // across windows is a different quantity, so refuse rather than
-            // report a number computed differently from training.
-            bail!(
-                "{}: {} residues exceeds the embedding model's {} limit. The solubility head \
-                 pools over one pass and has no windowed equivalent, so this sequence cannot be \
-                 scored.",
-                name,
-                sequence.chars().count(),
-                model.max_residues()
-            );
-        }
-    }
+    // would otherwise spend the whole run before failing. Stated once, in
+    // `scorable`, so a chunked run and a whole-file run refuse the same
+    // sequences with the same words.
+    scorable(Task::Solubility, proteins, model)?;
     let batch: Vec<&str> = proteins.iter().map(|(_, s)| s.as_str()).collect();
     eprintln!("Embedding {} sequences", batch.len());
     for ((name, sequence), embedding) in proteins.iter().zip(model.embed_many(&batch, budget)?) {
@@ -1185,6 +1439,9 @@ fn parse_mutation(label: &str, residues: &[char], name: &str) -> Result<(char, u
     Ok((wild, index, mutant))
 }
 
+/// Mutations resolved against their sequences, grouped by sequence name.
+type Resolved = Vec<(String, Vec<Substitution>)>;
+
 /// One substitution, resolved against the sequence it applies to.
 struct Substitution {
     /// The label as written, which is what the output reports.
@@ -1212,10 +1469,7 @@ struct Substitution {
 /// If any mutation cannot be resolved, naming it. One bad label stops the run
 /// rather than being skipped: a table silently missing rows looks exactly like
 /// a table that is complete.
-fn resolve_mutations(
-    proteins: &[(String, String)],
-    wanted: &[(String, String)],
-) -> Result<Vec<(String, Vec<Substitution>)>> {
+fn resolve_mutations(proteins: &[(String, String)], wanted: &[(String, String)]) -> Result<Resolved> {
     let standard = AminoAcid::STANDARD;
     let mut out = Vec::new();
     for (name, sequence) in proteins {

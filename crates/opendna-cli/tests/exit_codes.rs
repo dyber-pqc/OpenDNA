@@ -63,6 +63,22 @@ fn sha256(bytes: &[u8]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+/// Held for the whole of any test that spawns a run which embeds something.
+///
+/// The Hugging Face cache cannot be read by two processes at once: on Windows
+/// the second one is refused the weights file. Cargo runs tests in parallel,
+/// so without this the two inference tests race and whichever loses reports a
+/// broken installation. Not a workaround for a test bug -- it is the same
+/// constraint real users have, and `staging::open_embedder` says so in its
+/// error.
+static EMBEDDER: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Take that lock, ignoring poisoning: a panic in the other test tells us
+/// nothing about whether the cache is readable now.
+fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+    EMBEDDER.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 /// Run the binary and return (status code, stdout).
 fn run(args: &[&str]) -> (i32, String) {
     let output = Command::new(env!("CARGO_BIN_EXE_opendna")).args(args).output().unwrap();
@@ -70,6 +86,10 @@ fn run(args: &[&str]) -> (i32, String) {
 }
 
 /// The failures that are refused before any inference starts.
+// Long because it is a list. Splitting a table of cases across functions to
+// satisfy a line count would make it harder to read and easier to forget a
+// case in.
+#[allow(clippy::too_many_lines)]
 #[test]
 fn every_kind_of_failure_returns_the_status_the_contract_promises() {
     let Some(installed) = models() else {
@@ -121,6 +141,8 @@ fn every_kind_of_failure_returns_the_status_the_contract_promises() {
     // list numbered against a different construct must stop the run.
     std::fs::write(&wrong_mutation, "name,mutation\nubiquitin,Q8P\n").unwrap();
 
+    let checkpoint = base.join("run.jsonl");
+    let checkpoint = checkpoint.to_str().unwrap().to_owned();
     let installed = installed.to_str().unwrap().to_owned();
     let (fasta, bad_fasta) = (fasta.to_str().unwrap(), bad_fasta.to_str().unwrap());
     let wrong_mutation = wrong_mutation.to_str().unwrap();
@@ -150,6 +172,40 @@ fn every_kind_of_failure_returns_the_status_the_contract_promises() {
             4,
             "a file that is not FASTA",
             vec!["--models", &installed, "predict", "--task", "disorder", "-i", bad_fasta],
+        ),
+        (
+            2,
+            "a chunk size of zero",
+            vec![
+                "--models",
+                &installed,
+                "predict",
+                "--task",
+                "disorder",
+                "-i",
+                fasta,
+                "--checkpoint",
+                &checkpoint,
+                "--chunk",
+                "0",
+            ],
+        ),
+        (
+            2,
+            "a checkpoint with the CAID format",
+            vec![
+                "--models",
+                &installed,
+                "predict",
+                "--task",
+                "disorder",
+                "--format",
+                "caid",
+                "-i",
+                fasta,
+                "--checkpoint",
+                &checkpoint,
+            ],
         ),
         (
             4,
@@ -183,8 +239,102 @@ fn every_kind_of_failure_returns_the_status_the_contract_promises() {
             wrong.push(format!("{what}: wrote {} bytes to stdout while failing", stdout.len()));
         }
     }
+    // A refused run must not leave a checkpoint behind. A file created by a
+    // run that never started would be resumed by the next one.
+    if Path::new(&checkpoint).exists() {
+        wrong.push("a refused run created its checkpoint file".to_string());
+    }
     std::fs::remove_dir_all(&base).ok();
     assert!(wrong.is_empty(), "the exit-code contract does not hold:\n  {}", wrong.join("\n  "));
+}
+
+/// Resuming is only safe if continuing the wrong checkpoint is impossible.
+///
+/// Needs real inference, because the checkpoint under test has to be one the
+/// binary itself wrote: hand-building the header here would be a second
+/// statement of its shape, and the two would drift.
+#[test]
+#[ignore = "embeds a sequence; run with --release -- --ignored"]
+fn a_checkpoint_from_another_run_is_refused_and_an_interrupted_one_is_continued() {
+    let _one_at_a_time = one_at_a_time();
+    let Some(installed) = models() else {
+        println!("no heads installed; skipping.");
+        return;
+    };
+    let installed = installed.to_str().unwrap().to_owned();
+    let base = scratch("resume");
+    let ubq = base.join("ubq.fasta");
+    std::fs::write(
+        &ubq,
+        ">ubiquitin\nMQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG\n",
+    )
+    .unwrap();
+    // Two sequences, so a chunk size of one gives a run with two chunks.
+    let pair = base.join("pair.fasta");
+    std::fs::write(
+        &pair,
+        ">ubiquitin\nMQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG\n\
+         >fragment\nMQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEG\n",
+    )
+    .unwrap();
+
+    let reference = base.join("reference.csv");
+    let checkpoint = base.join("run.jsonl");
+    let predict = |input: &Path, output: &Path, checkpoint: &Path| -> (i32, String) {
+        let output = Command::new(env!("CARGO_BIN_EXE_opendna"))
+            .args([
+                "--models",
+                &installed,
+                "predict",
+                "--task",
+                "disorder",
+                "-i",
+                input.to_str().unwrap(),
+                "-o",
+                output.to_str().unwrap(),
+                "--checkpoint",
+                checkpoint.to_str().unwrap(),
+                "--chunk",
+                "1",
+                "--no-manifest",
+            ])
+            .output()
+            .unwrap();
+        (output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stderr).into_owned())
+    };
+
+    let (code, stderr) = predict(&pair, &reference, &checkpoint);
+    assert_eq!(code, 0, "the reference run must finish:\n{stderr}");
+
+    // The same checkpoint against a different input. The rows in it describe
+    // sequences this run is not predicting, so continuing would produce a
+    // table that is half one run and half another.
+    let (code, stderr) = predict(&ubq, &base.join("wrong.csv"), &checkpoint);
+    assert_eq!(code, 4, "a checkpoint for another input must be refused:\n{stderr}");
+    assert!(stderr.contains("input digest"), "the refusal must name the field:\n{stderr}");
+
+    // An interrupted run, as a kill partway through a write leaves it: the
+    // first chunk intact and the second one half-written.
+    let interrupted = base.join("interrupted.jsonl");
+    let full = std::fs::read_to_string(&checkpoint).unwrap();
+    let mut lines = full.lines();
+    let header = lines.next().unwrap();
+    let first = lines.next().unwrap();
+    let torn = &lines.next().unwrap()[..20];
+    std::fs::write(&interrupted, format!("{header}\n{first}\n{torn}")).unwrap();
+
+    let resumed = base.join("resumed.csv");
+    let (code, stderr) = predict(&pair, &resumed, &interrupted);
+    assert_eq!(code, 0, "an interrupted run must continue:\n{stderr}");
+    assert!(stderr.contains("Resuming"), "it should say it is resuming:\n{stderr}");
+
+    // The point of the whole exercise: being interrupted changed nothing.
+    assert_eq!(
+        std::fs::read_to_string(&resumed).unwrap(),
+        std::fs::read_to_string(&reference).unwrap(),
+        "a resumed run must produce the same bytes as an uninterrupted one"
+    );
+    std::fs::remove_dir_all(&base).ok();
 }
 
 /// The two cases that need real inference.
@@ -196,6 +346,7 @@ fn every_kind_of_failure_returns_the_status_the_contract_promises() {
 #[test]
 #[ignore = "embeds a sequence; run with --release -- --ignored"]
 fn a_working_run_exits_zero_and_a_wrong_model_exits_five() {
+    let _one_at_a_time = one_at_a_time();
     let Some(installed) = models() else {
         println!("no heads installed; skipping.");
         return;

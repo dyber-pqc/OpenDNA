@@ -104,6 +104,13 @@ pub struct Run<'a> {
     /// Without this the manifest would claim to identify a run it could not
     /// distinguish from a slightly different one.
     pub batch_tokens: usize,
+    /// Sequences per chunk, for a run that used a checkpoint.
+    ///
+    /// Recorded for the same reason as `batch_tokens`: it decides which
+    /// sequences are embedded together, and that changes the last digit of a
+    /// few values. A run without a checkpoint has no chunking and records
+    /// nothing here, which is a different run from one chunked at any size.
+    pub chunk: Option<usize>,
     /// The input.
     pub input: Input<'a>,
     /// Where the table was written, if anywhere.
@@ -143,6 +150,7 @@ pub fn render(run: &Run<'_>) -> String {
             "seconds": (run.elapsed.as_millis() as f64) / 1000.0,
             "device": run.device,
             "batch_tokens": run.batch_tokens,
+            "chunk": run.chunk,
             // The arguments as given, so the run can be repeated verbatim.
             // Not the resolved paths: what was typed is what a reader needs to
             // recognise, and the resolved values are recorded separately.
@@ -245,6 +253,7 @@ mod tests {
             started: chrono::DateTime::from_timestamp(1_763_000_000, 0).unwrap(),
             elapsed: std::time::Duration::from_millis(2500),
             batch_tokens: 0,
+            chunk: None,
             input: Input { label: "seqs.fasta", bytes: b">a\nMQIF\n", sequences: 1, residues: 4 },
             output,
             rendered: "name,position\na,1\n",
@@ -304,6 +313,7 @@ mod tests {
             started: chrono::Utc::now(),
             elapsed: std::time::Duration::from_secs(1),
             batch_tokens: 8192,
+            chunk: Some(64),
             input: Input { label: "-", bytes: b">a\nM\n", sequences: 1, residues: 1 },
             output: None,
             rendered: "",
