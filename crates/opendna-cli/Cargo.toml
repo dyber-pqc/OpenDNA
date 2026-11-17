@@ -13,6 +13,7 @@ name = "opendna"
 path = "src/main.rs"
 
 [dependencies]
+opendna-analysis.workspace = true
 opendna-core.workspace = true
 opendna-io.workspace = true
 opendna-engine = { path = "../opendna-engine", version = "0.6.0-rc1" }

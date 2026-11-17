@@ -23,6 +23,7 @@ mod caid;
 mod checkpoint;
 mod exit;
 mod fold;
+mod humanness;
 mod inventory;
 mod manifest;
 mod merge;
@@ -300,6 +301,42 @@ enum Command {
         #[arg(long)]
         check: Option<PathBuf>,
     },
+    /// Score how often each 9-residue peptide of an antibody occurs in human
+    /// repertoires.
+    ///
+    /// No model runs. Given a prevalence table, the answer is an exact count:
+    /// cut the sequence into overlapping 9-mers and look each one up. So
+    /// there is no accuracy to quote and no uncertainty to report -- the
+    /// number is a property of the table, and the table's card says what it
+    /// was built from.
+    ///
+    /// The per-window output is the point. A single percentage invites
+    /// comparison with figures computed from other repertoires, which would
+    /// be wrong; the rare windows say which positions are unlike anything
+    /// seen in a human, which is the question this can answer.
+    ///
+    /// The global --models, --offline, --device and --batch-tokens options
+    /// have no effect here. No head is loaded and nothing is embedded.
+    Humanness {
+        /// FASTA file of antibody sequences to score.
+        #[arg(short, long)]
+        input: PathBuf,
+        /// The prevalence table, built by `opendna-data build humanness`.
+        #[arg(short, long)]
+        table: PathBuf,
+        /// Which threshold the summary identity is computed at.
+        ///
+        /// A threshold finer than the table can express is refused rather than
+        /// reported: from n donors the smallest non-zero prevalence is 1/n.
+        #[arg(long, value_enum, default_value_t = Threshold::Medium)]
+        stringency: Threshold,
+        /// Print every scored window instead of only the rarest ones.
+        #[arg(long)]
+        all_windows: bool,
+        /// How many of the rarest windows to list per sequence.
+        #[arg(long, default_value_t = 10, conflicts_with = "all_windows")]
+        worst: usize,
+    },
     /// Report which external engines are installed, and optionally pin them.
     ///
     /// Some work -- folding a sequence, docking a ligand, running a
@@ -379,7 +416,31 @@ enum Command {
     },
 }
 
-/// Which device to run on.
+/// How common a peptide has to be to count as human.
+///
+/// The three thresholds are the ones OASis defines. Which is appropriate
+/// depends on the table: a threshold below 1/donors is not expressible at
+/// all, and `opendna humanness` refuses rather than reporting one.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum Threshold {
+    /// At least 1% of donors. Needs a table of 100 donors or more.
+    Loose,
+    /// At least 10% of donors.
+    Medium,
+    /// At least half of donors.
+    Strict,
+}
+
+impl From<Threshold> for opendna_analysis::humanness::Stringency {
+    fn from(choice: Threshold) -> Self {
+        match choice {
+            Threshold::Loose => Self::Loose,
+            Threshold::Medium => Self::Medium,
+            Threshold::Strict => Self::Strict,
+        }
+    }
+}
+
 /// Which folding engine to drive.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum FoldEngine {
@@ -638,6 +699,15 @@ fn run() -> Result<(), Failure> {
             check,
             manifest: global.manifest,
         }),
+        Command::Humanness { input, table, stringency, all_windows, worst } => {
+            humanness::run(&humanness::Request {
+                input,
+                table,
+                stringency: stringency.into(),
+                all_windows,
+                worst,
+            })
+        }
         Command::Merge { inputs, output, allow_unverified } => {
             merge::run(&inputs, output.as_deref(), !allow_unverified).blame(Fault::Input)
         }

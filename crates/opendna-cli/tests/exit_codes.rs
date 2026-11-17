@@ -156,6 +156,81 @@ fn run_fold(engine: Option<&Path>, args: &[&str]) -> (i32, String, String) {
     )
 }
 
+/// Run the binary with no engines and no models, for commands that need none.
+fn run_bare(args: &[&str]) -> (i32, String) {
+    let output = Command::new(env!("CARGO_BIN_EXE_opendna")).args(args).output().unwrap();
+    let said =
+        format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+    (output.status.code().unwrap_or(-1), said)
+}
+
+/// `humanness`'s share of the contract, which needs no heads and no engines.
+///
+/// The case worth having is the last one: a table too narrow to express the
+/// threshold asked for. Nothing crashes and every lookup succeeds; the
+/// resulting percentage is simply a number that measured nothing, and it is
+/// refused for that reason alone.
+#[test]
+fn humanness_refuses_in_the_ways_the_contract_promises() {
+    let base = scratch("humanness");
+    let fasta = base.join("ab.fasta");
+    std::fs::write(&fasta, ">h1\nACDEFGHIKLMNPQRSTVWY\n").unwrap();
+    let missing = base.join("absent.bin");
+    let garbage = base.join("garbage.bin");
+    std::fs::write(&garbage, b"this is not a prevalence table, and is not 16 bytes of magic").unwrap();
+
+    // A ten-donor table, written through the real writer so the format under
+    // test is the one the builder produces. Ten puts the boundary exactly on
+    // a threshold: 1/10 is 10%, so `medium` is expressible and `loose` (1%)
+    // is not.
+    let table = base.join("ten.bin");
+    {
+        use opendna_analysis::humanness::PrevalenceTable;
+        let built = PrevalenceTable::build(std::iter::repeat_n(vec!["ACDEFGHIKLMNPQRSTVWY"], 10), 1);
+        assert_eq!(built.donors(), 10);
+        built.write(std::fs::File::create(&table).unwrap()).unwrap();
+    }
+
+    let f = fasta.to_str().unwrap();
+    let t = table.to_str().unwrap();
+    let mut failures = Vec::new();
+
+    // No table: an installation problem, and there is nothing to fall back on
+    // -- a score without a table would be a number with no denominator.
+    let (code, said) = run_bare(&["humanness", "-i", f, "-t", missing.to_str().unwrap()]);
+    check(&mut failures, 3, "no prevalence table", code, "opendna-data build humanness", &said);
+
+    // A file that is not a table at all.
+    let (code, said) = run_bare(&["humanness", "-i", f, "-t", garbage.to_str().unwrap()]);
+    check(&mut failures, 3, "table is not a table", code, "expected magic", &said);
+
+    // Unreadable input.
+    let (code, said) = run_bare(&["humanness", "-i", base.join("none.fasta").to_str().unwrap(), "-t", t]);
+    check(&mut failures, 4, "missing input", code, "reading", &said);
+
+    // A sequence with no scorable window: refusing beats scoring it zero,
+    // which would assert it looks nothing like a human antibody.
+    let allx = base.join("allx.fasta");
+    std::fs::write(&allx, format!(">x\n{}\n", "X".repeat(30))).unwrap();
+    let (code, said) = run_bare(&["humanness", "-i", allx.to_str().unwrap(), "-t", t]);
+    check(&mut failures, 4, "nothing scorable", code, "no scorable window", &said);
+
+    // A threshold finer than ten donors can express. Checks ran and did not
+    // hold: the install is fine and so is the input, and every lookup would
+    // have succeeded -- the percentage would simply have measured nothing.
+    let (code, said) = run_bare(&["humanness", "-i", f, "-t", t, "--stringency", "loose"]);
+    check(&mut failures, 5, "threshold not expressible", code, "cannot be evaluated", &said);
+
+    // And the cases that must work: the default threshold, which ten donors
+    // can express exactly, and the strictest one.
+    let (code, said) = run_bare(&["humanness", "-i", f, "-t", t]);
+    check(&mut failures, 0, "the default threshold", code, "of donors", &said);
+    let (code, said) = run_bare(&["humanness", "-i", f, "-t", t, "--stringency", "strict"]);
+    check(&mut failures, 0, "the strictest threshold", code, "100.0%", &said);
+
+    assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+}
+
 /// Record a case that did not behave as the contract promises.
 fn check(into: &mut Vec<String>, want: i32, what: &str, got: i32, needle: &str, said: &str) {
     if got != want {

@@ -2389,6 +2389,7 @@ dependencies = [
  "candle-core",
  "chrono",
  "clap",
+ "opendna-analysis",
  "opendna-core",
  "opendna-engine",
  "opendna-io",

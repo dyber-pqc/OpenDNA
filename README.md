@@ -33,10 +33,12 @@ Concretely, it is useful today if you are:
   provably describe the same build.
 
 It is **not** yet useful if you need docking, molecular dynamics, sequence
-design, antibody-specific models, a signed installer, or a support contract.
+design, a trained antibody model, a signed installer, or a support contract.
 Those are either absent or unfinished, and the section below says which.
 Structures it will predict, but only by driving an ESMFold or ColabFold you
-installed yourself — see below.
+installed yourself. For antibodies it will tell you how often each 9-residue
+window of a heavy chain occurs in human repertoires, which is a count over a
+published table rather than a model — see below.
 
 ## Quick start
 
@@ -139,7 +141,8 @@ implemented here:
 
 - docking, molecular dynamics, or free-energy calculation
 - sequence or backbone design
-- antibody-specific modelling
+- any trained antibody model, light-chain or paired-chain scoring, or
+  developability beyond humanness
 - any HTTP API or hosted service
 
 Two of those have changed shape rather than arriving. OpenDNA still folds

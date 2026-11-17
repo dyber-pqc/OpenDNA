@@ -46,16 +46,28 @@ measured metrics, and its limitations.
 ## What it does not do
 
 Earlier documentation advertised structure prediction, docking, molecular
-dynamics, sequence design, antibody modelling, and an HTTP API. None of them is
-implemented here, and nothing in OpenDNA computes a structure or a trajectory.
+dynamics, sequence design, antibody modelling, and an HTTP API. The rewrite
+shipped with none of them, and OpenDNA still computes no structure and no
+trajectory itself.
 
-Structure prediction has since come back in the only form that is honest:
+Two have since come back, each in the only form that is honest.
+
 `opendna fold` drives an ESMFold or ColabFold that you installed, checks that
 the chain it returns is the sequence it was sent, and records which engine
-produced each file. With no engine installed it refuses. Docking and molecular
-dynamics are declared to the same adapter and not yet driven; sequence design,
-antibody modelling and the HTTP API are not built. [The roadmap](ROADMAP.md)
-says what is next and in what order.
+produced each file. With no engine installed it refuses.
+
+`opendna humanness` reports, for each overlapping 9-residue window of an
+antibody heavy chain, the fraction of human donors whose repertoire contains
+that exact peptide. It is a count over a table of 150 donors, not a model:
+there is no accuracy figure because nothing is predicted. The trained
+antibody head that was planned instead was dropped on measurement — a lookup
+table on the V gene call separates human from mouse at 98.5% against a 68.9%
+baseline, so a head's accuracy would have restated the germline catalogue.
+
+Docking and molecular dynamics are declared to the same engine adapter and not
+yet driven; sequence design and the HTTP API are not built, and antibody work
+beyond humanness — light chains, paired chains, developability — is not either.
+[The roadmap](ROADMAP.md) says what is next and in what order.
 
 The rest is listed here because a reader who remembers the old pages deserves a
 straight answer rather than silence.

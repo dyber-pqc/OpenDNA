@@ -149,6 +149,14 @@ struct TableStats {
     kept_peptides: usize,
     /// How many peptides occur in at least each stringency's fraction of donors.
     at_stringency: Vec<(Stringency, usize)>,
+    /// Fewest and most sequences kept from any one donor.
+    ///
+    /// The spread is the size of the unevenness in the sampling bias: a
+    /// peptide is more likely to be seen at all in the donor who contributed
+    /// four times as many sequences, so prevalence is pulled towards the
+    /// deeper donors' repertoires. Reported because "biased downwards" on its
+    /// own does not say by how much it varies.
+    depth: (u64, u64),
     unpinned: u64,
     bytes: u64,
 }
@@ -282,6 +290,10 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         distinct_peptides: distinct,
         kept_peptides: table.len(),
         at_stringency,
+        depth: (
+            repertoires.values().map(|r| r.len() as u64).min().unwrap_or(0),
+            repertoires.values().map(|r| r.len() as u64).max().unwrap_or(0),
+        ),
         unpinned,
         bytes: table_bytes,
     };
@@ -349,15 +361,19 @@ fn render_card(stats: &TableStats, catalogue_digest: &str, table_digest: &str) -
     s.push_str("\n## Read this before using the numbers\n\n");
     let _ = writeln!(
         s,
-        "Each donor contributes one shallow data unit -- a few thousand sequences out of a \
-         repertoire of millions. A peptide that donor really has, but that did not appear in \
-         the sample, is counted as absent. **Every prevalence here is biased downwards**, by an \
-         amount that depends on how deeply each donor happened to be sequenced.\n\n\
+        "Each donor contributes one shallow data unit: between {} and {} sequences survive \
+         reading, out of a repertoire of millions. A peptide that donor really has, but that did \
+         not appear in the sample, is counted as absent. **Every prevalence here is biased \
+         downwards**, and unevenly: the deepest donor contributes {:.1} times as many sequences \
+         as the shallowest, so its peptides are the more likely to be seen at all.\n\n\
          Scores from this table are comparable with each other. They are **not** comparable with \
          published OASis values: that work used deep repertoires from 266 subjects, so the same \
          sequence will score lower here. The choice was deliberate -- prevalence is a fraction of \
          donors, so donor breadth decides what thresholds mean at all -- but it is a trade, not a \
-         free lunch."
+         free lunch.",
+        stats.depth.0,
+        stats.depth.1,
+        if stats.depth.0 == 0 { 0.0 } else { stats.depth.1 as f64 / stats.depth.0 as f64 }
     );
 
     s.push_str("\n## Sources and licenses\n\n| Source | License | Index | SHA-256 of unit list |\n|---|---|---|---|\n");

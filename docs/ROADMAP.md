@@ -180,12 +180,56 @@ back into a head. `opendna-analysis` already computes solvent accessibility
 from a structure, which is the obvious next thing to connect and is not
 connected.
 
-**4. An antibody head.** The only item on the list that adds science rather
-than access, and the one that fits the existing architecture without any new
-machinery: a dataset built from OAS or SAbDab, a head trained on frozen ESM-2
-embeddings, a measured baseline, a generated card. Developability or humanness
-rather than structure. Licence terms of both sources need reading before
-anything is built, as they did for eSOL.
+**4. Antibody humanness. Done, and not as a trained head.** The plan was a head
+on frozen ESM-2 embeddings predicting human versus mouse. That plan was
+measured before it was built and abandoned on the numbers.
+
+A lookup table on the IMGT V gene call alone separates the two species at
+**98.54%** held-out accuracy against a **68.91%** majority baseline. Four V
+genes out of 56 human and 169 mouse appear in both cohorts. So a head's
+headline accuracy would be a restatement of the germline catalogue, and the
+honest version of that product is `grep`.
+
+What shipped instead answers the question an antibody engineer actually asks —
+not "is this human" but "which parts of this are unlike anything human", which
+is where a humanising mutation goes. `opendna humanness` cuts a sequence into
+overlapping 9-mers and reports, per window, the fraction of human donors whose
+repertoire contains that exact peptide. The measure follows OASis (Prihoda et
+al. 2022); the implementation is in `opendna-analysis`, not `opendna-ml`,
+because given the table it computes a definition rather than estimating a
+quantity. Nothing is trained and nothing is predicted, so there is no accuracy
+to report, which is itself the point.
+
+Two datasets back it, both from OAS (CC BY 4.0, confirmed from the
+maintainers' own page):
+
+* `humanness` — the prevalence table, from 150 donors across 49 studies,
+  chosen for breadth because prevalence is a fraction of *donors* and a table
+  of *n* donors can express only *n*+1 values. At 150 the smallest expressible
+  prevalence is 0.67%, so a 1% threshold means something; at 20 it would have
+  meant "at least one donor". A threshold finer than a table can express is
+  refused rather than reported.
+* `antibody` — four evaluation cohorts from 54 units: human, mouse, a
+  transgenic-mouse diagnostic where answering "human" is correct, and four
+  out-of-distribution species. The donors of the two datasets are disjoint and
+  the build fails if they are not.
+
+The finding worth recording is why `antibody` has no train/test split. It was
+built to have one. Clustering the V(D)J region at 90% identity put all 37
+labelled donors in one component, because that region is mostly
+germline-constant. Under the strictest reading of a shared lineage — an
+identical rearrangement — the human donors mostly separate, but all 18 mouse
+donors join into one group across three inbred strains and nine studies.
+C57BL/6 and BALB/c animals are genetically near-identical and share public
+rearrangements: one laboratory mouse is not an independent sample of its
+species the way one person is. No grouped split exists, so the dataset is
+cohorts, and both cards say so where a reader meets the numbers.
+
+What is not done: light chains, which have their own germline repertoire;
+paired-chain scoring; and developability beyond humanness — aggregation,
+viscosity and expression are separate measurements with separate data. The
+table's own caveat is that its donor units are shallow, so every prevalence is
+biased down and its scores are **not** comparable with published OASis values.
 
 **5. Sequence design.** ProteinMPNN is small enough to port honestly — on the
 order of a million parameters, published under a permissive licence — and

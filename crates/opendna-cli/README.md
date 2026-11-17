@@ -459,9 +459,11 @@ from that number is what to do next.
 flag and an impossible combination of valid ones want the same response.
 3 covers a missing or corrupt head, a lockfile that does not match, and
 `--offline` with nothing staged. 4 covers unparseable FASTA, a mutation naming
-a residue the sequence does not have, and a sequence longer than the embedding
-model takes. 5 comes from `selftest`, and from `fold` when an engine exits
-cleanly having returned a structure that is not the sequence it was sent.
+a residue the sequence does not have, a sequence longer than the embedding
+model takes, and an antibody with no 9-mer `humanness` can score. 5 comes from
+`selftest`; from `fold` when an engine exits cleanly having returned a
+structure that is not the sequence it was sent; and from `humanness` when the
+threshold asked for is finer than the table can express.
 
 A folding engine that fails outright is 1, deliberately. The cause could be the
 installation (a missing CUDA library), the input (a sequence longer than the
@@ -559,6 +561,71 @@ conventions and a different check than "one chain, this sequence"; and any use
 of the predicted coordinates beyond writing them out. The desktop application
 opens a PDB file, so a folded model can be viewed; nothing yet feeds one back
 into a head.
+
+## How human an antibody looks
+
+`opendna humanness` cuts a heavy-chain sequence into overlapping 9-residue
+peptides and reports, for each one, the fraction of human donors whose antibody
+repertoire contains that exact peptide. The measure follows OASis (Prihoda et
+al. 2022).
+
+```bash
+opendna humanness -i candidate.fasta -t humanness/table.bin
+```
+
+No model runs. Given the table, every number is an exact count, so there is no
+accuracy to quote and no interval to report: the table decides what the numbers
+mean, and its card says what it was built from. Without a table this exits 3 —
+a score with no denominator is not a weaker score, it is not a score.
+
+The per-window list is the output worth reading, and it is why this prints one
+by default:
+
+```text
+name                     identity  windows   skipped  rarest window
+candidate-h1                81.4%      112         0  GTFSSYAIS at 26 (2.00% of donors)
+
+candidate-h1: the 10 rarest scored windows, in sequence order
+     24  SGGTFSSYA     6.67% of donors
+     26  GTFSSYAIS     2.00% of donors
+     98  ARDRSTYYL     0.67% of donors
+```
+
+A single percentage invites comparison with a published figure computed from
+other repertoires, and that comparison is wrong — prevalence depends entirely
+on which donors are in the table and how deeply each was sequenced. The rare
+windows invite the question the measure can actually answer: which positions
+are unlike anything seen in a human, and therefore where a humanising mutation
+would do most.
+
+Three thresholds are available for the summary identity, the ones OASis
+defines: `--stringency loose` (1% of donors), `medium` (10%, the default) and
+`strict` (50%). A threshold finer than the table can express is **refused**
+rather than reported, with exit 5: from *n* donors the smallest non-zero
+prevalence is 1/*n*, so "1% of donors" against a 20-donor table really means
+"at least one donor", and printing it as the former would state a number
+nothing measured.
+
+Two more refusals rather than plausible answers. A sequence with no scorable
+window — every 9-mer containing an `X` or a gap — exits 4 instead of scoring
+zero, because zero asserts the sequence looks unlike a human antibody and
+nothing here measured that. And a table whose entries are unsorted, or which
+claims a peptide occurs in more donors than it has, is rejected on reading:
+the first would make lookups silently miss and read low, the second would
+produce prevalences above one.
+
+What a high prevalence does not mean: that an antibody carrying the peptide is
+safe, non-immunogenic or developable. Immunogenicity depends on MHC
+presentation, dose, route and the recipient, none of which this measures. What
+a low prevalence does not mean: that no human has the peptide — only that it
+was not in these donors' sampled sequences.
+
+The table is built by the dataset pipeline, which is where the donor choice and
+its consequences are documented:
+
+```bash
+cd datasets && cargo run --release -- build humanness
+```
 
 ## External engines, when there are any
 
