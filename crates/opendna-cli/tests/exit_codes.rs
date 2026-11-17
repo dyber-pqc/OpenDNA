@@ -85,6 +85,154 @@ fn run(args: &[&str]) -> (i32, String) {
     (output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// A stand-in for a folding engine: answers `--version`, and writes a
+/// two-residue structure into whatever directory it is given with `-o`.
+///
+/// Not a mock of anything in this repository. It stands where `ESMFold` stands and is
+/// driven through the same discovery, the same command line and the same
+/// checks, which is the only way to exercise a contract whose other side is
+/// a 2.6 GB download nobody can require to run a test.
+fn stand_in_engine(dir: &Path) -> PathBuf {
+    // One Ca per residue is all the matcher reads: MET then GLN, with the
+    // two confidence values in the B-factor column.
+    let met = "ATOM      1  CA  MET A   1       0.000   0.000   0.000  1.00 88.00           C";
+    let gln = "ATOM      2  CA  GLN A   2       3.800   0.000   0.000  1.00 78.00           C";
+
+    #[cfg(windows)]
+    {
+        let path = dir.join("stand-in-fold.cmd");
+        std::fs::write(
+            &path,
+            format!(
+                "@echo off\r\n\
+                 if \"%1\"==\"--version\" (echo stand-in 1.0 & exit /b 0)\r\n\
+                 > \"%4\\model.pdb\" echo {met}\r\n\
+                 >>\"%4\\model.pdb\" echo {gln}\r\n\
+                 >>\"%4\\model.pdb\" echo END\r\n\
+                 exit /b 0\r\n"
+            ),
+        )
+        .unwrap();
+        path
+    }
+
+    #[cfg(not(windows))]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let path = dir.join("stand-in-fold.sh");
+        std::fs::write(
+            &path,
+            format!(
+                "#!/bin/sh\n\
+                 if [ \"$1\" = \"--version\" ]; then echo 'stand-in 1.0'; exit 0; fi\n\
+                 printf '%s\\n%s\\nEND\\n' '{met}' '{gln}' > \"$4/model.pdb\"\n\
+                 exit 0\n"
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    }
+}
+
+/// Run the binary with the environment a fold test needs.
+///
+/// Both override variables are always set: pointing the unused one at a file
+/// that is not there is what stops a machine that happens to have `ColabFold`
+/// installed from turning "no engine" into "two engines".
+fn run_fold(engine: Option<&Path>, args: &[&str]) -> (i32, String, String) {
+    let nowhere = std::env::temp_dir().join("opendna-no-such-engine");
+    let esmfold = engine.map_or(nowhere.clone(), Path::to_path_buf);
+    let output = Command::new(env!("CARGO_BIN_EXE_opendna"))
+        .args(args)
+        .env("OPENDNA_ESMFOLD", &esmfold)
+        .env("OPENDNA_COLABFOLD", &nowhere)
+        .output()
+        .unwrap();
+    (
+        output.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+/// Record a case that did not behave as the contract promises.
+fn check(into: &mut Vec<String>, want: i32, what: &str, got: i32, needle: &str, said: &str) {
+    if got != want {
+        into.push(format!("{what}: wanted {want}, got {got}\n{said}"));
+    } else if !said.contains(needle) {
+        into.push(format!("{what}: exit {got} was right but it did not say {needle:?}\n{said}"));
+    }
+}
+
+/// `fold`'s share of the contract, which needs no heads at all.
+///
+/// The case that matters most is the last one: an engine that ran, exited
+/// cleanly and returned a structure of the wrong protein. That is not a
+/// crash, and nothing in the engine's own output says anything is wrong; it
+/// is caught only because the chain that came back is compared with the
+/// sequence that went out.
+#[test]
+fn folding_refuses_in_the_ways_the_contract_promises() {
+    let base = scratch("fold");
+    let right = base.join("right.fasta");
+    std::fs::write(&right, ">p1\nMQ\n").unwrap();
+    let wrong = base.join("wrong.fasta");
+    std::fs::write(&wrong, ">p1\nMQAAK\n").unwrap();
+    let clash = base.join("clash.fasta");
+    std::fs::write(&clash, ">p 1\nMQ\n>p|1\nMA\n").unwrap();
+    let engine = stand_in_engine(&base);
+    let out = |name: &str| base.join(name).to_str().unwrap().to_string();
+
+    let mut failures = Vec::new();
+
+    // No engine: an installation problem, and nothing to fall back on.
+    let (code, _, said) = run_fold(None, &["fold", "-i", right.to_str().unwrap(), "-o", &out("a")]);
+    check(&mut failures, 3, "no engine installed", code, "no folding engine is installed", &said);
+
+    // Two sequences whose names become one filename. Refused before the
+    // engine is started, which is the point: the engine is the slow part.
+    let (code, _, said) = run_fold(Some(&engine), &["fold", "-i", clash.to_str().unwrap(), "-o", &out("b")]);
+    check(&mut failures, 4, "names that collide", code, "would both be written to", &said);
+    if said.contains("Running:") {
+        failures.push("a name collision started the engine before refusing".to_string());
+    }
+
+    // The engine works and the structure is the sequence that was sent.
+    let (code, printed, said) =
+        run_fold(Some(&engine), &["fold", "-i", right.to_str().unwrap(), "-o", &out("c")]);
+    check(&mut failures, 0, "a working fold", code, "structure(s)", &printed);
+    if code == 0 {
+        let written = base.join("c").join("p1.pdb");
+        if !written.is_file() {
+            failures.push(format!("nothing was written to {}", written.display()));
+        }
+        if !base.join("c").join("p1.manifest.json").is_file() {
+            failures.push("no manifest was written beside the structure".to_string());
+        }
+        // Matched by its residues: the engine named its file `model.pdb`,
+        // which has nothing to do with `p1`.
+        if !said.contains("Running:") {
+            failures.push("the command that ran should be printed".to_string());
+        }
+    }
+
+    // The engine returned a structure of something else, and said nothing
+    // was wrong. A check ran and did not hold.
+    let (code, _, said) = run_fold(Some(&engine), &["fold", "-i", wrong.to_str().unwrap(), "-o", &out("d")]);
+    check(
+        &mut failures,
+        5,
+        "a structure of the wrong sequence",
+        code,
+        "did not return a structure matching",
+        &said,
+    );
+
+    std::fs::remove_dir_all(&base).ok();
+    assert!(failures.is_empty(), "the fold contract does not hold:\n  {}", failures.join("\n  "));
+}
+
 /// The failures that are refused before any inference starts.
 // Long because it is a list. Splitting a table of cases across functions to
 // satisfy a line count would make it harder to read and easier to forget a

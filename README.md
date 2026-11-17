@@ -32,9 +32,11 @@ Concretely, it is useful today if you are:
   every dataset file is checksummed; the published models and this repository
   provably describe the same build.
 
-It is **not** yet useful if you need structure prediction, docking, sequence
+It is **not** yet useful if you need docking, molecular dynamics, sequence
 design, antibody-specific models, a signed installer, or a support contract.
 Those are either absent or unfinished, and the section below says which.
+Structures it will predict, but only by driving an ESMFold or ColabFold you
+installed yourself — see below.
 
 ## Quick start
 
@@ -132,13 +134,30 @@ embedding model was tried and rejected: ESM-2 650M made the disorder head
 
 ## What it does not do
 
-Earlier versions of this README advertised all of these. None exists:
+Earlier versions of this README advertised all of these. None of them is
+implemented here:
 
-- structure prediction (no ESMFold, no AlphaFold)
 - docking, molecular dynamics, or free-energy calculation
 - sequence or backbone design
 - antibody-specific modelling
-- any HTTP API, hosted service, or notebook integration
+- any HTTP API or hosted service
+
+Two of those have changed shape rather than arriving. OpenDNA still folds
+nothing and designs nothing itself; what it has is an adapter that finds,
+identifies and pins external programs, and one command that uses it:
+
+- **`opendna fold`** predicts structures by driving an ESMFold or ColabFold
+  that you installed. With neither installed it exits 3 naming what it looked
+  for. It checks that the chain each engine returns is the sequence it was
+  sent, and records which engine produced each structure. See
+  [the CLI reference](crates/opendna-cli/README.md#folding-a-sequence).
+- **`opendna engines`** says which external programs are present, which
+  version each reports, and pins them in an `engines.lock`. Docking and
+  molecular dynamics are declared there and not yet driven.
+
+The heads call a notebook through [Python bindings](bindings/python), which is
+the only way OpenDNA is reachable from outside a terminal. There is still no
+server. [The roadmap](docs/ROADMAP.md) says what is next and in what order.
 
 ## Datasets
 

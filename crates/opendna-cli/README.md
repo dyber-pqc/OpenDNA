@@ -460,7 +460,14 @@ flag and an impossible combination of valid ones want the same response.
 3 covers a missing or corrupt head, a lockfile that does not match, and
 `--offline` with nothing staged. 4 covers unparseable FASTA, a mutation naming
 a residue the sequence does not have, and a sequence longer than the embedding
-model takes. 5 comes only from `selftest`.
+model takes. 5 comes from `selftest`, and from `fold` when an engine exits
+cleanly having returned a structure that is not the sequence it was sent.
+
+A folding engine that fails outright is 1, deliberately. The cause could be the
+installation (a missing CUDA library), the input (a sequence longer than the
+engine's memory allows) or the engine itself, and nothing here can tell those
+apart; filing it under a category a caller would act on would be guessing at
+the action. What the engine said is printed instead.
 
 Anything not classified is 1. That is the honest default: a failure nobody
 anticipated is not one a caller can be told how to handle, and filing it under
@@ -479,6 +486,79 @@ The contract is exercised against the compiled binary in
 [tests/exit_codes.rs](tests/exit_codes.rs). It needs the heads installed and
 skips with a message when they are not, because a test that fails on every
 machine without them gets disabled and then checks nothing at all.
+
+## Folding a sequence
+
+`opendna fold` predicts structures by driving an installed ESMFold or
+ColabFold. OpenDNA does not fold proteins and has nothing to fall back on: with
+no engine installed this exits 3 naming what it looked for, because coordinates
+from something that cannot fold proteins would be worse than no coordinates.
+
+```bash
+opendna fold -i candidates.fasta -o structures/
+```
+
+```text
+3 sequences from candidates.fasta through esmfold (esmfold 2.0.0)
+Running: /opt/conda/bin/esm-fold -i /work/structures/engine/input.fasta -o /work/structures/engine/out
+name                      residues       mean B  structure
+ubiquitin                       76         91.4  structures/ubiquitin.pdb
+p53_dbd                        198         88.0  structures/p53_dbd.pdb
+designed_07                     64         54.2  structures/designed_07.pdb
+```
+
+One `.pdb` per sequence, named after its FASTA header, plus a
+`.manifest.json` beside each naming the engine that produced it, the version
+it reported, the digest of the file that ran and the command line it was
+given. Everything the engine wrote is kept under `structures/engine/`, so the
+things OpenDNA does not read — ColabFold's per-model scores, its alignments,
+its log — are still there.
+
+**A structure is matched to its sequence by its residues, not by its
+filename.** Every file in the engine's output directory is parsed, and the one
+whose chain is the sequence that was sent is the one written out. This is the
+part that is easy to skip and expensive to skip: a folding run writes outputs
+under names of its own choosing, several per sequence in ColabFold's case, and
+the ordinary way a batch goes quietly wrong is a structure filed against the
+wrong sequence — a stale file from a previous run, a name mangled on the way
+through, a failure that produced fewer outputs than inputs without saying so.
+An engine that returns a structure of something else exits 5 rather than
+writing it.
+
+Where that leaves ties, they are broken in the open: ColabFold's ranked models
+all have the right sequence, so `rank_001` wins; two inputs that are the same
+sequence under different names are separated by name; and anything still
+ambiguous is refused with the candidates listed, rather than resolved by
+directory order.
+
+The `mean B` column is the B-factor column averaged over each chain's Cα
+atoms, which is where both engines write their per-residue confidence (pLDDT).
+It is reported because it is useful and named for what it is: nothing here
+checked what a given engine meant by that column, and the number is the
+engine's estimate of its own output, not a measurement.
+
+Anything the engine should be told beyond the input and the output goes
+through `--engine-arg`, verbatim and repeatable:
+
+```bash
+opendna fold -i candidates.fasta -o structures/ --engine-arg --num-recycles --engine-arg 4
+```
+
+Nothing is translated between engines. A flag whose meaning OpenDNA invented
+would be a flag that quietly means something else after the engine's next
+release, and the full command line is in every manifest the run writes.
+
+With both engines installed, `--engine esmfold` or `--engine colabfold` is
+required rather than optional: they do not produce the same structures, and
+choosing for you would leave the result depending on something nobody wrote
+down. `--check engines.lock` refuses to start unless the installed engines are
+the pinned ones.
+
+What is not here: multimers, which need the engines' own chain-separator
+conventions and a different check than "one chain, this sequence"; and any use
+of the predicted coordinates beyond writing them out. The desktop application
+opens a PDB file, so a folded model can be viewed; nothing yet feeds one back
+into a head.
 
 ## External engines, when there are any
 
@@ -524,9 +604,10 @@ environment behind it, and the version string carries most of the identity.
 The listing and the lockfile both say which case each engine is in, rather
 than letting a reader assume the stronger one.
 
-**Nothing drives any of these yet.** They are listed so an installation can be
-checked and pinned before the commands that use them exist. The order the
-commands arrive in is in [docs/ROADMAP.md](../../docs/ROADMAP.md).
+**Two of the four are driven.** `opendna fold` uses esmfold or colabfold, as
+described above. Vina and openmm are listed so an installation can be checked
+and pinned before the commands that use them exist; the order those arrive in
+is in [docs/ROADMAP.md](../../docs/ROADMAP.md).
 
 ## Licences travel with the weights
 
@@ -576,7 +657,8 @@ allowed set.
 ## What it will not do
 
 There is no fallback. A missing head is an error naming the files it looked
-for and the command to fetch one. A sequence longer than the embedding model's
+for and the command to fetch one, and a missing folding engine is an error
+naming what it looked for rather than coordinates from something else. A sequence longer than the embedding model's
 limit is refused for solubility, because that head pools over a single pass
 and pooling across windows is a different quantity than the one it was trained
 on — disorder windows instead, and says so in the output.

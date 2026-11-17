@@ -210,6 +210,120 @@ pub fn write(run: &Run<'_>, output: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// What one folded structure should be able to say about itself.
+///
+/// Nothing here is a head or an embedding model, so none of [`Run`]'s fields
+/// fit. What has to be identified instead is the engine — which one, which
+/// version it reported, the digest of the file invoked and how much that
+/// digest covers — and the sequence the returned chain was checked against.
+pub struct FoldRun<'a> {
+    /// Which engine was driven, by the name OpenDNA uses for it.
+    pub folder: &'a str,
+    /// The engine as discovered.
+    pub engine: &'a opendna_engine::Engine,
+    /// The command as run, program first.
+    pub command: &'a [String],
+    /// When it started, UTC.
+    pub started: chrono::DateTime<chrono::Utc>,
+    /// Wall clock for the whole batch, not for this one structure: the
+    /// engines fold a file at a time and do not report per-sequence timings,
+    /// and dividing by the sequence count would be an invention.
+    pub elapsed: std::time::Duration,
+    /// The input file, hashed whole, so every structure from one run points
+    /// back at the same bytes.
+    pub input: Input<'a>,
+    /// The FASTA name of this sequence.
+    pub name: &'a str,
+    /// The sequence that was sent, as written.
+    pub sequence: &'a str,
+    /// Where the structure was written.
+    pub output: &'a Path,
+    /// Its bytes, which are the engine's bytes unchanged.
+    pub bytes: &'a [u8],
+    /// The engine's own file, kept rather than deleted.
+    pub source: &'a Path,
+    /// Mean B-factor over the chain's Ca atoms.
+    pub mean_ca_b_factor: f64,
+    /// Residues in the returned chain.
+    pub residues: usize,
+}
+
+/// Render a fold manifest.
+pub fn render_fold(run: &FoldRun<'_>) -> String {
+    let doc = json!({
+        "opendna_version": env!("CARGO_PKG_VERSION"),
+        "manifest_version": 1,
+        "task": "fold",
+        "run": {
+            "started_utc": run.started.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            "seconds": (run.elapsed.as_millis() as f64) / 1000.0,
+            "seconds_covers": "the whole batch; the engines do not report per-sequence timings",
+            "arguments": std::env::args().skip(1).collect::<Vec<_>>(),
+            "engine_command": run.command,
+        },
+        "engine": {
+            "name": run.folder,
+            "version": run.engine.version,
+            "path": shown(&run.engine.path),
+            "sha256": run.engine.sha256,
+            "identification": match run.engine.identification {
+                opendna_engine::Identification::Executable => "executable",
+                opendna_engine::Identification::EntryPoint => "entry-point",
+            },
+            "identification_covers": match run.engine.identification {
+                opendna_engine::Identification::Executable =>
+                    "the digest identifies the program that ran",
+                opendna_engine::Identification::EntryPoint =>
+                    "the digest identifies the entry point only, not the environment behind it; \
+                     the version string carries the rest of the identity",
+            },
+        },
+        "input": {
+            "path": run.input.label.replace('\\', "/"),
+            "sha256": sha256(run.input.bytes),
+            "bytes": run.input.bytes.len(),
+            "sequences": run.input.sequences,
+            "residues": run.input.residues,
+        },
+        "sequence": {
+            "name": run.name,
+            "residues": run.sequence.len(),
+            "one_letter": run.sequence,
+        },
+        "output": {
+            "path": shown(run.output),
+            "sha256": sha256(run.bytes),
+            "bytes": run.bytes.len(),
+            "engine_file": shown(run.source),
+            "chain_residues": run.residues,
+            "mean_ca_b_factor": (run.mean_ca_b_factor * 1000.0).round() / 1000.0,
+        },
+        "verification": "the chain in the output was parsed and its sequence compared with the \
+                         input residue by residue; the file was matched to this sequence by those \
+                         residues rather than by its filename",
+        "limitations": [
+            "This is a predicted model, not an experimental structure.",
+            "OpenDNA did not fold anything. It ran the engine named above and checked that the \
+             chain that came back is the sequence that was sent.",
+            "mean_ca_b_factor is the mean of the B-factor column over the chain's Ca atoms. \
+             ESMFold and ColabFold both write their per-residue confidence (pLDDT) there, but \
+             nothing here verified what this engine meant by that column, and the value is the \
+             engine's own estimate of its own output.",
+        ],
+    });
+    format!("{}\n", serde_json::to_string_pretty(&doc).unwrap_or_else(|e| format!("{{\"error\":\"{e}\"}}")))
+}
+
+/// Write the fold manifest beside `output`.
+///
+/// # Errors
+/// If the file cannot be written, for the same reason as [`write`].
+pub fn write_fold(run: &FoldRun<'_>, output: &Path) -> Result<PathBuf> {
+    let path = path_for(output);
+    std::fs::write(&path, render_fold(run)).with_context(|| format!("writing {}", path.display()))?;
+    Ok(path)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

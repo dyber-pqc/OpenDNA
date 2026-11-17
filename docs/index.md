@@ -46,6 +46,16 @@ measured metrics, and its limitations.
 ## What it does not do
 
 Earlier documentation advertised structure prediction, docking, molecular
-dynamics, sequence design, antibody modelling, and an HTTP API. None of those
-exists, and none is planned — see [the roadmap](ROADMAP.md). They are listed here because a reader who
-remembers the old pages deserves a straight answer rather than silence.
+dynamics, sequence design, antibody modelling, and an HTTP API. None of them is
+implemented here, and nothing in OpenDNA computes a structure or a trajectory.
+
+Structure prediction has since come back in the only form that is honest:
+`opendna fold` drives an ESMFold or ColabFold that you installed, checks that
+the chain it returns is the sequence it was sent, and records which engine
+produced each file. With no engine installed it refuses. Docking and molecular
+dynamics are declared to the same adapter and not yet driven; sequence design,
+antibody modelling and the HTTP API are not built. [The roadmap](ROADMAP.md)
+says what is next and in what order.
+
+The rest is listed here because a reader who remembers the old pages deserves a
+straight answer rather than silence.

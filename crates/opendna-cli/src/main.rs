@@ -22,6 +22,7 @@
 mod caid;
 mod checkpoint;
 mod exit;
+mod fold;
 mod inventory;
 mod manifest;
 mod merge;
@@ -260,6 +261,45 @@ impl Global {
 enum Command {
     /// Predict a property for every sequence in a FASTA file.
     Predict(PredictArgs),
+    /// Predict structures for a FASTA file by driving an installed folding
+    /// engine.
+    ///
+    /// OpenDNA does not fold proteins. ESMFold and ColabFold do, and this
+    /// runs one of them, checks that the chain it returns is the sequence it
+    /// was given, and records which engine produced each structure.
+    ///
+    /// There is no fallback. With no engine installed this exits 3 naming
+    /// what it looked for, because coordinates from something that cannot
+    /// fold proteins would be worse than no coordinates.
+    ///
+    /// The global --models, --offline, --device and --batch-tokens options
+    /// have no effect here. No head is loaded and nothing is embedded; how
+    /// the engine uses the machine is the engine's own business, and
+    /// --engine-arg is how to tell it anything about that.
+    Fold {
+        /// FASTA file of sequences to fold.
+        #[arg(short, long)]
+        input: PathBuf,
+        /// Directory to write structures into. Created if it is not there.
+        #[arg(short, long)]
+        out_dir: PathBuf,
+        /// Which engine to drive. With one installed this is not needed; with
+        /// two it is, because they do not produce the same structures.
+        #[arg(long, value_enum)]
+        engine: Option<FoldEngine>,
+        /// An argument passed to the engine verbatim, after the input and
+        /// output it is already given. Repeatable.
+        ///
+        /// Not translated between engines: a flag whose meaning OpenDNA
+        /// invented would be a flag that quietly means something else after
+        /// the engine's next release. The full command line is recorded in
+        /// every manifest the run writes.
+        #[arg(long = "engine-arg", value_name = "ARG")]
+        engine_args: Vec<String>,
+        /// Fail unless the installed engines match this lockfile.
+        #[arg(long)]
+        check: Option<PathBuf>,
+    },
     /// Report which external engines are installed, and optionally pin them.
     ///
     /// Some work -- folding a sequence, docking a ligand, running a
@@ -340,6 +380,24 @@ enum Command {
 }
 
 /// Which device to run on.
+/// Which folding engine to drive.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+enum FoldEngine {
+    /// ESMFold, through the `esm-fold` entry point from `fair-esm`.
+    Esmfold,
+    /// ColabFold, through `colabfold_batch`.
+    Colabfold,
+}
+
+impl From<FoldEngine> for opendna_engine::Folder {
+    fn from(choice: FoldEngine) -> Self {
+        match choice {
+            FoldEngine::Esmfold => Self::EsmFold,
+            FoldEngine::Colabfold => Self::ColabFold,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum Which {
     /// The fastest device this build can use.
@@ -572,6 +630,14 @@ fn run() -> Result<(), Failure> {
             models(&dir, lock.as_deref(), check.as_deref()).blame(Fault::Install)
         }
         Command::Engines { lock, check } => engines(lock.as_deref(), check.as_deref()).blame(Fault::Install),
+        Command::Fold { input, out_dir, engine, engine_args, check } => fold::run(&fold::Request {
+            input,
+            out_dir,
+            engine: engine.map(Into::into),
+            engine_args,
+            check,
+            manifest: global.manifest,
+        }),
         Command::Merge { inputs, output, allow_unverified } => {
             merge::run(&inputs, output.as_deref(), !allow_unverified).blame(Fault::Input)
         }

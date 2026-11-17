@@ -155,16 +155,30 @@ installed engine, identifies it by the version string it prints and the digest
 of the file that would run, and pins it in an `engines.lock` the way
 `models.lock` pins a head. `opendna engines` is the command. Four engines are
 declared — ESMFold, ColabFold, Vina and an OpenMM-capable interpreter — and
-nothing drives any of them yet, which the command says outright. What remains
-for tranche 3 is recording the engine in a run manifest, which waits until
-there is a run that used one.
+ESMFold and ColabFold are driven by tranche 3; Vina and an OpenMM-capable
+interpreter are declared but not yet used, which the command says outright.
 
-**3. Structure prediction, integrated.** Drive a local ESMFold or ColabFold
-install through the adapter. The structure viewer already exists and the burial
-head already consumes coordinates, so a predicted structure has somewhere to
-go. Not a port: ESMFold is 2.6 GB with a folding trunk whose faithful
-reimplementation is a project of its own, and a half-faithful one would produce
-coordinates nobody should trust.
+**3. Structure prediction, integrated. Done.** `opendna fold` drives a local
+ESMFold or ColabFold install through the adapter and writes one PDB per
+sequence with a manifest naming the engine, its version, the digest of the file
+that ran and the command line it was given. Not a port: ESMFold is 2.6 GB with
+a folding trunk whose faithful reimplementation is a project of its own, and a
+half-faithful one would produce coordinates nobody should trust.
+
+The part worth saying out loud is the check. Every file in the engine's output
+directory is parsed and matched to a requested sequence by its residues rather
+than by its filename, so a structure filed against the wrong sequence — the
+ordinary way a folding batch goes quietly wrong — exits 5 instead of being
+written. Ties that the residues cannot break are refused with the candidates
+listed, not resolved by directory order.
+
+What is not done: multimers, which need each engine's own chain-separator
+convention and a different check than "one chain, this sequence"; and any use
+of the coordinates beyond writing them out. The desktop application opens a PDB
+file, so a folded model can be viewed, but nothing yet measures one or feeds it
+back into a head. `opendna-analysis` already computes solvent accessibility
+from a structure, which is the obvious next thing to connect and is not
+connected.
 
 **4. An antibody head.** The only item on the list that adds science rather
 than access, and the one that fits the existing architecture without any new
@@ -176,7 +190,7 @@ anything is built, as they did for eSOL.
 **5. Sequence design.** ProteinMPNN is small enough to port honestly — on the
 order of a million parameters, published under a permissive licence — and
 inverse folding is a real capability rather than a wrapper. It needs a backbone
-as input, so it is worth little before tranche 3 and worth a lot after it.
+as input, which tranche 3 now produces.
 
 **6. Docking, integrated.** AutoDock Vina through the adapter. A scoring
 function and a conformational search written here would be a worse Vina.

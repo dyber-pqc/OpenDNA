@@ -68,10 +68,21 @@ is in [training/benchmarks](training/benchmarks).
 ## Models OpenDNA no longer runs
 
 Earlier versions of this file carried cards for ESMFold, ESM-IF1 and
-ProteinMPNN, which the removed Python backend downloaded. None of them can be
-loaded by the Rust application and none is planned; see
-[docs/ROADMAP.md](docs/ROADMAP.md). They are named here so somebody who
-remembers those cards gets an answer rather than silence.
+ProteinMPNN, which the removed Python backend downloaded. None of them is
+loaded by the Rust application, and none of them is a model OpenDNA ships,
+trains, versions or can make a card for.
+
+ESMFold is nonetheless reachable again: `opendna fold` runs an installation of
+it that you provide, as an external program. That is a different relationship
+from the one this file describes, and deliberately so — OpenDNA does not have
+its weights, cannot say what they are beyond the version string the program
+prints, and makes no claim about their accuracy. What it records instead is
+which program ran: its version, the digest of the file invoked, and how much
+that digest identifies. ESM-IF1 and ProteinMPNN are not driven at all; see
+[docs/ROADMAP.md](docs/ROADMAP.md).
+
+They are named here so somebody who remembers those cards gets an answer
+rather than silence.
 
 ## Framework
 

@@ -39,8 +39,10 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod fold;
 mod lock;
 
+pub use fold::{command, command_line, run, sanitise, FoldError, Folder, Prediction};
 pub use lock::{check, lockfile, LockError};
 
 /// Why an engine could not be used.
@@ -315,7 +317,7 @@ fn ask_version(requirement: &Requirement, path: &Path) -> Result<String, EngineE
 
 /// An exit status as a short string, since `ExitStatus` renders differently
 /// across platforms and this ends up in a message somebody reads.
-fn status_of(status: std::process::ExitStatus) -> String {
+pub(crate) fn status_of(status: std::process::ExitStatus) -> String {
     status.code().map_or_else(|| "abnormally".to_string(), |code| code.to_string())
 }
 
