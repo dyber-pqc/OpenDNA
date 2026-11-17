@@ -2,7 +2,13 @@
 //!
 //! `burial` annotates `structures`, so it reads that dataset's output and
 //! must be built after it.
+//!
+//! `antibody` is the exception: it has a reader, the labelling rules and the
+//! donor keying, but no `build` yet, so it is deliberately absent from [`ALL`]
+//! and `opendna-data build antibody` reports it as unknown. Saying so here
+//! beats letting someone find out from an error message.
 
+pub mod antibody;
 pub mod burial;
 pub mod disorder;
 pub mod solubility;
