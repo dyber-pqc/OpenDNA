@@ -18,4 +18,10 @@ pub enum AnalysisError {
     /// A parameter is out of its valid range.
     #[error("invalid parameter: {0}")]
     InvalidParameter(&'static str),
+    /// A stored file is not what it claims to be, or contradicts itself.
+    ///
+    /// Carries a message because the useful part is which field was wrong and
+    /// what it said, and that is only known at the point of reading.
+    #[error("{0}")]
+    Malformed(String),
 }

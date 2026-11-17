@@ -11,12 +11,14 @@
 //! - [`sasa`]: solvent-accessible surface area (Shrake & Rupley 1973)
 //! - [`superpose`]: optimal superposition and RMSD (Kabsch 1976)
 //! - [`interactions`]: disulfides, salt bridges, Cα contacts
+//! - [`humanness`]: peptide prevalence in human antibody repertoires (`OASis`)
 //! - [`shape`]: centroid and radius of gyration
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
 pub mod backbone;
 pub mod dssp;
 mod error;
+pub mod humanness;
 pub mod interactions;
 pub mod properties;
 pub mod sasa;
