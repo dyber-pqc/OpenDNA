@@ -317,7 +317,7 @@ pub fn render_fold(run: &FoldRun<'_>) -> String {
 /// Write the fold manifest beside `output`.
 ///
 /// # Errors
-/// If the file cannot be written, for the same reason as [`write`].
+/// If the file cannot be written, for the same reason as [`fn@write`].
 pub fn write_fold(run: &FoldRun<'_>, output: &Path) -> Result<PathBuf> {
     let path = path_for(output);
     std::fs::write(&path, render_fold(run)).with_context(|| format!("writing {}", path.display()))?;

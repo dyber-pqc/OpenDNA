@@ -9,6 +9,24 @@ ignore = [
     # `paste` is unmaintained (archived), not vulnerable. It is a build-time
     # macro dependency of nalgebra via simba; revisit when nalgebra drops it.
     { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro, no known vulnerability; transitive via nalgebra" },
+    # `chrono` was marked unmaintained on 2026-11-17. An INFO advisory with no
+    # patched version and no vulnerability behind it: the crate works, nobody
+    # is maintaining it. What it does here is narrow: take the current instant
+    # in UTC, format it as RFC 3339 for a run manifest, and type the
+    # timestamps on stored records in `opendna-store`. No parsing of
+    # user-supplied dates, no local time zones, no calendar arithmetic --
+    # the least adventurous corner of a date library.
+    #
+    # RustSec points at `jiff` and `time`. Moving is a deliberate change with
+    # its own commit rather than something to slip into an unrelated one: it
+    # touches the manifest's `started_utc` field and the serialised shape of
+    # every stored record.
+    { id = "RUSTSEC-2026-0543", reason = "unmaintained, not vulnerable; used for UTC timestamps in run manifests and stored records. Replacing it with jiff is a change of its own" },
+    # Inherited: `humantime` wraps `chrono`, so it was marked unmaintained the
+    # same day for the same reason. It is not a dependency of OpenDNA's own
+    # code at all -- it arrives through hf-hub -> hf-xet -> xet-runtime, which
+    # is not ours to change.
+    { id = "RUSTSEC-2026-0542", reason = "unmaintained, not vulnerable; transitive via hf-hub -> hf-xet -> xet-runtime, which wraps chrono" },
 ]
 
 [licenses]
