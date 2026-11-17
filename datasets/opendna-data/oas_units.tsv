@@ -3,61 +3,69 @@
 # band), not by taste. OAS publishes no stable URL for its unit index, so this file is
 # the catalogue and a change to it belongs in a reviewed diff.
 #
+# purpose says which cohort a unit feeds. There is no train/test split: all mouse
+# donors share identical rearrangements and form one indivisible group, so the dataset
+# is four evaluation cohorts. The antibody module documents the measurement.
+#
+# donor is the key the unit was selected under, and the build checks it against the
+# unit's own metadata. It is also what keeps this catalogue disjoint from
+# oas_human_donors.tsv, which the humanness table is built from.
+#
 # sha256 "-" means the unit has been chosen but not yet downloaded and hashed. The
 # build records what it actually got, and counts the unpinned ones in the card so they
 # cannot be mistaken for verified.
 group	purpose	organism	study	donor	isotype	unique_sequences	unit	sha256
-human	trained on	human	Bernardes_2020	person:Patient-H011	IGHM	55358	Bernardes_2020/csv/SRR13082952_1_Heavy_IGHM.csv.gz	-
-human	trained on	human	Bernat_2019_1	person:A007	IGHA	25412	Bernat_2019_1/csv/ERR3004230_1_Heavy_IGHA.csv.gz	-
-human	trained on	human	Bhiman_2015	person:CAP256	IGHG	65674	Bhiman_2015/csv/SRR2126754_Heavy_IGHG.csv.gz	-
-human	trained on	human	Briney_2019	person:Subject-326780	IGHG	79337	Briney_2019/csv/SRR8283853_2_Heavy_IGHG.csv.gz	-
-human	trained on	human	Buchheim_2020	person:COS2	Bulk	48674	Buchheim_2020/csv/SRR11586284_Heavy_Bulk.csv.gz	-
-human	trained on	human	Chen_2020	person:AM1_replicate-2	IGHA	39887	Chen_2020/csv/SRR11937614_1_Heavy_IGHA.csv.gz	-
-human	trained on	human	Davis_2019	person:EVD9	IGHG	77555	Davis_2019/csv/SRR8980650_Heavy_IGHG.csv.gz	-
-human	trained on	human	Eliyahu_2018	person:CI4	IGHM	66359	Eliyahu_2018/csv/ERR2843395_Heavy_IGHM.csv.gz	-
-human	trained on	human	Ellebedy_2016	person:Donor-155	IGHA	77776	Ellebedy_2016/csv/SRR3620090_Heavy_IGHA.csv.gz	-
-human	trained on	human	Galson_2015	person:Subject-1010	IGHM	76027	Galson_2015/csv/SRR3990841_Heavy_IGHM.csv.gz	-
-human	trained on	human	Galson_2015a	person:Subject-1380	IGHG	78651	Galson_2015a/csv/SRR3099456_Heavy_IGHG.csv.gz	-
-human	trained on	human	Galson_2016	person:Subject-2335	IGHG	77972	Galson_2016/csv/SRR3099109_Heavy_IGHG.csv.gz	-
-human	trained on	human	Galson_2016a	person:Subject-228	IGHG	76245	Galson_2016a/csv/SRR3992918_Heavy_IGHG.csv.gz	-
-human	trained on	human	Galson_2020	person:Patient-30	IGHG	41245	Galson_2020/csv/SRR11961719_1_Heavy_IGHG.csv.gz	-
-human	trained on	human	Ghraichy_2020	person:C.052.1	IGHM	79836	Ghraichy_2020/csv/SRR8755649_Heavy_IGHM.csv.gz	-
-human	trained on	human	Gidoni_2019	person:S32	IGHM	79864	Gidoni_2019/csv/ERR2567209_1_Heavy_IGHM.csv.gz	-
-human	trained on	human	Gupta_2017	person:Subject-FV	IGHA	62373	Gupta_2017/csv/SRR4431789_1_Heavy_IGHA.csv.gz	-
-human	trained on	human	Halliley_2015	study:Halliley_2015	IGHA	74597	Halliley_2015/csv/SRR2124224_1_Heavy_IGHA.csv.gz	-
-human	trained on	human	Huang_2016	person:Donor-Z258	Bulk	79161	Huang_2016/csv/SRR4417625_1_Heavy_Bulk.csv.gz	-
-human	trained on	human	Jiang_2013	study:Jiang_2013	IGHG	74611	Jiang_2013/csv/SRR747766_Heavy_IGHG.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Bolland_2016	study:Bolland_2016	Bulk	13797	Bolland_2016/csv/SRR3356774_1_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Collins_2015	study:Collins_2015	IGHG	53813	Collins_2015/csv/ERR849860_Heavy_IGHG.csv.gz	-
-mouse	trained on	mouse_BALB/c	Corcoran_2016	person:M2	Bulk	3435	Corcoran_2016/csv/ERR1759752_1_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Corcoran_2016	person:M3	Bulk	3224	Corcoran_2016/csv/ERR1759753_1_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_BALB/c	Fisher_2017	study:Fisher_2017	Bulk	12220	Fisher_2017/csv/SRR5003437_1_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_BALB/c	Greiff_2014	study:Greiff_2014	Bulk	2382	Greiff_2014/csv/ERR346598_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_BALB/c	Greiff_2015	study:Greiff_2015	IGHG	25712	Greiff_2015/csv/greiff_2015_20434_Heavy_IGHG.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Greiff_2017	person:HBsAg-Mouse-5	Bulk	61121	Greiff_2017/csv/ERR1759658_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Greiff_2017	person:C57BL/6-Mouse-4	IGHG	66463	Greiff_2017/csv/ERR1759672_Heavy_IGHG.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Greiff_2017	person:OVA-Mouse-2	IGHG	76308	Greiff_2017/csv/ERR1759687_Heavy_IGHG.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Greiff_2017	person:OVA-Mouse-5	IGHG	67199	Greiff_2017/csv/ERR1759696_Heavy_IGHG.csv.gz	-
-mouse	trained on	mouse_BALB/c	Khan_2016	person:Immunized-Mouse-4	Bulk	61593	Khan_2016/csv/SRR3175017_1_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_BALB/c	Khan_2016	person:Unimmunized-Mouse-1	IGHM	68120	Khan_2016/csv/SRR3175018_1_Heavy_IGHM.csv.gz	-
-mouse	trained on	mouse_BALB/c	Khan_2016	person:Unimmunized-Mouse-2	Bulk	49216	Khan_2016/csv/SRR3175020_1_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Lindner_2015	study:Lindner_2015	IGHA	38396	Lindner_2015/csv/ERR903019_Heavy_IGHA.csv.gz	-
-mouse	trained on	mouse_BALB/c	Menzel_2014	study:Menzel_2014	Bulk	16544	Menzel_2014/csv/ERR412893_Heavy_Bulk.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Prohaska_2018	study:Prohaska_2018	IGHM	54792	Prohaska_2018/csv/SRR6291228_Heavy_IGHM.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Rettig_2018	study:Rettig_2018	IGHM	4804	Rettig_2018/csv/rettig_2018_05_1_Heavy_IGHM.csv.gz	-
-mouse	trained on	mouse_C57BL/6	Tong_2017	study:Tong_2017	IGHM	7513	Tong_2017/csv/SRR5821314_Heavy_IGHM.csv.gz	-
-mouse	trained on	mouse_RAG2-GFP/129Sve	Wesemann_2013	study:Wesemann_2013	IGHM	7384	Wesemann_2013/csv/SRR934687_Heavy_IGHM.csv.gz	-
-transgenic	humanisation diagnostic only	Kymouse	Richardson_2022	person:Mouse-1	IGHM	53267	Richardson_2022/csv/Mouse-1_Richardson_2022_1_Heavy_IGHM.csv.gz	-
-transgenic	humanisation diagnostic only	Kymouse	Richardson_2022	person:Mouse-2	IGHM	56781	Richardson_2022/csv/Mouse-2_Richardson_2022_1_Heavy_IGHM.csv.gz	-
-transgenic	humanisation diagnostic only	Kymouse	Richardson_2022	person:Mouse-3	IGHM	56743	Richardson_2022/csv/Mouse-3_Richardson_2022_1_Heavy_IGHM.csv.gz	-
-transgenic	humanisation diagnostic only	Kymouse	Richardson_2022	person:Mouse-5	IGHM	77364	Richardson_2022/csv/Mouse-5_Richardson_2022_1_Heavy_IGHM.csv.gz	-
-transgenic	humanisation diagnostic only	HIS-Mouse	Waltari_2018	person:Subject-m770	IGHA	36689	Waltari_2018/csv/SRR5811779_1_Heavy_IGHA.csv.gz	-
-transgenic	humanisation diagnostic only	HIS-Mouse	Waltari_2018	person:Subject-m771	IGHG	73110	Waltari_2018/csv/SRR5811780_1_Heavy_IGHG.csv.gz	-
-bactrian_camel	out-of-distribution only	bactrian_camel	Li_2017	person:NO1camel	Bulk	9617	Li_2017/csv/SRR3544218_1_Heavy_Bulk.csv.gz	-
-bactrian_camel	out-of-distribution only	bactrian_camel	Li_2017	person:NO2camel	Bulk	9545	Li_2017/csv/SRR3544220_1_Heavy_Bulk.csv.gz	-
-bactrian_camel	out-of-distribution only	bactrian_camel	Li_2017	person:NO3camel	Bulk	18460	Li_2017/csv/SRR3544222_1_Heavy_Bulk.csv.gz	-
-rabbit	out-of-distribution only	rabbit	Banerjee_2017	study:Banerjee_2017	Bulk	136453	Banerjee_2017/csv/SRR5060322_Heavy_Bulk.csv.gz	-
-rat	out-of-distribution only	rat	VanDuijn_2017	study:VanDuijn_2017	IGHA	183607	VanDuijn_2017/csv/SRR5534362_Heavy_IGHA.csv.gz	-
-rhesus	out-of-distribution only	rhesus	Corcoran_2016	person:F124	IGHM	185503	Corcoran_2016/csv/ERR1759736_1_Heavy_IGHM.csv.gz	-
-rhesus	out-of-distribution only	rhesus	Corcoran_2016	person:F130	IGHM	198267	Corcoran_2016/csv/ERR1759737_1_Heavy_IGHM.csv.gz	-
-rhesus	out-of-distribution only	rhesus	Sundling_2014	person:f128	IGHG	70827	Sundling_2014/csv/SRR1045558_Heavy_IGHG.csv.gz	-
+human	labelled cohort	human	Bernardes_2020	person:Patient-H011	IGHM	55358	Bernardes_2020/csv/SRR13082952_1_Heavy_IGHM.csv.gz	0b48a8876ad3344c6bdcf5de8c787061f883d930f1d7345301d092d84349db45
+human	labelled cohort	human	Bernat_2019_1	person:A007	IGHA	25412	Bernat_2019_1/csv/ERR3004230_1_Heavy_IGHA.csv.gz	918b8052548cf7c41f04628150fc93fa5c5ac7224ecdeeb45da30d2cf35c9c55
+human	labelled cohort	human	Bhiman_2015	person:CAP256	IGHG	65674	Bhiman_2015/csv/SRR2126754_Heavy_IGHG.csv.gz	671c079e857de79d04069f81aa609790056742573bcb22349fce804fa8b6a17b
+human	labelled cohort	human	Briney_2019	person:Subject-326780	IGHG	79337	Briney_2019/csv/SRR8283853_2_Heavy_IGHG.csv.gz	88c61d29849a4f30a100671a2b9af719a47334e51ddd29835df936cb44aa67b2
+human	labelled cohort	human	Buchheim_2020	person:COS2	Bulk	48674	Buchheim_2020/csv/SRR11586284_Heavy_Bulk.csv.gz	9e958d266ac187453fce72b60f780e28a607edc8f93a1d2e6eb48a88cf503326
+human	labelled cohort	human	Chen_2020	person:AM1_replicate-2	IGHA	39887	Chen_2020/csv/SRR11937614_1_Heavy_IGHA.csv.gz	12938c35b31841af4617ee57c6942e1943c2c2af5b2d042ad08dafe74b1e0b41
+human	labelled cohort	human	Davis_2019	person:EVD9	IGHG	77555	Davis_2019/csv/SRR8980650_Heavy_IGHG.csv.gz	6d8d367158cff30628ecf087aee869a1ca21282cbac8e81388f7eefd7c5acbd7
+human	labelled cohort	human	Eliyahu_2018	person:CI4	IGHM	66359	Eliyahu_2018/csv/ERR2843395_Heavy_IGHM.csv.gz	e8d5eb4934561f0b3c59fc577f9b5010315021c1b2f59a494532727b8ee178ee
+human	labelled cohort	human	Ellebedy_2016	person:Donor-155	IGHA	77776	Ellebedy_2016/csv/SRR3620090_Heavy_IGHA.csv.gz	682adfaf3cc15b78b3cc1a401f0e175412a86c23fd577b64dbf0496149125bd3
+human	labelled cohort	human	Galson_2015	person:Subject-1010	IGHM	76027	Galson_2015/csv/SRR3990841_Heavy_IGHM.csv.gz	10243ad00f6965e7eb3fcdf8eeddc455ee013b9c1e2f122820b288753e831451
+human	labelled cohort	human	Galson_2015a	person:Subject-1380	IGHG	78651	Galson_2015a/csv/SRR3099456_Heavy_IGHG.csv.gz	e8e976ad4fe650df5a298a2a65460ecec713468232587f2048bb81c738138aa1
+human	labelled cohort	human	Galson_2016	person:Subject-2335	IGHG	77972	Galson_2016/csv/SRR3099109_Heavy_IGHG.csv.gz	bfd1768b0b738b3bf39e8d0c50bbf6ed0276712ff44cb32e7190ce5d8a182ee5
+human	labelled cohort	human	Galson_2016a	person:Subject-228	IGHG	76245	Galson_2016a/csv/SRR3992918_Heavy_IGHG.csv.gz	acdd0782b0f79401040e1437702a331b9786684baedb9eaaf18eb996842a8772
+human	labelled cohort	human	Galson_2020	person:Patient-30	IGHG	41245	Galson_2020/csv/SRR11961719_1_Heavy_IGHG.csv.gz	4cd4e24185408718d999fc91076d8b0fbca32e41e33ebc19321cae44bacda65d
+human	labelled cohort	human	Ghraichy_2020	person:C.052.1	IGHM	79836	Ghraichy_2020/csv/SRR8755649_Heavy_IGHM.csv.gz	fce3c2326e946bea7fa5ce2709d22bd7596dd22ff6b1d69842c189d62a86dc46
+human	labelled cohort	human	Gidoni_2019	person:S32	IGHM	79864	Gidoni_2019/csv/ERR2567209_1_Heavy_IGHM.csv.gz	ecd32d5b92aa06555a4da296fd28711777e7d4a51e139e639256b24def41c7d3
+human	labelled cohort	human	Gupta_2017	person:Subject-FV	IGHA	62373	Gupta_2017/csv/SRR4431789_1_Heavy_IGHA.csv.gz	2963b922bcdf8c19b334bf2b91089a2bec5c3de5874cf961462a9e6f4078adcc
+human	labelled cohort	human	Halliley_2015	study:Halliley_2015	IGHA	74597	Halliley_2015/csv/SRR2124224_1_Heavy_IGHA.csv.gz	4b35d22b056931fd5894443bc8c4a61654d4bae31b6e21afcc5ff98ea43849b3
+human	labelled cohort	human	Huang_2016	person:Donor-Z258	Bulk	79161	Huang_2016/csv/SRR4417625_1_Heavy_Bulk.csv.gz	ac066189814748abd326e701c68681a75df6ce66844c06cd37dec08fde070714
+human	labelled cohort	human	Jiang_2013	study:Jiang_2013	IGHG	74611	Jiang_2013/csv/SRR747766_Heavy_IGHG.csv.gz	133e394eacba90f5fad32e3ab3a04f6dd53d147bfd5c7b2bd972803c4204d995
+mouse	labelled cohort	mouse_C57BL/6	Bolland_2016	study:Bolland_2016	Bulk	13797	Bolland_2016/csv/SRR3356774_1_Heavy_Bulk.csv.gz	0c765015192a7906d9c544debb494c570576fd6e9df3e712b0b3e79881eaf03b
+mouse	labelled cohort	mouse_C57BL/6	Collins_2015	study:Collins_2015	IGHG	53813	Collins_2015/csv/ERR849860_Heavy_IGHG.csv.gz	3979d9d89104233ad5424a2005860eb2489ee9c7cdc722e9e069b3f1e77ae81b
+mouse	labelled cohort	mouse_BALB/c	Corcoran_2016	person:M2	Bulk	3435	Corcoran_2016/csv/ERR1759752_1_Heavy_Bulk.csv.gz	08cb49c9d16de79668af7f52b636dcf76bf160dd43a55474c4065998faf505a1
+mouse	labelled cohort	mouse_C57BL/6	Corcoran_2016	person:M3	Bulk	3224	Corcoran_2016/csv/ERR1759753_1_Heavy_Bulk.csv.gz	52683e79d3d5a55c81dd825fdca78bc65d02f343840171fe174d304973f2365c
+mouse	labelled cohort	mouse_BALB/c	Fisher_2017	study:Fisher_2017	Bulk	12220	Fisher_2017/csv/SRR5003437_1_Heavy_Bulk.csv.gz	8d0968f04d0247c1fde2c5dbdc266ea5bee0f7ce51092ec3b8c1e4df80820d5a
+mouse	labelled cohort	mouse_BALB/c	Greiff_2014	study:Greiff_2014	Bulk	2382	Greiff_2014/csv/ERR346598_Heavy_Bulk.csv.gz	2a6f00dbea898c1e0a71358c3f55cd08f9c11ae94f8b78e6ae3281264249c23c
+mouse	labelled cohort	mouse_BALB/c	Greiff_2015	study:Greiff_2015	IGHG	25712	Greiff_2015/csv/greiff_2015_20434_Heavy_IGHG.csv.gz	80c2a36cf55f1c25a544d659f8393028c61028e7fc0746186ff158eaad82dc3f
+mouse	labelled cohort	mouse_C57BL/6	Greiff_2017	person:HBsAg-Mouse-5	Bulk	61121	Greiff_2017/csv/ERR1759658_Heavy_Bulk.csv.gz	853fc7f8151b1fea53ad6a97c0cb2fe37b6594a063231d12c1ca7c3da4457778
+mouse	labelled cohort	mouse_C57BL/6	Greiff_2017	person:C57BL/6-Mouse-4	IGHG	66463	Greiff_2017/csv/ERR1759672_Heavy_IGHG.csv.gz	7c45b5a5f39ec79283fc5b3ee63fbf3ea5891eceae4041fe7513948f35fdc4fd
+mouse	labelled cohort	mouse_C57BL/6	Greiff_2017	person:OVA-Mouse-2	IGHG	76308	Greiff_2017/csv/ERR1759687_Heavy_IGHG.csv.gz	e12b30e23a57d5395c58e1a5ac53590f5d32adc12e4d5cd3f1638e64374f6f14
+mouse	labelled cohort	mouse_C57BL/6	Greiff_2017	person:OVA-Mouse-5	IGHG	67199	Greiff_2017/csv/ERR1759696_Heavy_IGHG.csv.gz	0e5577ec68cc6735eec8ee1402b2fb30b05cb3e0ced13625c1a1ac62b30c6eb2
+mouse	labelled cohort	mouse_BALB/c	Khan_2016	person:Immunized-Mouse-4	Bulk	61593	Khan_2016/csv/SRR3175017_1_Heavy_Bulk.csv.gz	867f9ed25e2def16f41b0d90b5860e061c04b71e596af8d5331299b2c6ac1dbc
+mouse	labelled cohort	mouse_BALB/c	Khan_2016	person:Unimmunized-Mouse-1	IGHM	68120	Khan_2016/csv/SRR3175018_1_Heavy_IGHM.csv.gz	b78ad7206bf087d3273387cafaa5cb367f8635513ae0b3a6232e229df0dc236c
+mouse	labelled cohort	mouse_BALB/c	Khan_2016	person:Unimmunized-Mouse-2	Bulk	49216	Khan_2016/csv/SRR3175020_1_Heavy_Bulk.csv.gz	b3f8ccb9f233d9f245f658cf39afc3e85099dae57615d35e4a38ede112c8a9c2
+mouse	labelled cohort	mouse_C57BL/6	Lindner_2015	study:Lindner_2015	IGHA	38396	Lindner_2015/csv/ERR903019_Heavy_IGHA.csv.gz	4c076a8e66d45eda8d9be849a0400137b03c9536beb6d300b13e4f1f80033b3f
+mouse	labelled cohort	mouse_BALB/c	Menzel_2014	study:Menzel_2014	Bulk	16544	Menzel_2014/csv/ERR412893_Heavy_Bulk.csv.gz	a6fe6913355feb444243f653869197f8c4530c3de0f16acf80fc553ade0517f0
+mouse	labelled cohort	mouse_C57BL/6	Prohaska_2018	study:Prohaska_2018	IGHM	54792	Prohaska_2018/csv/SRR6291228_Heavy_IGHM.csv.gz	1c8ff44d189d9535954e0795b4960fe3afdb8232418d71be777f291c83464475
+mouse	labelled cohort	mouse_C57BL/6	Rettig_2018	study:Rettig_2018	IGHM	4804	Rettig_2018/csv/rettig_2018_05_1_Heavy_IGHM.csv.gz	0a2b7ce29b38efe21361b855d7ebbda7cc9a53845c1a0a93a5e09f26911bc8c3
+mouse	labelled cohort	mouse_C57BL/6	Tong_2017	study:Tong_2017	IGHM	7513	Tong_2017/csv/SRR5821314_Heavy_IGHM.csv.gz	a97397dda123ee2b0eedba164145afaa9cefa67d616d4a3a3099fa454f07b5b4
+mouse	labelled cohort	mouse_RAG2-GFP/129Sve	Wesemann_2013	study:Wesemann_2013	IGHM	7384	Wesemann_2013/csv/SRR934687_Heavy_IGHM.csv.gz	c733772814be595a47d4aace4f62246e8d2e38771514fadf7daea2bdb0e005d9
+transgenic	humanisation diagnostic	Kymouse	Richardson_2022	person:Mouse-1	IGHM	53267	Richardson_2022/csv/Mouse-1_Richardson_2022_1_Heavy_IGHM.csv.gz	3a9dff27c4a253110c257d8a1a44e8aa96e636b7a69bc2715094eb8448705f8f
+transgenic	humanisation diagnostic	Kymouse	Richardson_2022	person:Mouse-2	IGHM	56781	Richardson_2022/csv/Mouse-2_Richardson_2022_1_Heavy_IGHM.csv.gz	969ae4cf1e172b6f19f7042b03b9deb2f62d3571fd35700a8695310b9fbc0b14
+transgenic	humanisation diagnostic	Kymouse	Richardson_2022	person:Mouse-3	IGHM	56743	Richardson_2022/csv/Mouse-3_Richardson_2022_1_Heavy_IGHM.csv.gz	ac3f38bdccdd23dbe473beeeffa4562a48808f034d879e8e030649f8aade329d
+transgenic	humanisation diagnostic	Kymouse	Richardson_2022	person:Mouse-5	IGHM	77364	Richardson_2022/csv/Mouse-5_Richardson_2022_1_Heavy_IGHM.csv.gz	444a5e494449b003b9170dd6677c681868d76dd358d597cbd86d642b6bd177e8
+transgenic	humanisation diagnostic	HIS-Mouse	Waltari_2018	person:Subject-m770	IGHA	36689	Waltari_2018/csv/SRR5811779_1_Heavy_IGHA.csv.gz	1dc83bd9f29bc81b1fc90b2f4536abf95b600572a9ba75f70fb9326cf5fd1b11
+transgenic	humanisation diagnostic	HIS-Mouse	Waltari_2018	person:Subject-m771	IGHG	73110	Waltari_2018/csv/SRR5811780_1_Heavy_IGHG.csv.gz	be74fc5db8073e59523e8a62f1d0737de97a3255a23f74f4d25b570162e862d6
+bactrian_camel	out of distribution	bactrian_camel	Li_2017	person:NO1camel	Bulk	9617	Li_2017/csv/SRR3544218_1_Heavy_Bulk.csv.gz	12d73fd0e59d4cb03827e0c4e407f4490049f117238924e59005509f9a128130
+bactrian_camel	out of distribution	bactrian_camel	Li_2017	person:NO2camel	Bulk	9545	Li_2017/csv/SRR3544220_1_Heavy_Bulk.csv.gz	0948350c0fcc6c90a15daeb67149b0cf4b85913ab6b6b837cf81dd5cb3e5bf32
+bactrian_camel	out of distribution	bactrian_camel	Li_2017	person:NO3camel	Bulk	18460	Li_2017/csv/SRR3544222_1_Heavy_Bulk.csv.gz	4264bc4e55778755a6757204d01a0dba0fff227b06fc7fd13fd82b7020241905
+rabbit	out of distribution	rabbit	Banerjee_2017	study:Banerjee_2017	Bulk	136453	Banerjee_2017/csv/SRR5060322_Heavy_Bulk.csv.gz	3687cc7ca7348ea0c2d141083a5dc0a5f980eaf3f8cf8eafd548e5d169f74c50
+rat	out of distribution	rat	VanDuijn_2017	study:VanDuijn_2017	IGHA	183607	VanDuijn_2017/csv/SRR5534362_Heavy_IGHA.csv.gz	ab2c676e8abce102760d7a146c90e4bb4e82d75f89972c14df876977daa5c5f7
+rhesus	out of distribution	rhesus	Corcoran_2016	person:F124	IGHM	185503	Corcoran_2016/csv/ERR1759736_1_Heavy_IGHM.csv.gz	0449df9b8090004745b3d87bc6c034c50c2e8fc4e8ac7b37eb9e3102da3d209e
+rhesus	out of distribution	rhesus	Corcoran_2016	person:F130	IGHM	198267	Corcoran_2016/csv/ERR1759737_1_Heavy_IGHM.csv.gz	1bacafaf34b74d0f5cebe21639541a262537f6c63c67379d06672d14007cef66
+rhesus	out of distribution	rhesus	Sundling_2014	person:f128	IGHG	70827	Sundling_2014/csv/SRR1045558_Heavy_IGHG.csv.gz	1e614561415ad468532194b0d911790ac6251711ed0d34c252bd736c76dc0c2a

@@ -36,14 +36,14 @@ impl ClusterParams {
     pub const ID30: ClusterParams =
         ClusterParams { min_seq_id: 0.3, coverage: 0.8, cov_mode: 0, cluster_mode: 0, sensitivity: 7.5 };
 
-    /// 90% identity over 80% bidirectional coverage.
-    ///
-    /// For repertoires rather than unrelated proteins. Antibody V regions all
-    /// share a scaffold, so 30% identity collapses an entire species into one
-    /// cluster and says nothing. 90% separates clonal lineages, which is the
-    /// redundancy that actually leaks between a train and a test row.
-    pub const ID90: ClusterParams =
-        ClusterParams { min_seq_id: 0.9, coverage: 0.8, cov_mode: 0, cluster_mode: 0, sensitivity: 7.5 };
+    // There was an ID90 here, for antibody repertoires, on the reasoning that
+    // 30% identity collapses a whole species into one cluster while 90%
+    // separates clonal lineages. The first half is right and the second is
+    // not: measured on 176,543 real heavy chains, clustering at 90% and
+    // joining donors through shared clusters put all 37 donors in a single
+    // component, because the V(D)J region is mostly germline-constant and 90%
+    // over its whole length groups V-gene families. The antibody dataset
+    // groups by identical rearrangement instead and does not cluster at all.
 
     pub fn describe(&self) -> String {
         format!(

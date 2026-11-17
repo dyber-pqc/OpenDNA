@@ -40,8 +40,10 @@ struct Manifest<'a> {
     pipeline: &'static str,
     pipeline_version: &'static str,
     seed: u64,
-    clustering: String,
-    fractions: Fractions,
+    /// Absent for a dataset that is not clustered; see [`FinishedDataset`].
+    clustering: Option<String>,
+    /// Absent for a dataset with no train/test split.
+    fractions: Option<Fractions>,
     sources: BTreeMap<&'a str, &'a str>,
     files: &'a [WrittenFile],
     splits: &'a SplitSummary,
@@ -60,8 +62,16 @@ pub struct FinishedDataset<'a> {
     /// average over rows that have no answer.
     pub extra: &'a [(&'static str, Table)],
     pub card: CardInput<'a>,
-    pub fractions: Fractions,
-    pub cluster_params: ClusterParams,
+    /// How rows were divided, for a dataset that has a split.
+    ///
+    /// `None` where there is nothing to divide: the antibody cohorts cannot be
+    /// split by group at all, because inbred mice share exact rearrangements
+    /// across animals and so form a single indivisible group. Recording a
+    /// fraction there would put a number in the manifest that describes
+    /// nothing.
+    pub fractions: Option<Fractions>,
+    /// `None` where no clustering was run.
+    pub cluster_params: Option<ClusterParams>,
 }
 
 /// Writes `data/<split>.parquet`, `README.md` and `manifest.json` for one dataset.
@@ -100,7 +110,7 @@ pub fn write_dataset(ctx: &BuildContext, d: FinishedDataset<'_>) -> Result<Vec<W
         pipeline: "opendna-data",
         pipeline_version: env!("CARGO_PKG_VERSION"),
         seed: ctx.seed,
-        clustering: d.cluster_params.describe(),
+        clustering: d.cluster_params.as_ref().map(ClusterParams::describe),
         fractions: d.fractions,
         sources,
         files: &files,
@@ -108,7 +118,14 @@ pub fn write_dataset(ctx: &BuildContext, d: FinishedDataset<'_>) -> Result<Vec<W
         statistics: &d.card.statistics,
     };
     fs::write(dir.join("manifest.json"), serde_json::to_string_pretty(&manifest)? + "\n")?;
-    print_summary(&dir, d.name, d.card.splits);
+    if d.card.cohorts.is_empty() {
+        print_summary(&dir, d.name, d.card.splits);
+    } else {
+        println!("{}: wrote {}", d.name, dir.display());
+        for (name, rows) in d.card.cohorts {
+            println!("  {name:<22} {rows:>9} rows");
+        }
+    }
     Ok(files)
 }
 

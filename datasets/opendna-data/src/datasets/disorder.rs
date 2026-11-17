@@ -362,6 +362,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         row_unit: "proteins",
         group_unit: "clusters",
         splits: &summary,
+        cohorts: &[],
         statistics,
         citations: DISORDER_BIBTEX,
         limitations: &[
@@ -379,7 +380,14 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
     };
     write_dataset(
         ctx,
-        FinishedDataset { name: NAME, tables: &tables, extra: &[], card, fractions, cluster_params: params },
+        FinishedDataset {
+            name: NAME,
+            tables: &tables,
+            extra: &[],
+            card,
+            fractions: Some(fractions),
+            cluster_params: Some(params),
+        },
     )?;
     Ok(())
 }

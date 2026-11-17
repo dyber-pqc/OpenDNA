@@ -1,8 +1,9 @@
 # OpenDNA datasets
 
 This directory builds the training and evaluation datasets for the OpenDNA
-prediction heads (stability, solubility, per-residue disorder) and a
-structure/fold dataset. Its Cargo workspace is separate from the application
+prediction heads (stability, solubility, per-residue disorder), a
+structure/fold dataset, antibody evaluation cohorts, and the peptide humanness
+prevalence table. Its Cargo workspace is separate from the application
 workspace, so the application never depends on arrow, parquet or an HTTP client.
 
 | Dataset | Rows | Row is | Sources | License of the output | Split unit |
@@ -12,9 +13,22 @@ workspace, so the application never depends on arrow, parquet or an HTTP client.
 | `solubility` | 3,127 | an E. coli protein | eSOL (NBDC archive), UniProtKB | CC BY-SA 2.1 JP | 30% identity cluster |
 | `disorder` | 3,186 | a protein, with per-residue labels | DisProt 2025_12, CAID3 reference (hold-out only) | CC BY 4.0 | 30% identity cluster; CAID3 clusters fixed to test |
 | `burial` | 939 | a CATH domain, with per-residue labels | CATH v4.4.0 S100, wwPDB entries index | CC BY 4.0 | inherited from `structures`, so no topology or cluster spans two splits |
+| `antibody` | 246,543 | a heavy-chain V region | Observed Antibody Space (54 data units) | CC BY 4.0 | none: four cohorts, not a split. See below |
+| `humanness` | one table of 9-mers | a 9-mer and the number of human donors holding it | Observed Antibody Space (150 donor units) | CC BY 4.0 | none: a reference table, nothing is trained |
 
-Row counts are from the committed manifests in `cards/`, which describe the
-builds that are published and that trained the heads.
+Row counts for the first five are from the committed manifests in `cards/`,
+which describe the builds that are published and that trained the heads.
+`antibody` and `humanness` are built but not yet published, so they have no
+committed card; their counts are from the build described below.
+
+The last two have no split, and that is a finding rather than an omission.
+`antibody` is four evaluation cohorts: all 18 of its mouse donors share
+identical rearrangements and form one indivisible group, because inbred
+laboratory strains are not independent donors, so no grouped split can put
+mouse rows on both sides. `humanness` is a single reference table of peptide
+prevalence; a score computed from it is an exact count, not a prediction, so
+there is nothing to hold out. Both cards explain this where a reader meets the
+numbers, and the antibody module records the measurements behind it.
 
 ## Published builds
 
@@ -39,10 +53,12 @@ written to Parquet.
 
 - Rust 1.95 or newer, the same minimum as the rest of the project.
 - [MMseqs2](https://github.com/soedinglab/MMseqs2) on `PATH`, or pointed to with
-  `MMSEQS=<path>` or `--mmseqs <path>`. Every dataset is clustered, and
-  the pipeline stops with an error if MMseqs2 is missing rather than falling back
-  to a weaker method.
-- About 1.2 GB of disk for the download cache (most of it the Tsuboyama archive).
+  `MMSEQS=<path>` or `--mmseqs <path>`, for the five clustered datasets. The
+  pipeline stops with an error if MMseqs2 is missing rather than falling back to
+  a weaker method. `antibody` and `humanness` do not cluster and do not need it.
+- About 1.2 GB of disk for the download cache of the first five datasets (most
+  of it the Tsuboyama archive), plus roughly 1.4 GB for the antibody data units
+  and a few hundred megabytes for the humanness donor units.
 
 ## Usage
 
@@ -52,7 +68,8 @@ Run from this directory:
 cargo run --release -- sources            # list sources, licenses, exclusions
 cargo run --release -- download all       # fetch and checksum all upstream files
 cargo run --release -- verify             # re-hash the cache against sources.lock
-cargo run --release -- build stability    # or: structures, solubility, disorder, all
+cargo run --release -- build stability    # or: structures, solubility, disorder,
+                                          #     burial, antibody, humanness, all
 ```
 
 Output goes to `out/<dataset>/`:

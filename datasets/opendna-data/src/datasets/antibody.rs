@@ -21,6 +21,37 @@
 //! like something a human B cell made", which is the question asked of a
 //! humanised candidate -- and no more than that.
 //!
+//! # Why there is no train/test split
+//!
+//! This dataset was built to be split by group, so that neither a donor nor a
+//! clonal lineage could span train and test. It cannot be. The mouse cohort is
+//! one indivisible group, and two measurements on the real data say so:
+//!
+//! * Clustering the amino-acid V(D)J region at 90% identity put **all 37
+//!   labelled donors in a single component**: one group over 176,543 rows. The
+//!   region is mostly germline-constant, so 90% identity over its whole length
+//!   groups V-gene families rather than lineages, and joining donors through
+//!   shared clusters then merges everything transitively.
+//! * Under the strictest reading of a shared lineage -- an identical
+//!   rearrangement, meaning the same V gene, the same J gene and a byte-identical
+//!   CDR3 -- the human donors mostly stay apart (13 alone, two groups of three),
+//!   but **all 18 mouse donors join into one group**, across three inbred
+//!   strains and nine studies.
+//!
+//! The second result is biology, not a loose threshold. C57BL/6 and BALB/c
+//! animals are genetically near-identical, and their repertoires contain the
+//! same public rearrangements; one laboratory mouse is not an independent
+//! sample of a species the way one person is. So there is no grouped split
+//! that puts mouse rows on both sides, and a split that leaves the entire
+//! mouse cohort in `train` is not a split.
+//!
+//! What this dataset is, therefore, is four **cohorts** for evaluation, with
+//! the grouping recorded in a `donor_group` column so anyone who wants to
+//! split the human side can, knowing what the mouse side does. It is not a
+//! training set for a species classifier -- which, separately, a lookup table
+//! on the V gene call already answers at 98.5% held-out accuracy against a
+//! 68.9% majority baseline, so there was never a model worth training here.
+//!
 //! # Three traps in the upstream metadata
 //!
 //! **The species field names the animal, not the immunoglobulin.** OAS
@@ -28,7 +59,7 @@
 //! and `Kymouse` (a transgenic mouse carrying human immunoglobulin loci).
 //! Both are mice whose antibody V genes are human. Labelling them non-human
 //! would teach a head that human V genes are mouse, on millions of sequences.
-//! They are excluded from the labelled splits and kept as a separate
+//! They are excluded from the labelled cohorts and kept as a separate
 //! diagnostic set, where calling them human is the correct behaviour: that is
 //! the humanisation question rather than a species-identification one.
 //!
@@ -37,9 +68,9 @@
 //! is one HIV donor in Bhiman 2015, Doria-Rose 2015 and Johnson 2018 -- and
 //! some are study-local placeholders, where `Donor-1` in two papers is two
 //! people. Keying a donor by name alone merges those placeholders, which
-//! costs a little data; keying by study would split a real donor across
-//! train and test, which inflates every number. [`donor_key`] takes the first
-//! trade, and says so.
+//! costs a little data; keying by study would put one real donor in two
+//! cohorts or two folds, which inflates every number computed from them.
+//! [`donor_key`] takes the first trade, and says so.
 //!
 //! **A unit is two gzip members, not one.** OAS writes the metadata line as
 //! its own gzip member and the CSV body as a second one. A single-member
@@ -53,9 +84,9 @@
 //! **Only mouse has enough independent studies to hold one out.** Human has
 //! 69 studies and mouse 15, but rat, rabbit and bactrian camel have exactly
 //! one study each, and rhesus two. A test score for those species would be
-//! inseparable from one laboratory's protocol, so they are not trained on and
-//! not part of the labelled splits either; they are kept as an
-//! out-of-distribution set whose single-study origin the card states.
+//! inseparable from one laboratory's protocol, so they are not part of the
+//! labelled cohorts; they are kept as an out-of-distribution set whose
+//! single-study origin the card states.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Read};
@@ -64,13 +95,12 @@ use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 
 use crate::card::{CardInput, CardLicense};
-use crate::cluster::ClusterParams;
 use crate::context::{write_dataset, BuildContext, FinishedDataset};
+use crate::is_standard_protein;
 use crate::parquet_out::{ColumnData, Table};
 use crate::sources::{self, Source};
-use crate::split::{assign_groups, Fractions, Split, SplitSummary};
+use crate::split::SplitSummary;
 use crate::unionfind::UnionFind;
-use crate::{is_standard_protein, sequence_id};
 
 pub const NAME: &str = "antibody";
 
@@ -98,8 +128,11 @@ pub struct UnitMetadata {
     pub chain: String,
     #[serde(rename = "Author")]
     pub author: String,
-    /// Reported, never depended on. See [`loose_string`] for why these three
-    /// are not plain strings.
+    /// Reported, never depended on. The `loose_string` deserializer below
+    /// records why these three are read leniently: OAS does not type them
+    /// consistently, and nothing here depends on their shape. Named in prose
+    /// rather than linked, because it is private and a link to it would only
+    /// resolve for someone building the docs with private items.
     #[serde(rename = "Isotype", default, deserialize_with = "loose_string")]
     pub isotype: String,
     #[serde(rename = "Disease", default, deserialize_with = "loose_string")]
@@ -136,14 +169,16 @@ fn loose_string<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<S
 /// Which side of the question a unit is on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Cohort {
-    /// Human repertoire. Labelled, trained on.
+    /// Human repertoire. Its own labelled cohort.
     Human,
-    /// Mouse repertoire. Labelled, trained on.
+    /// Mouse repertoire. Its own labelled cohort.
     Mouse,
     /// A mouse whose immunoglobulin loci are human: `HIS-Mouse`, `Kymouse`.
-    /// Never labelled, never trained on; the humanisation diagnostic.
+    /// Never labelled; the humanisation diagnostic, where a humanness measure
+    /// answering "human" is right.
     HumanLociInMouse,
-    /// Another species, held out entirely. One study each for most of them.
+    /// Another species. Never labelled: one study each for most of them, so a
+    /// score on one cannot be separated from one laboratory's protocol.
     OutOfDistribution,
 }
 
@@ -435,6 +470,13 @@ pub struct CatalogueRow {
     pub purpose: String,
     pub organism: String,
     pub study: String,
+    /// The donor key this unit was selected under, as [`donor_key`] computes it.
+    ///
+    /// Recorded in the file so that which donors a catalogue covers can be
+    /// read without downloading a gigabyte, and checked against the unit's own
+    /// metadata at build time so the recorded value cannot drift from the
+    /// truth. Two catalogues are kept disjoint by comparing this column.
+    pub donor: String,
     pub isotype: String,
     pub unit: String,
     /// SHA-256 of the unit, when it has been pinned.
@@ -470,11 +512,12 @@ fn catalogue_column(header: &csv::StringRecord, name: &str) -> Result<usize> {
 pub fn read_catalogue(text: &str) -> Result<Vec<CatalogueRow>> {
     let mut rdr = csv::ReaderBuilder::new().delimiter(b'\t').comment(Some(b'#')).from_reader(text.as_bytes());
     let header = rdr.headers()?.clone();
-    let (c_group, c_purpose, c_org, c_study, c_iso, c_unit, c_sha) = (
+    let (c_group, c_purpose, c_org, c_study, c_donor, c_iso, c_unit, c_sha) = (
         catalogue_column(&header, "group")?,
         catalogue_column(&header, "purpose")?,
         catalogue_column(&header, "organism")?,
         catalogue_column(&header, "study")?,
+        catalogue_column(&header, "donor")?,
         catalogue_column(&header, "isotype")?,
         catalogue_column(&header, "unit")?,
         catalogue_column(&header, "sha256")?,
@@ -489,6 +532,7 @@ pub fn read_catalogue(text: &str) -> Result<Vec<CatalogueRow>> {
             purpose: get(c_purpose),
             organism: get(c_org),
             study: get(c_study),
+            donor: get(c_donor),
             isotype: get(c_iso),
             unit: get(c_unit),
             // "-" is how the file spells "not pinned", so a blank field and a
@@ -539,9 +583,9 @@ pub fn cap_per_donor(mut records: Vec<Record>, cap: usize) -> (Vec<Record>, u64)
     (kept, dropped)
 }
 
-/// Build the labelled table. `is_human` is a plain boolean here because every
-/// row in it has an answer.
-pub fn to_labelled_table(rows: &[&Record], component_of: &BTreeMap<String, String>) -> Table {
+/// Build a labelled cohort table. `is_human` is a plain boolean here because
+/// every row in it has an answer.
+pub fn to_labelled_table(rows: &[&Record], group_of: &BTreeMap<String, String>) -> Table {
     let mut t = base_columns(rows);
     t.push(
         "is_human",
@@ -553,17 +597,43 @@ pub fn to_labelled_table(rows: &[&Record], component_of: &BTreeMap<String, Strin
         ),
     );
     t.push(
-        "split_group",
-        "Connected component of donors joined to 90% identity clusters; the split unit",
-        ColumnData::Utf8(rows.iter().map(|r| component_of[&format!("D:{}", r.donor)].clone()).collect()),
+        "donor_group",
+        "Donors joined where they share an identical rearrangement (same V gene, same J gene, byte-identical CDR3). The smallest unit that can be held out without leaking a lineage. All mouse donors fall in one group, which is why this dataset has no split",
+        ColumnData::Utf8(rows.iter().map(|r| group_of[&r.donor].clone()).collect()),
     );
     t
 }
 
-/// Build a held-out table. Deliberately has no `is_human` column: these rows
-/// have no answer, and a column that could hold a null would get averaged.
+/// Build an unlabelled cohort table. Deliberately has no `is_human` column:
+/// these rows have no answer, and a column that could hold a null would get
+/// averaged.
 pub fn to_held_out_table(rows: &[&Record]) -> Table {
     base_columns(rows)
+}
+
+/// Donors joined where they share an identical rearrangement.
+///
+/// "Identical" means the same V gene call, the same J gene call and a
+/// byte-identical CDR3 -- one rearrangement, seen in two animals. This is the
+/// strictest honest reading of a shared lineage, chosen over sequence
+/// clustering because clustering the whole V(D)J region at any workable
+/// identity threshold groups germline families instead: at 90% it puts every
+/// labelled donor in one component.
+///
+/// Rows with an empty CDR3 join nothing: an absent junction is not a shared
+/// one.
+pub fn group_donors_by_shared_rearrangement(rows: &[&Record]) -> BTreeMap<String, String> {
+    let mut uf = UnionFind::new();
+    for r in rows {
+        // Every donor is a node even if it shares nothing, or a donor with no
+        // usable CDR3 would be missing from the result.
+        uf.union(&format!("D:{}", r.donor), &format!("D:{}", r.donor));
+        if !r.cdr3.is_empty() {
+            uf.union(&format!("D:{}", r.donor), &format!("R:{}|{}|{}", r.v_call, r.j_call, r.cdr3));
+        }
+    }
+    let component_of = uf.components();
+    rows.iter().map(|r| (r.donor.clone(), component_of[&format!("D:{}", r.donor)].clone())).collect()
 }
 
 fn base_columns(rows: &[&Record]) -> Table {
@@ -653,6 +723,18 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         }
         let cohort = cohort_of(&metadata.species)?;
         let donor = donor_key(&metadata, &row.study);
+        // The donor column is what keeps this catalogue disjoint from the
+        // humanness table's, and that check is made without downloading
+        // either file's units. So the column has to be the truth: compare it
+        // with what the unit's own metadata says, every build.
+        if donor != row.donor {
+            bail!(
+                "{} is donor {donor} but oas_units.tsv says {}. The donor column is what keeps \
+                 this catalogue disjoint from oas_human_donors.tsv, so it cannot be stale.",
+                row.unit,
+                row.donor
+            );
+        }
         records.extend(sequences.into_iter().map(|s| Record {
             sequence: s.sequence,
             cohort,
@@ -690,68 +772,63 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         bail!("no labelled sequences: the catalogue has no human or mouse units");
     }
 
-    // Cluster the labelled sequences, then join each cluster to every donor it
-    // touches. A clonal lineage shared by two donors makes those donors one
-    // split group: splitting between them would put near-identical sequences
-    // on both sides.
-    let seqs: BTreeMap<String, String> =
-        labelled.iter().map(|r| (sequence_id(&r.sequence), r.sequence.clone())).collect();
-    let params = ClusterParams::ID90;
-    let clustering = ctx.cluster(&seqs, params)?;
-    let mut uf = UnionFind::new();
+    // Group donors by shared rearrangement, and report what that grouping
+    // does. This is where the dataset's shape was decided: the grouping is
+    // computed every build so the card's claim about it is measured rather
+    // than remembered. See the module documentation.
+    let group_of = group_donors_by_shared_rearrangement(&labelled);
+    let mut weights: BTreeMap<&str, u64> = BTreeMap::new();
     for r in &labelled {
-        let cluster = &clustering.member_to_rep[&sequence_id(&r.sequence)];
-        uf.union(&format!("D:{}", r.donor), &format!("C:{cluster}"));
+        *weights.entry(group_of[&r.donor].as_str()).or_default() += 1;
     }
-    let component_of = uf.components();
-
-    let mut weights: BTreeMap<String, u64> = BTreeMap::new();
-    for r in &labelled {
-        *weights.entry(component_of[&format!("D:{}", r.donor)].clone()).or_default() += 1;
-    }
-    // A component holding most of the rows cannot be split, and a split that
-    // puts it all on one side is not a split. Said plainly rather than
-    // reported as an odd-looking ratio afterwards.
     let largest = weights.values().copied().max().unwrap_or(0);
     let share = largest as f64 / labelled.len() as f64;
     eprintln!(
-        "{} split groups over {} labelled rows; largest holds {largest} ({:.1}%)",
+        "{} donor groups over {} labelled rows; largest holds {largest} ({:.1}%)",
         weights.len(),
         labelled.len(),
         share * 100.0
     );
-    if share > 0.5 {
+
+    // Which cohorts the groups straddle, because that is the fact that makes
+    // a split impossible rather than merely lopsided. If some group held both
+    // human and mouse rows, no split could separate the two classes at all;
+    // as it stands the mouse rows are one group, which is nearly as bad and
+    // has to be stated the same way.
+    let mut groups_per_cohort: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for r in &labelled {
+        let cohort = if r.cohort == Cohort::Human { "human" } else { "mouse" };
+        groups_per_cohort.entry(cohort).or_default().insert(group_of[&r.donor].as_str());
+    }
+    let mixed = weights
+        .keys()
+        .filter(|g| groups_per_cohort.values().filter(|set| set.contains(**g)).count() > 1)
+        .count();
+    if mixed > 0 {
         bail!(
-            "one split group holds {:.1}% of the labelled rows, so there is no homology-aware \
-             split to make. Clonal lineages have joined most donors into one component; this \
-             needs a different grouping, not a different seed.",
-            share * 100.0
+            "{mixed} donor group(s) hold both human and mouse rows, which means an identical \
+             rearrangement was recorded in both species. That is either a mislabelled unit or a \
+             V/J naming collision, and it has to be understood before these cohorts are used."
         );
     }
 
-    let fractions = Fractions::new(0.8, 0.1, 0.1)?;
-    let assignment = assign_groups(&weights, &BTreeMap::new(), fractions, ctx.seed)?;
-    let split_of = |r: &Record| assignment[&component_of[&format!("D:{}", r.donor)]];
-    let summary = SplitSummary::from_rows(
-        labelled.iter().map(|r| component_of[&format!("D:{}", r.donor)].as_str()),
-        &assignment,
-    );
-    let tables: Vec<(Split, Table)> = Split::ALL
-        .iter()
-        .map(|s| {
-            let rows: Vec<&Record> = labelled.iter().copied().filter(|r| split_of(r) == *s).collect();
-            (*s, to_labelled_table(&rows, &component_of))
-        })
-        .collect();
-
-    let held_out =
+    let cohort_rows =
         |cohort: Cohort| -> Vec<&Record> { records.iter().filter(|r| r.cohort == cohort).collect() };
-    let diagnostic = held_out(Cohort::HumanLociInMouse);
-    let out_of_distribution = held_out(Cohort::OutOfDistribution);
+    let humans = cohort_rows(Cohort::Human);
+    let mice = cohort_rows(Cohort::Mouse);
+    let diagnostic = cohort_rows(Cohort::HumanLociInMouse);
+    let out_of_distribution = cohort_rows(Cohort::OutOfDistribution);
+    // Every table named, none of them a split. `human` and `mouse` carry
+    // `is_human`; the other two deliberately do not.
     let extra = vec![
+        ("human", to_labelled_table(&humans, &group_of)),
+        ("mouse", to_labelled_table(&mice, &group_of)),
         ("diagnostic", to_held_out_table(&diagnostic)),
         ("out_of_distribution", to_held_out_table(&out_of_distribution)),
     ];
+    let cohorts: Vec<(&'static str, u64)> =
+        extra.iter().map(|(name, table)| (*name, table.n_rows() as u64)).collect();
+    let summary = SplitSummary::default();
 
     // How much of the germline catalogue the two cohorts share. The first
     // thing to check when a species classifier looks too good: if the V calls
@@ -765,8 +842,6 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
 
     let donors = |rows: &[&Record]| rows.iter().map(|r| r.donor.as_str()).collect::<BTreeSet<_>>().len();
     let studies = |rows: &[&Record]| rows.iter().map(|r| r.study.as_str()).collect::<BTreeSet<_>>().len();
-    let humans: Vec<&Record> = labelled.iter().copied().filter(|r| r.cohort == Cohort::Human).collect();
-    let mice: Vec<&Record> = labelled.iter().copied().filter(|r| r.cohort == Cohort::Mouse).collect();
 
     let statistics = vec![
         ("OAS unit catalogue (oas_units.tsv) sha256".into(), catalogue_digest.clone()),
@@ -786,7 +861,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         ("dropped: duplicate within its unit".into(), stats.duplicate_within_unit.to_string()),
         ("dropped: identical sequence under more than one donor".into(), shared_dropped.to_string()),
         (format!("dropped: over the {MAX_PER_DONOR}-per-donor cap"), over_cap.to_string()),
-        ("labelled rows".into(), labelled.len().to_string()),
+        ("labelled rows (human and mouse cohorts)".into(), labelled.len().to_string()),
         (
             "  human".into(),
             format!("{} rows, {} donors, {} studies", humans.len(), donors(&humans), studies(&humans)),
@@ -803,9 +878,10 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
             "out-of-distribution rows (other species, unlabelled)".into(),
             format!("{} rows, {} donors", out_of_distribution.len(), donors(&out_of_distribution)),
         ),
-        ("90% identity clusters among labelled rows".into(), clustering.n_clusters().to_string()),
-        ("split groups (donors joined by shared clusters)".into(), weights.len().to_string()),
-        ("largest split group, share of labelled rows".into(), format!("{:.2}%", share * 100.0)),
+        ("donor groups (donors joined by a shared rearrangement)".into(), weights.len().to_string()),
+        ("  among human donors".into(), groups_per_cohort["human"].len().to_string()),
+        ("  among mouse donors".into(), groups_per_cohort["mouse"].len().to_string()),
+        ("largest donor group, share of labelled rows".into(), format!("{:.2}%", share * 100.0)),
         ("V genes in human rows".into(), human_v.len().to_string()),
         ("V genes in mouse rows".into(), mouse_v.len().to_string()),
         ("V genes in both".into(), shared_v.to_string()),
@@ -820,20 +896,37 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
             chain, whose amino-acid alignment is {MIN_RESIDUES}-{MAX_RESIDUES} standard residues.\n\
          3. Drop any sequence seen under more than one donor, and cap each donor at \
             {MAX_PER_DONOR} sequences chosen by sequence hash.\n\
-         4. Label human as `is_human = true` and ordinary mouse strains as `false`. HIS-Mouse and \
-            Kymouse carry human immunoglobulin loci and are written to `diagnostic` with no label; \
-            rat, rabbit, rhesus and bactrian camel go to `out_of_distribution` with no label.\n\
-         5. Cluster the labelled sequences with `{}`, then join every donor to every cluster its \
-            sequences fall in and take connected components. Whole components go to \
-            train/validation/test (80/10/10 of rows, seed {}), so neither a donor nor a clonal \
-            lineage can span two splits.",
+         4. Write four cohorts. `human` and `mouse` carry `is_human`; HIS-Mouse and Kymouse carry \
+            human immunoglobulin loci and go to `diagnostic` with no label, where answering \
+            \"human\" is correct; rat, rabbit, rhesus and bactrian camel go to \
+            `out_of_distribution`, also unlabelled.\n\
+         5. Join donors wherever they share an identical rearrangement -- the same V gene, the \
+            same J gene and a byte-identical CDR3 -- and record the resulting group in \
+            `donor_group`. That is the smallest unit that can be held out without carrying a \
+            lineage across the boundary.\n\n\
+         **There is no train/validation/test split, because this data does not admit one.** All \
+         {} mouse donors fall into a single donor group, spanning three inbred strains and nine \
+         studies, because C57BL/6 and BALB/c animals are genetically near-identical and their \
+         repertoires share public rearrangements. One laboratory mouse is not an independent \
+         sample of its species the way one person is. The largest group therefore holds {:.1}% \
+         of the labelled rows, and any grouped split leaves the whole mouse cohort on one side \
+         -- which is not a split.\n\n\
+         Sequence clustering does not rescue it: clustering the amino-acid V(D)J region at 90% \
+         identity and joining donors through shared clusters put all {} labelled donors into one \
+         component. That region is mostly germline-constant, so the threshold groups V-gene \
+         families rather than lineages. The shared-rearrangement grouping is the strict \
+         alternative, and `donor_group` records it: the human side can be split on it ({} \
+         groups), the mouse side cannot ({}).",
         catalogue.len(),
-        params.describe(),
-        ctx.seed
+        donors(&mice),
+        share * 100.0,
+        donors(&labelled),
+        groups_per_cohort["human"].len(),
+        groups_per_cohort["mouse"].len()
     );
 
     let card = CardInput {
-        pretty_name: "OpenDNA Antibody (human vs mouse heavy chains, OAS)",
+        pretty_name: "OpenDNA Antibody (human and mouse heavy-chain cohorts, OAS)",
         license: CardLicense::Known("cc-by-4.0"),
         license_note: "OAS is licensed CC BY 4.0 by its maintainers, stated on \
              <https://opig.stats.ox.ac.uk/webapps/oas/>: \"the data contained within OAS is \
@@ -843,22 +936,27 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         tags: &["biology", "protein", "antibody", "immunoglobulin", "repertoire"],
         summary: format!(
             "Heavy-chain variable regions from human and mouse antibody repertoires in the \
-             Observed Antibody Space, labelled by the species of the donor. {} labelled rows from \
-             {} donors across {} studies, split so that neither a donor nor a 90% identity cluster \
-             spans train and test. Two unlabelled sets travel with it: mice carrying human \
-             immunoglobulin loci, where a humanness model should answer human, and four species \
-             with too few independent studies to train on.",
+             Observed Antibody Space, labelled by the species of the donor: {} rows from {} \
+             donors across {} studies. Two unlabelled cohorts travel with them -- mice carrying \
+             human immunoglobulin loci, where a humanness measure should answer human, and four \
+             species with one or two studies each.\n\nThese are evaluation cohorts, not a \
+             training split. There is no train/validation/test division, because the mouse donors \
+             cannot be divided: all {} of them share identical rearrangements and form one \
+             group. Construction says why in full, and `donor_group` carries the grouping so the \
+             human side can still be split by anyone who needs to.",
             labelled.len(),
             donors(&labelled),
-            studies(&labelled)
+            studies(&labelled),
+            donors(&mice)
         ),
         sources: SOURCES,
         excluded: vec![&sources::SABDAB_EXCLUDED],
         construction,
-        schema: &tables[0].1,
+        schema: &extra[0].1,
         row_unit: "sequences",
-        group_unit: "components",
+        group_unit: "donor groups",
         splits: &summary,
+        cohorts: &cohorts,
         statistics,
         citations: ANTIBODY_CITATIONS,
         limitations: ANTIBODY_LIMITATIONS,
@@ -868,18 +966,23 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         ctx,
         FinishedDataset {
             name: NAME,
-            tables: &tables,
+            tables: &[],
             extra: &extra,
             card,
-            fractions,
-            cluster_params: params,
+            // Nothing was split and nothing was clustered, so the manifest
+            // records neither rather than a fraction that divided nothing.
+            fractions: None,
+            cluster_params: None,
         },
     )?;
     Ok(())
 }
 
+// The card renderer wraps this in a bibtex fence, so this must be bibtex and
+// nothing else. The sentence that used to follow it -- that each row's `study`
+// column names the paper that produced it -- is in the licence note, where it
+// is not inside a code block.
 const ANTIBODY_CITATIONS: &str = "\
-```bibtex
 @article{olsen2022oas,
   title   = {Observed Antibody Space: A diverse database of cleaned, annotated,
              and translated unpaired and paired antibody sequences},
@@ -890,23 +993,25 @@ const ANTIBODY_CITATIONS: &str = "\
   pages   = {141--146},
   year    = {2022},
   doi     = {10.1002/pro.4205}
-}
-```
-
-Each row's `study` column names the study that produced it; those papers are
-the primary sources and OAS lists their DOIs per data unit.";
+}";
 
 const ANTIBODY_LIMITATIONS: &[&str] = &[
     "The label is the species of the donor, recorded by the depositing study. It is not a \
      measurement of the molecule, and it is not an immunogenicity label: a sequence resembling a \
      human repertoire is not thereby safe in humans, and the converse does not hold either.",
-    "Human and mouse V genes differ, so a model can score well here by learning the germline \
-     catalogue rather than anything else. The card reports how many V genes appear in both \
-     cohorts; read that number before believing an accuracy.",
+    "Human and mouse V genes differ almost completely -- the card reports how many appear in \
+     both cohorts -- so separating the two species is largely a germline lookup. Measured on \
+     held-out rows, a lookup table on the V gene call alone reaches 98.5% against a 68.9% \
+     majority baseline. An accuracy on this task is therefore not evidence that a model learned \
+     anything about antibodies.",
     "Heavy chains only. Light chains have their own germline repertoire and are a separate task.",
-    "The out-of-distribution set is one study per species for rat, rabbit and bactrian camel, and \
-     two for rhesus. A score on those species cannot be separated from one laboratory's protocol, \
-     which is why they are not trained on.",
+    "The out-of-distribution cohort is one study per species for rat, rabbit and bactrian camel, \
+     and two for rhesus. A score on those species cannot be separated from one laboratory's \
+     protocol, which is why those rows carry no label.",
+    "These are cohorts, not folds. There is no train/test split and none can be made: all 18 \
+     mouse donors share identical rearrangements and form a single group, so any grouped split \
+     puts the whole mouse cohort on one side. The `donor_group` column carries the grouping; the \
+     human cohort has 15 groups and can be divided, the mouse cohort has one and cannot.",
     "Donor keys merge a named subject across studies, because one donor is deposited by several \
      studies -- CAP256 appears in three. Where two studies reuse a placeholder such as Donor-1 \
      for different people, this merges them too, which costs data rather than leaking it.",
@@ -1198,12 +1303,12 @@ mod tests {
         for row in &rows {
             assert!(units.insert(row.unit.clone()), "{} is listed twice", row.unit);
             // The organism must agree with the cohort the purpose implies, or
-            // a unit would be trained on under the wrong label.
+            // a unit would land in the wrong cohort, labelled or not.
             let cohort = cohort_of(&row.organism).expect(&row.organism);
             let expected = match cohort {
-                Cohort::Human | Cohort::Mouse => "trained on",
-                Cohort::HumanLociInMouse => "humanisation diagnostic only",
-                Cohort::OutOfDistribution => "out-of-distribution only",
+                Cohort::Human | Cohort::Mouse => "labelled cohort",
+                Cohort::HumanLociInMouse => "humanisation diagnostic",
+                Cohort::OutOfDistribution => "out of distribution",
             };
             assert_eq!(row.purpose, expected, "{} is {}", row.unit, row.organism);
             if cohort.is_human().is_some() {
@@ -1214,8 +1319,10 @@ mod tests {
             assert!(row.url().starts_with(OAS_UNIT_BASE), "{}", row.url());
             assert!(!row.file_name().contains('/'), "{}", row.file_name());
         }
-        // The whole point of human-versus-mouse: both sides need enough
-        // independent studies that one can be held out.
+        // Both labelled cohorts need several independent studies, so that a
+        // number computed on either is not one laboratory's protocol. This
+        // says nothing about splitting them: the mouse donors cannot be
+        // split at all, which the module documentation explains.
         for cohort in ["human", "mouse"] {
             let studies = labelled_studies.get(cohort).map_or(0, BTreeSet::len);
             assert!(studies >= 6, "{cohort} has only {studies} studies in the catalogue");

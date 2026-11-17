@@ -454,6 +454,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         row_unit: "domains",
         group_unit: "domains",
         splits: &summary,
+        cohorts: &[],
         statistics,
         citations: BURIAL_BIBTEX,
         limitations: &[
@@ -499,8 +500,8 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
             tables: &tables,
             extra: &[],
             card,
-            fractions,
-            cluster_params: ClusterParams::ID30,
+            fractions: Some(fractions),
+            cluster_params: Some(ClusterParams::ID30),
         },
     )?;
     Ok(())

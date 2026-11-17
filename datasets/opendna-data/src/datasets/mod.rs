@@ -6,6 +6,7 @@
 pub mod antibody;
 pub mod burial;
 pub mod disorder;
+pub mod humanness;
 pub mod solubility;
 pub mod stability;
 pub mod structures;
@@ -15,8 +16,15 @@ use anyhow::{bail, Result};
 use crate::context::BuildContext;
 use crate::sources::Source;
 
-pub const ALL: [&str; 6] =
-    [structures::NAME, stability::NAME, solubility::NAME, disorder::NAME, burial::NAME, antibody::NAME];
+pub const ALL: [&str; 7] = [
+    structures::NAME,
+    stability::NAME,
+    solubility::NAME,
+    disorder::NAME,
+    burial::NAME,
+    antibody::NAME,
+    humanness::NAME,
+];
 
 pub fn build(name: &str, ctx: &mut BuildContext) -> Result<()> {
     match name {
@@ -26,6 +34,7 @@ pub fn build(name: &str, ctx: &mut BuildContext) -> Result<()> {
         disorder::NAME => disorder::build(ctx),
         burial::NAME => burial::build(ctx),
         antibody::NAME => antibody::build(ctx),
+        humanness::NAME => humanness::build(ctx),
         other => bail!("unknown dataset {other:?}; expected one of {ALL:?}"),
     }
 }
@@ -39,6 +48,7 @@ pub fn sources_for(name: &str) -> Result<&'static [Source]> {
         disorder::NAME => disorder::SOURCES,
         burial::NAME => burial::SOURCES,
         antibody::NAME => antibody::SOURCES,
+        humanness::NAME => humanness::SOURCES,
         other => bail!("unknown dataset {other:?}; expected one of {ALL:?}"),
     })
 }

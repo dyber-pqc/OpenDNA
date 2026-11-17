@@ -36,6 +36,18 @@ pub struct CardInput<'a> {
     /// What a split group is, plural ("clusters", "components").
     pub group_unit: &'static str,
     pub splits: &'a SplitSummary,
+    /// Named tables, with row counts, for a dataset that has no train/test split.
+    ///
+    /// Some data cannot honestly be split. The antibody cohorts are the case
+    /// this exists for: inbred mice share exact rearrangements across animals
+    /// and studies, so every mouse donor is one indivisible group and there is
+    /// no grouped split that puts mouse rows on both sides. A card for such a
+    /// dataset has to describe cohorts and say why there are no splits, rather
+    /// than print a split table with everything in `train`.
+    ///
+    /// When this is non-empty, `splits` is expected to be empty and these
+    /// names become the Hugging Face split names.
+    pub cohorts: &'a [(&'static str, u64)],
     pub statistics: Vec<(String, String)>,
     pub citations: &'static str,
     pub limitations: &'static [&'static str],
@@ -70,11 +82,17 @@ pub fn render(c: &CardInput<'_>) -> String {
     for t in c.tags {
         let _ = writeln!(s, "- {t}");
     }
-    let _ = writeln!(s, "size_categories:\n- {}", size_category(c.splits.total_rows()));
+    let cohort_rows: u64 = c.cohorts.iter().map(|(_, n)| n).sum();
+    let _ = writeln!(s, "size_categories:\n- {}", size_category(c.splits.total_rows() + cohort_rows));
     s.push_str("configs:\n- config_name: default\n  data_files:\n");
     for sp in Split::ALL {
         if c.splits.get(sp).rows > 0 {
             let _ = writeln!(s, "  - split: {sp}\n    path: data/{sp}.parquet");
+        }
+    }
+    for (name, rows) in c.cohorts {
+        if *rows > 0 {
+            let _ = writeln!(s, "  - split: {name}\n    path: data/{name}.parquet");
         }
     }
     s.push_str("---\n\n");
@@ -112,6 +130,21 @@ pub fn render(c: &CardInput<'_>) -> String {
         let _ = writeln!(s, "| `{}` | {} | {} |", col.name, col.data.type_name(), col.description);
     }
 
+    if !c.cohorts.is_empty() {
+        let _ = writeln!(s, "\n## Cohorts\n\n| Cohort | {} |\n|---|---:|", c.row_unit);
+        for (name, rows) in c.cohorts {
+            let _ = writeln!(s, "| {name} | {rows} |");
+        }
+        let _ = writeln!(s, "| total | {cohort_rows} |\n");
+        let _ = writeln!(
+            s,
+            "There is no train/validation/test split. Why not is under Construction, and it is \
+             a fact about the data rather than a choice: read it before splitting these cohorts \
+             yourself.\n"
+        );
+        return finish(s, c);
+    }
+
     // When every row is its own split group the second column repeats the
     // first, which reads as a mistake and hides the fact that makes them
     // equal. One column, and a sentence saying why.
@@ -141,6 +174,12 @@ pub fn render(c: &CardInput<'_>) -> String {
         let _ = writeln!(s, "| total | {} | |\n", c.splits.total_rows());
     }
 
+    finish(s, c)
+}
+
+/// The sections every card ends with, whether it describes splits or cohorts.
+fn finish(mut s: String, c: &CardInput<'_>) -> String {
+    use std::fmt::Write as _;
     if !c.statistics.is_empty() {
         s.push_str("### Cleaning statistics\n\n| Step | Count |\n|---|---:|\n");
         for (k, v) in &c.statistics {
@@ -196,6 +235,7 @@ mod tests {
             row_unit: "rows",
             group_unit: "clusters",
             splits: &splits,
+            cohorts: &[],
             statistics: vec![("dropped".into(), "3".into())],
             citations: "@misc{x}",
             limitations: &["small"],
@@ -237,6 +277,7 @@ mod tests {
                 row_unit: "domains",
                 group_unit: "domains",
                 splits,
+                cohorts: &[],
                 statistics: vec![],
                 citations: "@misc{x}",
                 limitations: &["small"],

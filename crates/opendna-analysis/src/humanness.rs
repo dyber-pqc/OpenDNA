@@ -141,6 +141,25 @@ impl PrevalenceTable {
         self.entries.is_empty()
     }
 
+    /// Every peptide and the number of donors holding it, in peptide order.
+    ///
+    /// For reporting what a table contains -- how much of it is near-universal
+    /// and how much is one donor's idiosyncrasy -- which is the honest way to
+    /// describe a table whose coverage depends entirely on how it was built.
+    pub fn entries(&self) -> impl ExactSizeIterator<Item = (&Peptide, u32)> {
+        self.entries.iter().map(|(peptide, donors)| (peptide, *donors))
+    }
+
+    /// Drop peptides held by fewer than `min_donors` donors.
+    ///
+    /// Separate from [`PrevalenceTable::build`] so a builder can count the
+    /// whole distribution, report it, and only then discard the tail. The
+    /// donor total is unchanged: it is the denominator of the measure, not a
+    /// count of what survived.
+    pub fn restrict(&mut self, min_donors: u32) {
+        self.entries.retain(|(_, donors)| *donors >= min_donors);
+    }
+
     /// The fraction of donors holding `peptide`; zero if it is not in the
     /// table.
     ///
@@ -412,6 +431,34 @@ mod tests {
             ],
             1,
         )
+    }
+
+    #[test]
+    fn restricting_drops_the_rare_tail_and_keeps_the_denominator() {
+        let mut t = table();
+        let before = t.len();
+        let shared = *b"AAAAAAAAA";
+        assert_eq!(t.prevalence(&shared), 1.0, "both donors hold it");
+
+        t.restrict(2);
+        assert!(t.len() < before, "the single-donor peptides should be gone");
+        // The denominator is how many donors the table was built from, not how
+        // many peptides survived, so prevalence does not move.
+        assert_eq!(t.donors(), 2);
+        assert_eq!(t.prevalence(&shared), 1.0);
+        assert_eq!(t.prevalence(b"AAAAAAAAC"), 0.0, "one donor only, now absent");
+        assert!(t.entries().all(|(_, donors)| donors >= 2));
+    }
+
+    #[test]
+    fn entries_are_in_peptide_order_and_count_donors() {
+        let t = table();
+        let listed: Vec<(String, u32)> =
+            t.entries().map(|(p, n)| (String::from_utf8_lossy(p).into_owned(), n)).collect();
+        assert_eq!(listed.len(), t.len());
+        assert!(listed.windows(2).all(|w| w[0].0 < w[1].0), "{listed:?}");
+        assert_eq!(listed.iter().find(|(p, _)| p == "AAAAAAAAA").map(|(_, n)| *n), Some(2));
+        assert!(listed.iter().all(|(_, n)| *n <= t.donors()));
     }
 
     #[test]

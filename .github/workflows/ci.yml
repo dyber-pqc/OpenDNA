@@ -26,8 +26,22 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
+      # A broken intra-doc link fails nothing else: fmt, clippy and the whole
+      # test suite pass with one. This step is the only thing that catches it,
+      # so it covers every workspace rather than only the root one -- a doc
+      # error reached `datasets` precisely because this ran on the root alone.
       - name: Docs
         run: cargo doc --workspace --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - name: Docs (datasets)
+        run: cargo doc --workspace --no-deps --locked
+        working-directory: datasets
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - name: Docs (training)
+        run: cargo doc --workspace --no-deps --locked
+        working-directory: training
         env:
           RUSTDOCFLAGS: -D warnings
 
