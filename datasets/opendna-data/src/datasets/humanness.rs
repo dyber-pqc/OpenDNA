@@ -336,7 +336,15 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
     let stats = TableStats {
         donors: table.donors(),
         units: catalogue.len(),
-        studies: catalogue.iter().map(|r| r.study.as_str()).collect::<BTreeSet<_>>().len(),
+        // Studies behind the donors that are actually counted, not behind the
+        // catalogue: the headline says "N donors from M studies", and a study
+        // all of whose donors were dropped for depth is not one of them.
+        studies: catalogue
+            .iter()
+            .filter(|r| repertoires.contains_key(&r.donor))
+            .map(|r| r.study.as_str())
+            .collect::<BTreeSet<_>>()
+            .len(),
         sequences,
         read,
         distinct_peptides: distinct,
@@ -457,9 +465,10 @@ fn render_card(stats: &TableStats, catalogue_digest: &str, table_digest: &str) -
     s.push_str("## Construction\n\n");
     let _ = writeln!(
         s,
-        "1. One OAS unpaired heavy-chain unit per donor, {} of them, spread across {} studies by \
-         round-robin so no single study dominates. Units were taken from a fixed size band, \
-         chosen for breadth of donors rather than depth per donor.\n\
+        "1. One OAS unpaired heavy-chain unit per donor, {} of them, picked round-robin across \
+         studies so no single study dominates, from a fixed size band and for breadth of donors \
+         rather than depth per donor. {} of those donors are counted, across {} studies; the \
+         others contributed too little to be evidence, and are named below.\n\
          2. Rows kept only where OAS marks them productive, stop-codon-free, in frame and \
          heavy-locus, with an amino-acid V(D)J alignment of {}-{} standard residues. \
          {} rows were read and {} kept; the drops are itemised below.\n\
@@ -474,6 +483,7 @@ fn render_card(stats: &TableStats, catalogue_digest: &str, table_digest: &str) -
          no threshold answer -- but it is most of the table by count, and the reported prevalence \
          of such a peptide becomes zero rather than {:.2}%.\n",
         stats.units,
+        stats.donors,
         stats.studies,
         antibody::MIN_RESIDUES,
         antibody::MAX_RESIDUES,

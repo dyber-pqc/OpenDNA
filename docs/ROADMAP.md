@@ -206,10 +206,10 @@ maintainers' own page):
 * `humanness` — the prevalence table. 150 donor units were chosen for breadth
   because prevalence is a fraction of *donors* and a table of *n* donors can
   express only *n*+1 values; 9 of them contributed fewer than 500 sequences
-  after filtering and are not counted, leaving 141. The smallest expressible
-  prevalence is 0.71%, so a 1% threshold means something; at 20 donors it would
-  have meant "at least one donor". A threshold finer than a table can express
-  is refused rather than reported.
+  after filtering and are not counted, leaving 141 donors across 47 studies.
+  The smallest expressible prevalence is 0.71%, so a 1% threshold means
+  something; at 20 donors it would have meant "at least one donor". A
+  threshold finer than a table can express is refused rather than reported.
 * `antibody` — four evaluation cohorts from 54 units: human, mouse, a
   transgenic-mouse diagnostic where answering "human" is correct, and four
   out-of-distribution species. The donors of the two datasets are disjoint and

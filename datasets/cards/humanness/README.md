@@ -10,7 +10,7 @@ tags:
 
 # OpenDNA peptide humanness prevalence table
 
-How many human donors hold each 9-residue peptide, over 141 donors from 49 studies of the Observed Antibody Space. Cut an antibody sequence into overlapping 9-mers, look each one up, and every window comes back with the fraction of donors whose repertoire contains it. The per-window list is the useful output: it says *where* a sequence is unlike anything human, which a single score cannot.
+How many human donors hold each 9-residue peptide, over 141 donors from 47 studies of the Observed Antibody Space. Cut an antibody sequence into overlapping 9-mers, look each one up, and every window comes back with the fraction of donors whose repertoire contains it. The per-window list is the useful output: it says *where* a sequence is unlike anything human, which a single score cannot.
 
 
 ## Read this before using the numbers
@@ -29,7 +29,7 @@ OAS publishes its data units under CC BY 4.0. This table is a derived work -- co
 
 ## Construction
 
-1. One OAS unpaired heavy-chain unit per donor, 150 of them, spread across 49 studies by round-robin so no single study dominates. Units were taken from a fixed size band, chosen for breadth of donors rather than depth per donor.
+1. One OAS unpaired heavy-chain unit per donor, 150 of them, picked round-robin across studies so no single study dominates, from a fixed size band and for breadth of donors rather than depth per donor. 141 of those donors are counted, across 47 studies; the others contributed too little to be evidence, and are named below.
 2. Rows kept only where OAS marks them productive, stop-codon-free, in frame and heavy-locus, with an amino-acid V(D)J alignment of 90-200 standard residues. 895955 rows were read and 729494 kept; the drops are itemised below.
 3. Sequences grouped by donor key, which is the subject identifier where OAS gives a global one and the study otherwise. Two units from one person would be one repertoire, not two donors.
 4. Every overlapping 9-mer of every sequence, counted **once per donor** however many of that donor's sequences contain it. Counting sequences instead would let one deeply sequenced donor make their own peptides look universal.
