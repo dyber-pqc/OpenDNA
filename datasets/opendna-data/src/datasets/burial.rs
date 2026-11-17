@@ -494,7 +494,14 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
     };
     write_dataset(
         ctx,
-        FinishedDataset { name: NAME, tables: &tables, card, fractions, cluster_params: ClusterParams::ID30 },
+        FinishedDataset {
+            name: NAME,
+            tables: &tables,
+            extra: &[],
+            card,
+            fractions,
+            cluster_params: ClusterParams::ID30,
+        },
     )?;
     Ok(())
 }

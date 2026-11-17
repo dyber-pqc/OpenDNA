@@ -57,13 +57,20 @@
 //! not part of the labelled splits either; they are kept as an
 //! out-of-distribution set whose single-study origin the card states.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Read};
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 
-use crate::is_standard_protein;
+use crate::card::{CardInput, CardLicense};
+use crate::cluster::ClusterParams;
+use crate::context::{write_dataset, BuildContext, FinishedDataset};
+use crate::parquet_out::{ColumnData, Table};
+use crate::sources::{self, Source};
+use crate::split::{assign_groups, Fractions, Split, SplitSummary};
+use crate::unionfind::UnionFind;
+use crate::{is_standard_protein, sequence_id};
 
 pub const NAME: &str = "antibody";
 
@@ -385,18 +392,530 @@ pub fn accumulate(total: &mut ReadStats, one: &ReadStats) {
 /// looks too good: if one cohort's sequences are separable by their V call
 /// alone, the head has learnt the germline catalogue rather than anything
 /// about the molecule, and a reader deserves to see the overlap.
-pub fn v_gene_counts<'a>(sequences: impl IntoIterator<Item = &'a AntibodySequence>) -> BTreeMap<String, u64> {
+pub fn v_gene_counts<'a>(v_calls: impl IntoIterator<Item = &'a str>) -> BTreeMap<String, u64> {
     let mut counts = BTreeMap::new();
-    for s in sequences {
+    for call in v_calls {
         // IGHV1-52*01 -> IGHV1-52: the allele is finer than anything here
         // needs and splits the counts across near-identical genes.
-        let gene = s.v_call.split('*').next().unwrap_or(&s.v_call);
+        let gene = call.split('*').next().unwrap_or(call);
         if !gene.is_empty() {
             *counts.entry(gene.to_owned()).or_default() += 1;
         }
     }
     counts
 }
+
+/// Where a data unit is fetched from. The unit path from the catalogue is
+/// appended to this.
+pub const OAS_UNIT_BASE: &str = "https://opig.stats.ox.ac.uk/webapps/ngsdb/unpaired/";
+
+/// The committed list of data units this dataset is built from.
+///
+/// Compiled in rather than read from disk, so the build cannot be run against
+/// a catalogue that is not the one in git. OAS has no stable URL for its unit
+/// index -- the index comes out of a POST to a search form -- so there is no
+/// upstream catalogue to pin in `sources.lock` the way the CATH release pins
+/// the burial dataset's file list. This file is the catalogue, and reviewing
+/// it means reading a diff.
+pub const CATALOGUE: &str = include_str!("../../oas_units.tsv");
+
+/// Most sequences kept from any one donor.
+///
+/// A cap rather than a sample of the whole: repertoire depth varies by three
+/// orders of magnitude between units, and without a cap two or three deeply
+/// sequenced donors would supply most of the dataset and the head would learn
+/// them rather than the species. Which sequences are kept is decided by the
+/// hash of the sequence, so it does not depend on file order.
+pub const MAX_PER_DONOR: usize = 5_000;
+
+/// One row of the committed catalogue.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogueRow {
+    pub group: String,
+    pub purpose: String,
+    pub organism: String,
+    pub study: String,
+    pub isotype: String,
+    pub unit: String,
+    /// SHA-256 of the unit, when it has been pinned.
+    ///
+    /// `None` for a unit that has been chosen but not yet downloaded and
+    /// hashed. The build records what it actually got either way, and counts
+    /// the unpinned ones so the card cannot imply they were verified.
+    pub sha256: Option<String>,
+}
+
+impl CatalogueRow {
+    /// The cache filename for this unit: its path, flattened.
+    pub fn file_name(&self) -> String {
+        self.unit.replace("/csv/", "__").replace('/', "__")
+    }
+
+    pub fn url(&self) -> String {
+        format!("{OAS_UNIT_BASE}{}", self.unit)
+    }
+}
+
+fn catalogue_column(header: &csv::StringRecord, name: &str) -> Result<usize> {
+    header
+        .iter()
+        .position(|field| field.trim() == name)
+        .with_context(|| format!("oas_units.tsv has no column {name:?}"))
+}
+
+/// Parse the committed catalogue.
+///
+/// # Errors
+/// If a column is missing or a row is short.
+pub fn read_catalogue(text: &str) -> Result<Vec<CatalogueRow>> {
+    let mut rdr = csv::ReaderBuilder::new().delimiter(b'\t').comment(Some(b'#')).from_reader(text.as_bytes());
+    let header = rdr.headers()?.clone();
+    let (c_group, c_purpose, c_org, c_study, c_iso, c_unit, c_sha) = (
+        catalogue_column(&header, "group")?,
+        catalogue_column(&header, "purpose")?,
+        catalogue_column(&header, "organism")?,
+        catalogue_column(&header, "study")?,
+        catalogue_column(&header, "isotype")?,
+        catalogue_column(&header, "unit")?,
+        catalogue_column(&header, "sha256")?,
+    );
+    let mut rows = Vec::new();
+    for record in rdr.records() {
+        let record = record?;
+        let get = |i: usize| record.get(i).unwrap_or("").trim().to_owned();
+        let sha = get(c_sha);
+        rows.push(CatalogueRow {
+            group: get(c_group),
+            purpose: get(c_purpose),
+            organism: get(c_org),
+            study: get(c_study),
+            isotype: get(c_iso),
+            unit: get(c_unit),
+            // "-" is how the file spells "not pinned", so a blank field and a
+            // missing one read the same way.
+            sha256: (!sha.is_empty() && sha != "-").then_some(sha),
+        });
+    }
+    if rows.is_empty() {
+        bail!("oas_units.tsv lists no units");
+    }
+    Ok(rows)
+}
+
+/// One sequence, with everything the split and the card need.
+#[derive(Debug, Clone)]
+pub struct Record {
+    pub sequence: String,
+    pub cohort: Cohort,
+    pub organism: String,
+    pub study: String,
+    pub donor: String,
+    pub isotype: String,
+    pub v_call: String,
+    pub j_call: String,
+    pub cdr3: String,
+    pub redundancy: u32,
+}
+
+/// Keep at most [`MAX_PER_DONOR`] from each donor, by sequence hash.
+pub fn cap_per_donor(mut records: Vec<Record>, cap: usize) -> (Vec<Record>, u64) {
+    let mut by_donor: BTreeMap<String, Vec<Record>> = BTreeMap::new();
+    for r in records.drain(..) {
+        by_donor.entry(r.donor.clone()).or_default().push(r);
+    }
+    let mut kept = Vec::new();
+    let mut dropped = 0_u64;
+    for (_, mut group) in by_donor {
+        if group.len() > cap {
+            // By hash of the sequence: stable, and unrelated to the order the
+            // rows happened to be read in.
+            group.sort_by_cached_key(|r| crate::sha256_hex(r.sequence.as_bytes()));
+            dropped += (group.len() - cap) as u64;
+            group.truncate(cap);
+        }
+        kept.extend(group);
+    }
+    kept.sort_by(|a, b| (&a.donor, &a.sequence).cmp(&(&b.donor, &b.sequence)));
+    (kept, dropped)
+}
+
+/// Build the labelled table. `is_human` is a plain boolean here because every
+/// row in it has an answer.
+pub fn to_labelled_table(rows: &[&Record], component_of: &BTreeMap<String, String>) -> Table {
+    let mut t = base_columns(rows);
+    t.push(
+        "is_human",
+        "True if the sequence came from a human repertoire, false if from a mouse one. The study that deposited it recorded this; it is not a measurement of the molecule and not an immunogenicity label",
+        ColumnData::Bool(
+            rows.iter()
+                .map(|r| r.cohort.is_human().expect("a labelled row has a label"))
+                .collect(),
+        ),
+    );
+    t.push(
+        "split_group",
+        "Connected component of donors joined to 90% identity clusters; the split unit",
+        ColumnData::Utf8(rows.iter().map(|r| component_of[&format!("D:{}", r.donor)].clone()).collect()),
+    );
+    t
+}
+
+/// Build a held-out table. Deliberately has no `is_human` column: these rows
+/// have no answer, and a column that could hold a null would get averaged.
+pub fn to_held_out_table(rows: &[&Record]) -> Table {
+    base_columns(rows)
+}
+
+fn base_columns(rows: &[&Record]) -> Table {
+    let mut t = Table::new();
+    t.push(
+        "sequence",
+        "Heavy-chain variable region, amino acids, as OAS aligned it (`sequence_alignment_aa`)",
+        ColumnData::Utf8(rows.iter().map(|r| r.sequence.clone()).collect()),
+    );
+    t.push(
+        "organism",
+        "OAS `Species` verbatim, including the strain. Names the animal, not the immunoglobulin: HIS-Mouse and Kymouse are mice with human V genes",
+        ColumnData::Utf8(rows.iter().map(|r| r.organism.clone()).collect()),
+    );
+    t.push(
+        "study",
+        "OAS study the unit belongs to",
+        ColumnData::Utf8(rows.iter().map(|r| r.study.clone()).collect()),
+    );
+    t.push(
+        "donor",
+        "Donor key. `person:<subject>` when the unit names a subject, which is global because one donor is deposited by several studies; `study:<study>` when it does not",
+        ColumnData::Utf8(rows.iter().map(|r| r.donor.clone()).collect()),
+    );
+    t.push(
+        "isotype",
+        "OAS `Isotype` as rendered to a string",
+        ColumnData::Utf8(rows.iter().map(|r| r.isotype.clone()).collect()),
+    );
+    t.push(
+        "v_call",
+        "IMGT V gene call from OAS. Reported so the germline overlap between cohorts can be checked; not a feature",
+        ColumnData::Utf8(rows.iter().map(|r| r.v_call.clone()).collect()),
+    );
+    t.push(
+        "j_call",
+        "IMGT J gene call from OAS",
+        ColumnData::Utf8(rows.iter().map(|r| r.j_call.clone()).collect()),
+    );
+    t.push(
+        "cdr3",
+        "CDR3 amino acids as OAS delimited them",
+        ColumnData::Utf8(rows.iter().map(|r| r.cdr3.clone()).collect()),
+    );
+    t.push(
+        "redundancy",
+        "Identical reads OAS collapsed into this row",
+        ColumnData::Int32(rows.iter().map(|r| i32::try_from(r.redundancy).unwrap_or(i32::MAX)).collect()),
+    );
+    t
+}
+
+pub const SOURCES: &[Source] = &[sources::OAS];
+
+pub fn build(ctx: &mut BuildContext) -> Result<()> {
+    let catalogue = read_catalogue(CATALOGUE)?;
+    let catalogue_digest = crate::sha256_hex(CATALOGUE.as_bytes());
+    eprintln!("{} units in oas_units.tsv (sha256 {catalogue_digest})", catalogue.len());
+
+    let mut records: Vec<Record> = Vec::new();
+    let mut stats = ReadStats::default();
+    let mut unpinned = 0_u64;
+    let mut digests: BTreeMap<String, String> = BTreeMap::new();
+    for row in &catalogue {
+        let (path, sha) = ctx.cache.fetch_bulk("oas", &row.file_name(), &row.url())?;
+        match &row.sha256 {
+            Some(pinned) if pinned != &sha => bail!(
+                "{} changed upstream: oas_units.tsv pins sha256 {pinned}, the file is {sha}.\n\
+                 Delete the cached file to re-download, or update the catalogue deliberately.",
+                row.unit
+            ),
+            Some(_) => {}
+            None => unpinned += 1,
+        }
+        digests.insert(row.unit.clone(), sha);
+
+        let (metadata, sequences, unit_stats) =
+            read_unit(open_unit(&path)?).with_context(|| format!("reading {}", path.display()))?;
+        accumulate(&mut stats, &unit_stats);
+
+        // The catalogue and the file must agree about what the file is. A
+        // mismatch means the wrong unit was pinned, which no later check
+        // would catch: the sequences would simply be labelled as whatever the
+        // catalogue claimed.
+        if metadata.species != row.organism {
+            bail!("{} is {} but oas_units.tsv says {}", row.unit, metadata.species, row.organism);
+        }
+        let cohort = cohort_of(&metadata.species)?;
+        let donor = donor_key(&metadata, &row.study);
+        records.extend(sequences.into_iter().map(|s| Record {
+            sequence: s.sequence,
+            cohort,
+            organism: metadata.species.clone(),
+            study: row.study.clone(),
+            donor: donor.clone(),
+            isotype: metadata.isotype.clone(),
+            v_call: s.v_call,
+            j_call: s.j_call,
+            cdr3: s.cdr3,
+            redundancy: s.redundancy,
+        }));
+    }
+
+    // A sequence seen under two donors is not evidence about either, and
+    // keeping it would put the same row on both sides of a split.
+    let before = records.len() as u64;
+    let mut seen: BTreeMap<String, usize> = BTreeMap::new();
+    for (i, r) in records.iter().enumerate() {
+        seen.entry(r.sequence.clone()).or_insert(i);
+    }
+    let shared: BTreeMap<String, ()> = {
+        let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+        for r in &records {
+            *counts.entry(r.sequence.as_str()).or_default() += 1;
+        }
+        counts.into_iter().filter(|(_, n)| *n > 1).map(|(s, _)| (s.to_owned(), ())).collect()
+    };
+    records.retain(|r| !shared.contains_key(&r.sequence));
+    let shared_dropped = before - records.len() as u64;
+
+    let (records, over_cap) = cap_per_donor(records, MAX_PER_DONOR);
+    let labelled: Vec<&Record> = records.iter().filter(|r| r.cohort.is_human().is_some()).collect();
+    if labelled.is_empty() {
+        bail!("no labelled sequences: the catalogue has no human or mouse units");
+    }
+
+    // Cluster the labelled sequences, then join each cluster to every donor it
+    // touches. A clonal lineage shared by two donors makes those donors one
+    // split group: splitting between them would put near-identical sequences
+    // on both sides.
+    let seqs: BTreeMap<String, String> =
+        labelled.iter().map(|r| (sequence_id(&r.sequence), r.sequence.clone())).collect();
+    let params = ClusterParams::ID90;
+    let clustering = ctx.cluster(&seqs, params)?;
+    let mut uf = UnionFind::new();
+    for r in &labelled {
+        let cluster = &clustering.member_to_rep[&sequence_id(&r.sequence)];
+        uf.union(&format!("D:{}", r.donor), &format!("C:{cluster}"));
+    }
+    let component_of = uf.components();
+
+    let mut weights: BTreeMap<String, u64> = BTreeMap::new();
+    for r in &labelled {
+        *weights.entry(component_of[&format!("D:{}", r.donor)].clone()).or_default() += 1;
+    }
+    // A component holding most of the rows cannot be split, and a split that
+    // puts it all on one side is not a split. Said plainly rather than
+    // reported as an odd-looking ratio afterwards.
+    let largest = weights.values().copied().max().unwrap_or(0);
+    let share = largest as f64 / labelled.len() as f64;
+    eprintln!(
+        "{} split groups over {} labelled rows; largest holds {largest} ({:.1}%)",
+        weights.len(),
+        labelled.len(),
+        share * 100.0
+    );
+    if share > 0.5 {
+        bail!(
+            "one split group holds {:.1}% of the labelled rows, so there is no homology-aware \
+             split to make. Clonal lineages have joined most donors into one component; this \
+             needs a different grouping, not a different seed.",
+            share * 100.0
+        );
+    }
+
+    let fractions = Fractions::new(0.8, 0.1, 0.1)?;
+    let assignment = assign_groups(&weights, &BTreeMap::new(), fractions, ctx.seed)?;
+    let split_of = |r: &Record| assignment[&component_of[&format!("D:{}", r.donor)]];
+    let summary = SplitSummary::from_rows(
+        labelled.iter().map(|r| component_of[&format!("D:{}", r.donor)].as_str()),
+        &assignment,
+    );
+    let tables: Vec<(Split, Table)> = Split::ALL
+        .iter()
+        .map(|s| {
+            let rows: Vec<&Record> = labelled.iter().copied().filter(|r| split_of(r) == *s).collect();
+            (*s, to_labelled_table(&rows, &component_of))
+        })
+        .collect();
+
+    let held_out =
+        |cohort: Cohort| -> Vec<&Record> { records.iter().filter(|r| r.cohort == cohort).collect() };
+    let diagnostic = held_out(Cohort::HumanLociInMouse);
+    let out_of_distribution = held_out(Cohort::OutOfDistribution);
+    let extra = vec![
+        ("diagnostic", to_held_out_table(&diagnostic)),
+        ("out_of_distribution", to_held_out_table(&out_of_distribution)),
+    ];
+
+    // How much of the germline catalogue the two cohorts share. The first
+    // thing to check when a species classifier looks too good: if the V calls
+    // do not overlap at all, the task is germline lookup.
+    let v_of = |cohort: Cohort| -> BTreeMap<String, u64> {
+        v_gene_counts(labelled.iter().copied().filter(|r| r.cohort == cohort).map(|r| r.v_call.as_str()))
+    };
+    let human_v = v_of(Cohort::Human);
+    let mouse_v = v_of(Cohort::Mouse);
+    let shared_v = human_v.keys().filter(|g| mouse_v.contains_key(*g)).count();
+
+    let donors = |rows: &[&Record]| rows.iter().map(|r| r.donor.as_str()).collect::<BTreeSet<_>>().len();
+    let studies = |rows: &[&Record]| rows.iter().map(|r| r.study.as_str()).collect::<BTreeSet<_>>().len();
+    let humans: Vec<&Record> = labelled.iter().copied().filter(|r| r.cohort == Cohort::Human).collect();
+    let mice: Vec<&Record> = labelled.iter().copied().filter(|r| r.cohort == Cohort::Mouse).collect();
+
+    let statistics = vec![
+        ("OAS unit catalogue (oas_units.tsv) sha256".into(), catalogue_digest.clone()),
+        ("data units read".into(), catalogue.len().to_string()),
+        ("data units not pinned in the catalogue".into(), unpinned.to_string()),
+        ("rows read from units".into(), stats.rows.to_string()),
+        ("dropped: not productive".into(), stats.not_productive.to_string()),
+        ("dropped: stop codon".into(), stats.stop_codon.to_string()),
+        ("dropped: V-J out of frame".into(), stats.out_of_frame.to_string()),
+        ("dropped: not a heavy chain".into(), stats.wrong_locus.to_string()),
+        ("dropped: empty amino-acid alignment".into(), stats.empty_sequence.to_string()),
+        ("dropped: non-standard residue or alignment gap".into(), stats.nonstandard_residue.to_string()),
+        (
+            format!("dropped: outside {MIN_RESIDUES}-{MAX_RESIDUES} residues"),
+            stats.out_of_length_band.to_string(),
+        ),
+        ("dropped: duplicate within its unit".into(), stats.duplicate_within_unit.to_string()),
+        ("dropped: identical sequence under more than one donor".into(), shared_dropped.to_string()),
+        (format!("dropped: over the {MAX_PER_DONOR}-per-donor cap"), over_cap.to_string()),
+        ("labelled rows".into(), labelled.len().to_string()),
+        (
+            "  human".into(),
+            format!("{} rows, {} donors, {} studies", humans.len(), donors(&humans), studies(&humans)),
+        ),
+        (
+            "  mouse".into(),
+            format!("{} rows, {} donors, {} studies", mice.len(), donors(&mice), studies(&mice)),
+        ),
+        (
+            "diagnostic rows (mice with human Ig loci, unlabelled)".into(),
+            format!("{} rows, {} donors", diagnostic.len(), donors(&diagnostic)),
+        ),
+        (
+            "out-of-distribution rows (other species, unlabelled)".into(),
+            format!("{} rows, {} donors", out_of_distribution.len(), donors(&out_of_distribution)),
+        ),
+        ("90% identity clusters among labelled rows".into(), clustering.n_clusters().to_string()),
+        ("split groups (donors joined by shared clusters)".into(), weights.len().to_string()),
+        ("largest split group, share of labelled rows".into(), format!("{:.2}%", share * 100.0)),
+        ("V genes in human rows".into(), human_v.len().to_string()),
+        ("V genes in mouse rows".into(), mouse_v.len().to_string()),
+        ("V genes in both".into(), shared_v.to_string()),
+    ];
+
+    let construction = format!(
+        "1. Read the {} data units listed in `oas_units.tsv`, which is committed to the repository \
+            and compiled into the builder. OAS has no stable URL for its unit index, so this file \
+            is the catalogue; its own SHA-256 is in the statistics above and each unit's is in \
+            `manifest.json`. A unit whose digest does not match the catalogue stops the build.\n\
+         2. Keep rows OAS already marked productive, in frame and free of stop codons, on the heavy \
+            chain, whose amino-acid alignment is {MIN_RESIDUES}-{MAX_RESIDUES} standard residues.\n\
+         3. Drop any sequence seen under more than one donor, and cap each donor at \
+            {MAX_PER_DONOR} sequences chosen by sequence hash.\n\
+         4. Label human as `is_human = true` and ordinary mouse strains as `false`. HIS-Mouse and \
+            Kymouse carry human immunoglobulin loci and are written to `diagnostic` with no label; \
+            rat, rabbit, rhesus and bactrian camel go to `out_of_distribution` with no label.\n\
+         5. Cluster the labelled sequences with `{}`, then join every donor to every cluster its \
+            sequences fall in and take connected components. Whole components go to \
+            train/validation/test (80/10/10 of rows, seed {}), so neither a donor nor a clonal \
+            lineage can span two splits.",
+        catalogue.len(),
+        params.describe(),
+        ctx.seed
+    );
+
+    let card = CardInput {
+        pretty_name: "OpenDNA Antibody (human vs mouse heavy chains, OAS)",
+        license: CardLicense::Known("cc-by-4.0"),
+        license_note: "OAS is licensed CC BY 4.0 by its maintainers, stated on \
+             <https://opig.stats.ox.ac.uk/webapps/oas/>: \"the data contained within OAS is \
+             available under a CC-BY 4.0 license\". Redistribution is permitted with attribution, \
+             so this dataset is CC BY 4.0. Cite Olsen, Boyles and Deane (2021) and the study each \
+             row's `study` column names.",
+        tags: &["biology", "protein", "antibody", "immunoglobulin", "repertoire"],
+        summary: format!(
+            "Heavy-chain variable regions from human and mouse antibody repertoires in the \
+             Observed Antibody Space, labelled by the species of the donor. {} labelled rows from \
+             {} donors across {} studies, split so that neither a donor nor a 90% identity cluster \
+             spans train and test. Two unlabelled sets travel with it: mice carrying human \
+             immunoglobulin loci, where a humanness model should answer human, and four species \
+             with too few independent studies to train on.",
+            labelled.len(),
+            donors(&labelled),
+            studies(&labelled)
+        ),
+        sources: SOURCES,
+        excluded: vec![&sources::SABDAB_EXCLUDED],
+        construction,
+        schema: &tables[0].1,
+        row_unit: "sequences",
+        group_unit: "components",
+        splits: &summary,
+        statistics,
+        citations: ANTIBODY_CITATIONS,
+        limitations: ANTIBODY_LIMITATIONS,
+        lock: ctx.cache.lock(),
+    };
+    write_dataset(
+        ctx,
+        FinishedDataset {
+            name: NAME,
+            tables: &tables,
+            extra: &extra,
+            card,
+            fractions,
+            cluster_params: params,
+        },
+    )?;
+    Ok(())
+}
+
+const ANTIBODY_CITATIONS: &str = "\
+```bibtex
+@article{olsen2022oas,
+  title   = {Observed Antibody Space: A diverse database of cleaned, annotated,
+             and translated unpaired and paired antibody sequences},
+  author  = {Olsen, Tobias H. and Boyles, Fergus and Deane, Charlotte M.},
+  journal = {Protein Science},
+  volume  = {31},
+  number  = {1},
+  pages   = {141--146},
+  year    = {2022},
+  doi     = {10.1002/pro.4205}
+}
+```
+
+Each row's `study` column names the study that produced it; those papers are
+the primary sources and OAS lists their DOIs per data unit.";
+
+const ANTIBODY_LIMITATIONS: &[&str] = &[
+    "The label is the species of the donor, recorded by the depositing study. It is not a \
+     measurement of the molecule, and it is not an immunogenicity label: a sequence resembling a \
+     human repertoire is not thereby safe in humans, and the converse does not hold either.",
+    "Human and mouse V genes differ, so a model can score well here by learning the germline \
+     catalogue rather than anything else. The card reports how many V genes appear in both \
+     cohorts; read that number before believing an accuracy.",
+    "Heavy chains only. Light chains have their own germline repertoire and are a separate task.",
+    "The out-of-distribution set is one study per species for rat, rabbit and bactrian camel, and \
+     two for rhesus. A score on those species cannot be separated from one laboratory's protocol, \
+     which is why they are not trained on.",
+    "Donor keys merge a named subject across studies, because one donor is deposited by several \
+     studies -- CAP256 appears in three. Where two studies reuse a placeholder such as Donor-1 \
+     for different people, this merges them too, which costs data rather than leaking it.",
+    "Repertoires are not samples of what a B cell can make. They are shaped by the primers used, \
+     the cells sorted, the immunisation, and the disease state of the donor, all of which are in \
+     the columns and none of which is controlled for here.",
+    "A cap of 5,000 sequences per donor keeps deeply sequenced donors from dominating. It also \
+     means row counts per donor say nothing about repertoire size.",
+];
 
 #[cfg(test)]
 mod tests {
@@ -582,7 +1101,7 @@ mod tests {
             redundancy: 1,
         };
         let sequences = [make("IGHV1-52*01"), make("IGHV1-52*02"), make("IGHV3-23*01")];
-        let counts = v_gene_counts(&sequences);
+        let counts = v_gene_counts(sequences.iter().map(|s| s.v_call.as_str()));
         assert_eq!(counts["IGHV1-52"], 2);
         assert_eq!(counts["IGHV3-23"], 1);
         assert_eq!(counts.len(), 2);
@@ -664,6 +1183,117 @@ mod tests {
     fn a_load_bearing_field_is_still_strict() {
         let json = r#"{"Species": ["human"], "Subject": "S1", "Chain": "Heavy", "Author": "a"}"#;
         assert!(serde_json::from_str::<UnitMetadata>(json).is_err());
+    }
+
+    /// The committed catalogue is data, and data in a repository rots. This
+    /// checks the invariants the build relies on, so a hand edit that breaks
+    /// one fails here rather than three hours into a download.
+    #[test]
+    fn the_committed_catalogue_is_consistent() {
+        let rows = read_catalogue(CATALOGUE).expect("oas_units.tsv must parse");
+        assert_eq!(rows.len(), 54, "the catalogue should hold the 54 chosen units");
+
+        let mut units = BTreeSet::new();
+        let mut labelled_studies: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+        for row in &rows {
+            assert!(units.insert(row.unit.clone()), "{} is listed twice", row.unit);
+            // The organism must agree with the cohort the purpose implies, or
+            // a unit would be trained on under the wrong label.
+            let cohort = cohort_of(&row.organism).expect(&row.organism);
+            let expected = match cohort {
+                Cohort::Human | Cohort::Mouse => "trained on",
+                Cohort::HumanLociInMouse => "humanisation diagnostic only",
+                Cohort::OutOfDistribution => "out-of-distribution only",
+            };
+            assert_eq!(row.purpose, expected, "{} is {}", row.unit, row.organism);
+            if cohort.is_human().is_some() {
+                labelled_studies.entry(row.group.as_str()).or_default().insert(row.study.as_str());
+            }
+            assert!(row.unit.ends_with(".csv.gz"), "{}", row.unit);
+            assert!(!row.unit.starts_with('/') && !row.unit.contains(".."), "{}", row.unit);
+            assert!(row.url().starts_with(OAS_UNIT_BASE), "{}", row.url());
+            assert!(!row.file_name().contains('/'), "{}", row.file_name());
+        }
+        // The whole point of human-versus-mouse: both sides need enough
+        // independent studies that one can be held out.
+        for cohort in ["human", "mouse"] {
+            let studies = labelled_studies.get(cohort).map_or(0, BTreeSet::len);
+            assert!(studies >= 6, "{cohort} has only {studies} studies in the catalogue");
+        }
+    }
+
+    #[test]
+    fn a_catalogue_row_knows_where_it_comes_from_and_where_it_lands() {
+        let text = "group\tpurpose\torganism\tstudy\tdonor\tisotype\tunique_sequences\tunit\tsha256\n\
+                    human\ttrained on\thuman\tGalson_2015\tperson:S1\tIGHM\t76027\tGalson_2015/csv/SRR3990841_Heavy_IGHM.csv.gz\tab\n";
+        let rows = read_catalogue(text).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].file_name(), "Galson_2015__SRR3990841_Heavy_IGHM.csv.gz");
+        assert_eq!(
+            rows[0].url(),
+            "https://opig.stats.ox.ac.uk/webapps/ngsdb/unpaired/Galson_2015/csv/SRR3990841_Heavy_IGHM.csv.gz"
+        );
+        assert_eq!(rows[0].sha256.as_deref(), Some("ab"));
+    }
+
+    /// An unpinned unit must read as unpinned, not as a digest of "-".
+    #[test]
+    fn a_dash_means_not_yet_pinned() {
+        let text = "group\tpurpose\torganism\tstudy\tdonor\tisotype\tunique_sequences\tunit\tsha256\n\
+                    human\ttrained on\thuman\tS\tperson:S1\tIGHM\t1\tS/csv/u.csv.gz\t-\n";
+        assert_eq!(read_catalogue(text).unwrap()[0].sha256, None);
+    }
+
+    #[test]
+    fn an_empty_catalogue_is_an_error() {
+        let text = "group\tpurpose\torganism\tstudy\tdonor\tisotype\tunique_sequences\tunit\tsha256\n";
+        assert!(read_catalogue(text).unwrap_err().to_string().contains("lists no units"));
+    }
+
+    fn record(donor: &str, sequence: &str) -> Record {
+        Record {
+            sequence: sequence.to_owned(),
+            cohort: Cohort::Human,
+            organism: "human".into(),
+            study: "S".into(),
+            donor: donor.to_owned(),
+            isotype: "IGHM".into(),
+            v_call: "IGHV3-23*01".into(),
+            j_call: "IGHJ4*02".into(),
+            cdr3: "ARDL".into(),
+            redundancy: 1,
+        }
+    }
+
+    /// The cap applies per donor, not across the dataset, so a shallow donor
+    /// is never truncated because a deep one exists.
+    #[test]
+    fn the_cap_is_per_donor_and_does_not_depend_on_order() {
+        let mut records = Vec::new();
+        for i in 0..10 {
+            records.push(record("person:deep", &format!("SEQUENCE{i}")));
+        }
+        records.push(record("person:shallow", "ONLYONE"));
+        let (kept, dropped) = cap_per_donor(records.clone(), 4);
+        assert_eq!(dropped, 6);
+        assert_eq!(kept.iter().filter(|r| r.donor == "person:deep").count(), 4);
+        assert_eq!(kept.iter().filter(|r| r.donor == "person:shallow").count(), 1);
+
+        // Which four is decided by the sequence hash, so shuffling the input
+        // cannot change the dataset.
+        records.reverse();
+        let (again, _) = cap_per_donor(records, 4);
+        let one: Vec<&String> = kept.iter().map(|r| &r.sequence).collect();
+        let two: Vec<&String> = again.iter().map(|r| &r.sequence).collect();
+        assert_eq!(one, two, "the cap must not depend on input order");
+    }
+
+    #[test]
+    fn under_the_cap_nothing_is_dropped() {
+        let records = vec![record("person:a", "AAA"), record("person:b", "BBB")];
+        let (kept, dropped) = cap_per_donor(records, 5);
+        assert_eq!(kept.len(), 2);
+        assert_eq!(dropped, 0);
     }
 
     #[test]

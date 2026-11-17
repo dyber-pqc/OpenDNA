@@ -36,6 +36,15 @@ impl ClusterParams {
     pub const ID30: ClusterParams =
         ClusterParams { min_seq_id: 0.3, coverage: 0.8, cov_mode: 0, cluster_mode: 0, sensitivity: 7.5 };
 
+    /// 90% identity over 80% bidirectional coverage.
+    ///
+    /// For repertoires rather than unrelated proteins. Antibody V regions all
+    /// share a scaffold, so 30% identity collapses an entire species into one
+    /// cluster and says nothing. 90% separates clonal lineages, which is the
+    /// redundancy that actually leaks between a train and a test row.
+    pub const ID90: ClusterParams =
+        ClusterParams { min_seq_id: 0.9, coverage: 0.8, cov_mode: 0, cluster_mode: 0, sensitivity: 7.5 };
+
     pub fn describe(&self) -> String {
         format!(
             "mmseqs easy-cluster --min-seq-id {} -c {} --cov-mode {} --cluster-mode {} -s {}",

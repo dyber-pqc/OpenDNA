@@ -51,6 +51,14 @@ struct Manifest<'a> {
 pub struct FinishedDataset<'a> {
     pub name: &'static str,
     pub tables: &'a [(Split, Table)],
+    /// Tables written beside the splits, under their own names.
+    ///
+    /// For rows that are part of the dataset but must not be mistaken for
+    /// labelled data: the antibody dataset's out-of-distribution species and
+    /// its transgenic-mouse diagnostic. Putting them in `test` with a null
+    /// label would let anything that averages over the test split quietly
+    /// average over rows that have no answer.
+    pub extra: &'a [(&'static str, Table)],
     pub card: CardInput<'a>,
     pub fractions: Fractions,
     pub cluster_params: ClusterParams,
@@ -71,6 +79,13 @@ pub fn write_dataset(ctx: &BuildContext, d: FinishedDataset<'_>) -> Result<Vec<W
             continue;
         }
         let rel = format!("data/{split}.parquet");
+        files.push(write_parquet(table, &dir.join(&rel), &rel)?);
+    }
+    for (name, table) in d.extra {
+        if table.n_rows() == 0 {
+            continue;
+        }
+        let rel = format!("data/{name}.parquet");
         files.push(write_parquet(table, &dir.join(&rel), &rel)?);
     }
     fs::write(dir.join("README.md"), card::render(&d.card))?;

@@ -121,6 +121,23 @@ pub const PDB_ENTRIES_IDX: Source = Source {
     description: "wwPDB entries index: deposition date, title, resolution and experimental method per entry",
 };
 
+/// Observed Antibody Space.
+///
+/// Not fetched through the lockfile, and the card says "(not locked)" for it
+/// accordingly. OAS publishes no stable URL for its unit index -- the index
+/// comes out of a POST to a search form -- so there is nothing upstream to pin
+/// the way the CATH release pins the burial dataset's file list. The catalogue
+/// is `oas_units.tsv`, committed and compiled into the builder, and it carries
+/// a SHA-256 per data unit. The dataset's own manifest records the digest of
+/// every unit actually read, and the card records the digest of the catalogue.
+pub const OAS: Source = Source {
+    id: "oas-unpaired",
+    url: "https://opig.stats.ox.ac.uk/webapps/oas/",
+    file_name: "oas_units.tsv",
+    license: SourceLicense::CcBy4,
+    description: "Observed Antibody Space, unpaired heavy-chain data units (Olsen, Boyles and Deane 2021); the units read are listed in oas_units.tsv",
+};
+
 pub const ALL_SOURCES: &[Source] = &[
     TSUBOYAMA_2023,
     DISPROT_2025_12,
@@ -130,9 +147,18 @@ pub const ALL_SOURCES: &[Source] = &[
     CATH_DOMAIN_LIST,
     CATH_DOMAIN_SEQS,
     PDB_ENTRIES_IDX,
+    OAS,
 ];
 
+/// SAbDab, considered for the antibody dataset and not used.
+pub const SABDAB_EXCLUDED: ExcludedSource = ExcludedSource {
+    name: "SAbDab / SAbDab-nano",
+    dataset: "antibody",
+    reason: "Not used, and so not relied on. SAbDab holds antibody structures and this is a sequence dataset, so it would add nothing a heavy-chain V region needs. Its licence was therefore not reviewed: third-party pages and its own papers read as CC BY 4.0, but the OPIG site states no terms on a page that renders without JavaScript, and this project does not record a licence it has not seen the maintainers state. If a structural antibody dataset is built later, that review has to happen first.",
+};
+
 pub const EXCLUDED_SOURCES: &[ExcludedSource] = &[
+    SABDAB_EXCLUDED,
     ExcludedSource {
         name: "FireProtDB 2.0",
         dataset: "stability",

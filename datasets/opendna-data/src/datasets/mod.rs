@@ -2,11 +2,6 @@
 //!
 //! `burial` annotates `structures`, so it reads that dataset's output and
 //! must be built after it.
-//!
-//! `antibody` is the exception: it has a reader, the labelling rules and the
-//! donor keying, but no `build` yet, so it is deliberately absent from [`ALL`]
-//! and `opendna-data build antibody` reports it as unknown. Saying so here
-//! beats letting someone find out from an error message.
 
 pub mod antibody;
 pub mod burial;
@@ -20,8 +15,8 @@ use anyhow::{bail, Result};
 use crate::context::BuildContext;
 use crate::sources::Source;
 
-pub const ALL: [&str; 5] =
-    [structures::NAME, stability::NAME, solubility::NAME, disorder::NAME, burial::NAME];
+pub const ALL: [&str; 6] =
+    [structures::NAME, stability::NAME, solubility::NAME, disorder::NAME, burial::NAME, antibody::NAME];
 
 pub fn build(name: &str, ctx: &mut BuildContext) -> Result<()> {
     match name {
@@ -30,6 +25,7 @@ pub fn build(name: &str, ctx: &mut BuildContext) -> Result<()> {
         solubility::NAME => solubility::build(ctx),
         disorder::NAME => disorder::build(ctx),
         burial::NAME => burial::build(ctx),
+        antibody::NAME => antibody::build(ctx),
         other => bail!("unknown dataset {other:?}; expected one of {ALL:?}"),
     }
 }
@@ -42,6 +38,7 @@ pub fn sources_for(name: &str) -> Result<&'static [Source]> {
         solubility::NAME => solubility::SOURCES,
         disorder::NAME => disorder::SOURCES,
         burial::NAME => burial::SOURCES,
+        antibody::NAME => antibody::SOURCES,
         other => bail!("unknown dataset {other:?}; expected one of {ALL:?}"),
     })
 }
