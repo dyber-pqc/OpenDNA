@@ -14,12 +14,12 @@ workspace, so the application never depends on arrow, parquet or an HTTP client.
 | `disorder` | 3,186 | a protein, with per-residue labels | DisProt 2025_12, CAID3 reference (hold-out only) | CC BY 4.0 | 30% identity cluster; CAID3 clusters fixed to test |
 | `burial` | 939 | a CATH domain, with per-residue labels | CATH v4.4.0 S100, wwPDB entries index | CC BY 4.0 | inherited from `structures`, so no topology or cluster spans two splits |
 | `antibody` | 246,543 | a heavy-chain V region | Observed Antibody Space (54 data units) | CC BY 4.0 | none: four cohorts, not a split. See below |
-| `humanness` | one table of 9-mers | a 9-mer and the number of human donors holding it | Observed Antibody Space (150 donor units) | CC BY 4.0 | none: a reference table, nothing is trained |
+| `humanness` | 1,096,088 peptides | a 9-mer and the number of the 141 human donors holding it | Observed Antibody Space (150 donor units) | CC BY 4.0 | none: a reference table, nothing is trained |
 
-Row counts for the first five are from the committed manifests in `cards/`,
-which describe the builds that are published and that trained the heads.
-`antibody` and `humanness` are built but not yet published, so they have no
-committed card; their counts are from the build described below.
+Row counts are from the committed manifests in `cards/`, which describe the
+builds that produced them. The first five are published on the Hub and trained
+the heads; `antibody` and `humanness` are built and their cards committed, but
+not yet published.
 
 The last two have no split, and that is a finding rather than an omission.
 `antibody` is four evaluation cohorts: all 18 of its mouse donors share
@@ -57,8 +57,8 @@ written to Parquet.
   pipeline stops with an error if MMseqs2 is missing rather than falling back to
   a weaker method. `antibody` and `humanness` do not cluster and do not need it.
 - About 1.2 GB of disk for the download cache of the first five datasets (most
-  of it the Tsuboyama archive), plus roughly 1.4 GB for the antibody data units
-  and a few hundred megabytes for the humanness donor units.
+  of it the Tsuboyama archive), plus 1.4 GB for the antibody data units and
+  0.4 GB for the humanness donor units.
 
 ## Usage
 
@@ -71,6 +71,18 @@ cargo run --release -- verify             # re-hash the cache against sources.lo
 cargo run --release -- build stability    # or: structures, solubility, disorder,
                                           #     burial, antibody, humanness, all
 ```
+
+`humanness` has one more step, which nothing else does:
+
+```bash
+cargo run --release -- evaluate humanness   # needs `build antibody` first
+```
+
+It scores the four antibody cohorts against the table and writes
+`out/humanness/EVALUATION.md`. Not a validation score -- the measure is a
+count, so there is nothing to validate -- but whether the table separates
+cohorts it has never seen is a checkable claim, and an uncheckable one would
+not be worth making.
 
 Output goes to `out/<dataset>/`:
 

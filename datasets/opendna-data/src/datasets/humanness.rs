@@ -37,7 +37,7 @@ use opendna_analysis::humanness::{PrevalenceTable, Stringency, FORMAT, PEPTIDE_L
 use serde::Serialize;
 
 use crate::context::BuildContext;
-use crate::datasets::antibody::{self, open_unit, read_unit, ReadStats};
+use crate::datasets::antibody::{self, open_unit, read_unit, ReadStats, MAX_RESIDUES, MIN_RESIDUES};
 use crate::sources::{self, Source};
 
 pub const NAME: &str = "humanness";
@@ -58,6 +58,23 @@ pub const DONORS: &str = include_str!("../../oas_human_donors.tsv");
 /// reports how many peptides it was, so the omission is visible rather than
 /// implicit.
 pub const MIN_DONORS: u32 = 2;
+
+/// Fewest sequences a donor must contribute to count as a donor.
+///
+/// Prevalence counts the donors who hold a peptide, so a donor who
+/// contributed almost nothing votes "absent" on almost every peptide and
+/// drags the whole table down by `1/donors` each time. Two donors in this
+/// catalogue contribute zero after filtering and two more contribute two and
+/// three sequences; counting them would divide every prevalence by donors who
+/// could not possibly have held the peptide.
+///
+/// The value is not tuned. Measured on the committed catalogue, depth per
+/// donor is bimodal: nine donors fall below 500 sequences -- all from two
+/// studies, one depositing partial-length sequences and one tiny samples --
+/// and the next donor up has 1,153. The cut sits in that empty gap, so
+/// anywhere between 500 and 1,100 gives the same 141 donors, which is what
+/// makes it worth stating as a number rather than a judgement.
+pub const MIN_SEQUENCES_PER_DONOR: usize = 500;
 
 /// One row of the donor catalogue.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -149,6 +166,8 @@ struct TableStats {
     kept_peptides: usize,
     /// How many peptides occur in at least each stringency's fraction of donors.
     at_stringency: Vec<(Stringency, usize)>,
+    /// Donors too shallow to count, with what each contributed.
+    dropped: Vec<(String, usize)>,
     /// Fewest and most sequences kept from any one donor.
     ///
     /// The spread is the size of the unevenness in the sampling bias: a
@@ -178,6 +197,10 @@ struct Manifest<'a> {
     table_sha256: String,
     table_bytes: u64,
     units: BTreeMap<&'a str, String>,
+    /// Donors listed in the catalogue but too shallow to be counted, with
+    /// the number of sequences each contributed.
+    donors_below_depth_floor: &'a [(String, usize)],
+    min_sequences_per_donor: usize,
 }
 
 pub const SOURCES: &[Source] = &[sources::OAS];
@@ -251,9 +274,38 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         repertoires.entry(donor).or_default().extend(sequences.into_iter().map(|s| s.sequence));
     }
 
+    // Donors too shallow to be evidence come out of the denominator and get
+    // named in the card. See MIN_SEQUENCES_PER_DONOR for why, and why 500.
+    let (shallow, present): (Vec<_>, Vec<_>) =
+        repertoires.into_iter().partition(|(_, sequences)| sequences.len() < MIN_SEQUENCES_PER_DONOR);
+    let dropped: Vec<(String, usize)> =
+        shallow.into_iter().map(|(donor, sequences)| (donor, sequences.len())).collect();
+    let repertoires: BTreeMap<String, Vec<String>> = present.into_iter().collect();
+    for (donor, kept) in &dropped {
+        eprintln!(
+            "{donor} contributed {kept} sequences, under the {MIN_SEQUENCES_PER_DONOR} floor; \
+             not counted as a donor"
+        );
+    }
+
     let sequences: u64 = repertoires.values().map(|r| r.len() as u64).sum();
     if sequences == 0 {
         bail!("no sequences survived reading; nothing to build a table from");
+    }
+    // Below a hundred donors the loosest published threshold stops being
+    // expressible at all, which is the whole reason this catalogue is as wide
+    // as it is. Losing that many to filtering is a catalogue problem, not
+    // something to report in a footnote.
+    if repertoires.len() < 100 {
+        bail!(
+            "only {} of {} donors contributed any sequence, which is too few to express a 1% \
+             threshold. Choose donor units whose sequences survive the {}-{} residue band rather \
+             than widening the band for this table alone.",
+            repertoires.len(),
+            repertoires.len() + dropped.len(),
+            MIN_RESIDUES,
+            MAX_RESIDUES
+        );
     }
     eprintln!("{} donors, {sequences} sequences; building {PEPTIDE_LEN}-mer prevalence", repertoires.len());
 
@@ -290,6 +342,7 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         distinct_peptides: distinct,
         kept_peptides: table.len(),
         at_stringency,
+        dropped,
         depth: (
             repertoires.values().map(|r| r.len() as u64).min().unwrap_or(0),
             repertoires.values().map(|r| r.len() as u64).max().unwrap_or(0),
@@ -314,6 +367,8 @@ pub fn build(ctx: &mut BuildContext) -> Result<()> {
         table_sha256: table_digest,
         table_bytes,
         units: digests,
+        donors_below_depth_floor: &stats.dropped,
+        min_sequences_per_donor: MIN_SEQUENCES_PER_DONOR,
     };
     fs::write(dir.join("manifest.json"), serde_json::to_string_pretty(&manifest)? + "\n")?;
 
@@ -378,10 +433,14 @@ fn render_card(stats: &TableStats, catalogue_digest: &str, table_digest: &str) -
 
     s.push_str("\n## Sources and licenses\n\n| Source | License | Index | SHA-256 of unit list |\n|---|---|---|---|\n");
     let src = sources::OAS;
+    // Not `src.description`: that one names `oas_units.tsv`, which is the
+    // antibody dataset's catalogue, and this table is built from a different
+    // list of units entirely.
     let _ = writeln!(
         s,
-        "| {} | [{}]({}) | [oas_human_donors.tsv]({}) | `{catalogue_digest}` |",
-        src.description,
+        "| Observed Antibody Space, unpaired human heavy-chain data units (Olsen, Boyles and \
+         Deane 2021); the units read are listed in `oas_human_donors.tsv` | [{}]({}) | \
+         [OAS]({}) | `{catalogue_digest}` |",
         src.license.name(),
         src.license.url(),
         src.url
@@ -433,6 +492,27 @@ fn render_card(stats: &TableStats, catalogue_digest: &str, table_digest: &str) -
          and the build fails if one does. The two donor sets have to be disjoint or an \
          evaluation measures how well the table remembers its own input."
     );
+
+    if !stats.dropped.is_empty() {
+        let _ = writeln!(
+            s,
+            "\n{} donor(s) listed in the catalogue contributed fewer than {} sequences and are \
+             **not** among the {} counted: {}. A donor who contributed almost nothing votes \
+             \"absent\" on almost every peptide, so counting them would divide every prevalence \
+             by donors who could not have held it. The floor is not tuned: depth per donor here \
+             is bimodal, nine donors fall below 500 and the next has 1,153, so any floor between \
+             those two gives the same set.",
+            stats.dropped.len(),
+            MIN_SEQUENCES_PER_DONOR,
+            stats.donors,
+            stats
+                .dropped
+                .iter()
+                .map(|(donor, kept)| format!("{donor} ({kept})"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
 
     s.push_str("\n### Rows read and why they were dropped\n\n| Reason | Rows |\n|---|---|\n");
     let r = &stats.read;

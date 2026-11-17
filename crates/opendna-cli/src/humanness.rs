@@ -16,7 +16,7 @@
 
 use crate::exit::{Classify as _, Failure, Fault};
 use anyhow::{bail, Context, Result};
-use opendna_analysis::humanness::{PrevalenceTable, Score, Stringency};
+use opendna_analysis::humanness::{PrevalenceTable, Score, Stringency, Window};
 use std::path::PathBuf;
 
 /// What `humanness` was asked to do.
@@ -126,37 +126,64 @@ fn report(scores: &[(String, Score)], args: &Request) {
     }
 
     for (name, score) in scores {
-        let mut windows: Vec<_> = score.windows.iter().filter(|w| w.prevalence.is_some()).collect();
         if args.all_windows {
-            windows.sort_by_key(|w| w.start);
-        } else {
-            windows
-                .sort_by(|a, b| a.prevalence.partial_cmp(&b.prevalence).unwrap_or(std::cmp::Ordering::Equal));
-            windows.truncate(args.worst);
-            windows.sort_by_key(|w| w.start);
-        }
-        if windows.is_empty() {
+            println!("\n{name}: every scored window, in order");
+            for window in score.windows.iter().filter(|w| w.prevalence.is_some()) {
+                println!(
+                    "  {:>5}  {}  {:>7.2}% of donors",
+                    window.start,
+                    window.as_str(),
+                    window.prevalence.unwrap_or(0.0) * 100.0
+                );
+            }
             continue;
         }
+
+        // Runs, not the n rarest windows. Rare windows cluster -- nine
+        // overlapping windows over one unusual CDR3 are one finding -- so a
+        // list of the rarest came back as the same stretch reported nine
+        // times, every entry at the same floor. A run says which stretch of
+        // the sequence is unlike human repertoires, and how long it is.
+        let mut runs = score.rare_runs(args.stringency);
+        if runs.is_empty() {
+            println!("\n{name}: no stretch below the {} threshold.", args.stringency.label());
+            continue;
+        }
+        let total = runs.len();
+        runs.sort_by(|a, b| b.windows.cmp(&a.windows).then(a.first.cmp(&b.first)));
+        runs.truncate(args.worst);
+        runs.sort_by_key(|run| run.first);
         println!(
-            "\n{name}: {}",
-            if args.all_windows {
-                "every scored window, in order".to_owned()
-            } else {
-                format!("the {} rarest scored windows, in sequence order", windows.len())
-            }
+            "\n{name}: {total} stretch{} below the {}{}",
+            if total == 1 { "" } else { "es" },
+            args.stringency.label(),
+            if runs.len() < total { format!(", {} longest shown", runs.len()) } else { String::new() }
         );
-        for window in windows {
-            let prevalence = window.prevalence.unwrap_or(0.0);
+        println!("  {:>13}  {:>7}  {:>8}  rarest peptide in the stretch", "residues", "windows", "lowest");
+        for run in runs {
+            let rarest = score
+                .windows
+                .iter()
+                .filter(|w| w.start >= run.first && w.start <= run.last && w.prevalence.is_some())
+                .min_by(|a, b| a.prevalence.unwrap_or(0.0).total_cmp(&b.prevalence.unwrap_or(0.0)));
+            let span = run.residues();
             println!(
-                "  {:>5}  {}  {:>7.2}% of donors",
-                window.start,
-                String::from_utf8_lossy(&window.peptide),
-                prevalence * 100.0
+                "  {:>13}  {:>7}  {:>7.2}%  {}",
+                format!("{}-{}", span.start, span.end),
+                run.windows,
+                run.lowest * 100.0,
+                rarest.map_or_else(String::new, Window::as_str)
             );
         }
     }
 
+    if !args.all_windows {
+        println!(
+            "\nA stretch is consecutive windows that all fall below the threshold. Residue spans \
+             can\noverlap, because a window is nine residues wide and one window that clears the \
+             threshold\nis enough to separate two stretches."
+        );
+    }
     println!(
         "\nPrevalence is the fraction of the table's donors whose repertoire contains that exact \
          peptide.\nIt is a count, not a prediction: there is no model here and no uncertainty to \

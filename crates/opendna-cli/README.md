@@ -578,25 +578,83 @@ accuracy to quote and no interval to report: the table decides what the numbers
 mean, and its card says what it was built from. Without a table this exits 3 —
 a score with no denominator is not a weaker score, it is not a score.
 
-The per-window list is the output worth reading, and it is why this prints one
-by default:
+The per-window detail is the output worth reading, and it is what this prints
+by default. Three real heavy chains from the antibody cohorts — one human, one
+C57BL/6 mouse, one from a Kymouse carrying human immunoglobulin loci — scored
+against the 141-donor table:
 
 ```text
+$ opendna humanness -i example.fasta -t datasets/out/humanness/table.bin
+table: 141 donors, 1096088 peptides, from datasets/out/humanness/table.bin
 name                     identity  windows   skipped  rarest window
-candidate-h1                81.4%      112         0  GTFSSYAIS at 26 (2.00% of donors)
+human-IGHM                  79.8%      109         0  YCARVPPFP at 79 (0.00% of donors)
+mouse-C57BL6                24.3%      111         0  KESGPGLVA at 4 (0.00% of donors)
+kymouse-transgenic          90.3%      113         0  YYCASSPLE at 93 (0.00% of donors)
 
-candidate-h1: the 10 rarest scored windows, in sequence order
-     24  SGGTFSSYA     6.67% of donors
-     26  GTFSSYAIS     2.00% of donors
-     98  ARDRSTYYL     0.67% of donors
+human-IGHM: 1 stretch below the medium (>=10% of donors)
+       residues  windows    lowest  rarest peptide in the stretch
+         78-108       22     0.00%  YCARVPPFP
+
+mouse-C57BL6: 6 stretches below the medium (>=10% of donors)
+       residues  windows    lowest  rarest peptide in the stretch
+           4-25       13     0.00%  KESGPGLVA
+          18-28        2     0.00%  SITCTVSGF
+          22-37        7     0.00%  TVSGFSLTS
+          31-41        2     0.00%  YGVSWVRQP
+          43-95       44     0.00%  GLEWLGVIW
+         89-113       16     0.00%  ATYYCAKTD
+
+kymouse-transgenic: 1 stretch below the medium (>=10% of donors)
+       residues  windows    lowest  rarest peptide in the stretch
+         92-111       11     0.00%  YYCASSPLE
 ```
 
-A single percentage invites comparison with a published figure computed from
-other repertoires, and that comparison is wrong — prevalence depends entirely
-on which donors are in the table and how deeply each was sequenced. The rare
-windows invite the question the measure can actually answer: which positions
-are unlike anything seen in a human, and therefore where a humanising mutation
-would do most.
+That is the shape of the answer. The human antibody and the humanised one each
+have exactly one unusual stretch, their CDR3, which is unique to an individual
+by construction and is *supposed* to be rare. The mouse antibody is unusual in
+six places spread through its framework, which is where a humanisation campaign
+would have to work. A single percentage cannot tell those two situations apart;
+the stretch list does, and it names the residues.
+
+Stretches are reported rather than the *n* rarest windows because rare windows
+cluster: nine overlapping windows over one odd CDR3 are one finding, and a list
+of the rarest came back as the same stretch nine times over, every entry at the
+same floor.
+
+A single percentage also invites comparison with a published figure computed
+from other repertoires, and that comparison is wrong — prevalence depends
+entirely on which donors are in the table and how deeply each was sequenced.
+
+### What it was measured to do
+
+Scored against the four antibody evaluation cohorts, whose donors are disjoint
+from the table's. Median per-sequence identity at the 10% threshold:
+
+| Cohort | median identity | the right answer |
+|---|---:|---|
+| human | 70.7% | high — donors the table has never seen |
+| mouse | 25.9% | lower — mouse germline |
+| diagnostic (mice with human Ig loci) | 90.0% | high, and it is |
+| out of distribution | 36.4% | lower; rhesus 62.5%, camel 23.7% |
+
+The diagnostic cohort is the one worth the trouble. Those are mice, and the
+measure calls their antibodies human, so it tracks the immunoglobulin rather
+than the animal. That survives the obvious confound: the diagnostic cohort is
+mostly IGHM while the human cohort spans isotypes, and a class-switched
+sequence has been mutated away from germline, but matched isotype by isotype
+the diagnostic cohort still scores higher on all three.
+
+It scores *higher* than human because transgenic repertoires are less
+affinity-matured and so sit nearer germline, which is where prevalence is
+highest — not because transgenic mice make better human antibodies. The same
+effect limits how any single score can be read: within the human cohort alone,
+median identity at the 50% threshold runs from 41.1% (IGHA) to 75.8% (IGHM), a
+35-point spread between isotypes of one species. An absolute identity cannot be
+read as "how human" without knowing how mutated the sequence is, which is the
+third reason the per-stretch output is the one to use.
+
+`datasets/out/humanness/EVALUATION.md` holds the full tables, regenerated by
+`opendna-data evaluate humanness`.
 
 Three thresholds are available for the summary identity, the ones OASis
 defines: `--stringency loose` (1% of donors), `medium` (10%, the default) and

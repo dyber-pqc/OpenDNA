@@ -15,6 +15,7 @@ pub mod card;
 pub mod cluster;
 pub mod context;
 pub mod datasets;
+pub mod evaluate;
 pub mod fasta;
 pub mod parquet_out;
 pub mod rng;

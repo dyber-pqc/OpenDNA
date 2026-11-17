@@ -58,7 +58,7 @@ produced each file. With no engine installed it refuses.
 
 `opendna humanness` reports, for each overlapping 9-residue window of an
 antibody heavy chain, the fraction of human donors whose repertoire contains
-that exact peptide. It is a count over a table of 150 donors, not a model:
+that exact peptide. It is a count over a table of 141 donors, not a model:
 there is no accuracy figure because nothing is predicted. The trained
 antibody head that was planned instead was dropped on measurement — a lookup
 table on the V gene call separates human from mouse at 98.5% against a 68.9%

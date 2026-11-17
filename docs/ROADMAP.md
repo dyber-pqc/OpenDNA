@@ -203,12 +203,13 @@ to report, which is itself the point.
 Two datasets back it, both from OAS (CC BY 4.0, confirmed from the
 maintainers' own page):
 
-* `humanness` — the prevalence table, from 150 donors across 49 studies,
-  chosen for breadth because prevalence is a fraction of *donors* and a table
-  of *n* donors can express only *n*+1 values. At 150 the smallest expressible
-  prevalence is 0.67%, so a 1% threshold means something; at 20 it would have
-  meant "at least one donor". A threshold finer than a table can express is
-  refused rather than reported.
+* `humanness` — the prevalence table. 150 donor units were chosen for breadth
+  because prevalence is a fraction of *donors* and a table of *n* donors can
+  express only *n*+1 values; 9 of them contributed fewer than 500 sequences
+  after filtering and are not counted, leaving 141. The smallest expressible
+  prevalence is 0.71%, so a 1% threshold means something; at 20 donors it would
+  have meant "at least one donor". A threshold finer than a table can express
+  is refused rather than reported.
 * `antibody` — four evaluation cohorts from 54 units: human, mouse, a
   transgenic-mouse diagnostic where answering "human" is correct, and four
   out-of-distribution species. The donors of the two datasets are disjoint and

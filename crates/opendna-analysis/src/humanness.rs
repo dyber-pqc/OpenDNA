@@ -65,7 +65,10 @@ pub const FORMAT: u32 = 1;
 /// score here can be compared with a published one. A threshold is a fraction
 /// of donors, not of sequences: one deeply sequenced donor must not be able
 /// to make a peptide look widespread.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The order of the variants is the order of the thresholds, and `Ord` is
+/// derived from it, so reordering them would silently reorder every report
+/// that sorts by stringency.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stringency {
     /// Present in at least 1% of donors.
     Loose,
@@ -320,6 +323,33 @@ pub fn peptides(sequence: &str) -> impl Iterator<Item = Peptide> + '_ {
     })
 }
 
+/// A stretch of consecutive windows that all fail a threshold.
+///
+/// What a humanisation campaign acts on. See [`Score::rare_runs`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RareRun {
+    /// Start position of the first window in the run.
+    pub first: usize,
+    /// Start position of the last window in the run.
+    pub last: usize,
+    /// How many windows it covers.
+    pub windows: usize,
+    /// The lowest prevalence in the run.
+    pub lowest: f64,
+}
+
+impl RareRun {
+    /// The residue range the run covers, as a half-open interval.
+    ///
+    /// A window starting at `last` extends [`PEPTIDE_LEN`] residues, so the
+    /// stretch of sequence implicated is wider than the window positions
+    /// suggest.
+    #[must_use]
+    pub fn residues(&self) -> std::ops::Range<usize> {
+        self.first..self.last + PEPTIDE_LEN
+    }
+}
+
 /// One window of a scored sequence.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Window {
@@ -378,6 +408,43 @@ impl Score {
         Some(human as f64 / self.scored as f64)
     }
 
+    /// Stretches of consecutive windows that all fail `stringency`.
+    ///
+    /// Listing the *n* rarest windows is close to useless in practice: the
+    /// rare ones cluster, and the whole list comes back as one CDR3 reported
+    /// nine times over, every entry at the same floor. A run says the thing
+    /// worth knowing -- which stretch of the sequence is unlike human
+    /// repertoires, and how long it is.
+    ///
+    /// Two windows are consecutive when their start positions differ by one.
+    /// An unscorable window between them therefore ends a run, because
+    /// bridging it would assert a continuity across a position nothing
+    /// measured.
+    #[must_use]
+    pub fn rare_runs(&self, stringency: Stringency) -> Vec<RareRun> {
+        let mut runs: Vec<RareRun> = Vec::new();
+        for window in &self.windows {
+            let Some(prevalence) = window.prevalence else { continue };
+            if window.is_human(stringency) {
+                continue;
+            }
+            match runs.last_mut() {
+                Some(run) if run.last + 1 == window.start => {
+                    run.last = window.start;
+                    run.windows += 1;
+                    run.lowest = run.lowest.min(prevalence);
+                }
+                _ => runs.push(RareRun {
+                    first: window.start,
+                    last: window.start,
+                    windows: 1,
+                    lowest: prevalence,
+                }),
+            }
+        }
+        runs
+    }
+
     /// The rarest scorable window, which is where a humanisation campaign
     /// starts.
     #[must_use]
@@ -431,6 +498,37 @@ mod tests {
             ],
             1,
         )
+    }
+
+    /// A run is the useful unit precisely because rare windows cluster: nine
+    /// overlapping windows covering one unusual stretch are one finding, not
+    /// nine.
+    #[test]
+    fn consecutive_rare_windows_collapse_into_one_run() {
+        // Two donors share the leading A-run; the tail is unique to one.
+        let table =
+            PrevalenceTable::build(vec![vec!["AAAAAAAAAAAAAAAAA"], vec!["AAAAAAAAAAAAAAAAAWWWWWWWW"]], 1);
+        // Scored against the first donor's own sequence plus a foreign tail.
+        let score = score(&table, "AAAAAAAAAAAAAAAAAQQQQQQQQ").unwrap();
+        let runs = score.rare_runs(Stringency::Strict);
+        assert_eq!(runs.len(), 1, "one unusual stretch is one finding: {runs:?}");
+        let run = runs[0];
+        assert!(run.windows > 1, "the Q tail spans several windows: {run:?}");
+        assert_eq!(run.lowest, 0.0, "those peptides are in no donor");
+        // The run's last window still covers nine residues, so the stretch
+        // implicated reaches the end of the sequence.
+        assert_eq!(run.residues().end, 25);
+        assert!(run.residues().start > 0, "the shared A-run is not rare");
+    }
+
+    /// A sequence entirely of common peptides has no rare run, and that has to
+    /// be an empty list rather than one run covering everything.
+    #[test]
+    fn a_sequence_of_common_peptides_has_no_rare_run() {
+        let table =
+            PrevalenceTable::build(vec![vec!["ACDEFGHIKLMNPQRSTVWY"], vec!["ACDEFGHIKLMNPQRSTVWY"]], 1);
+        let score = score(&table, "ACDEFGHIKLMNPQRSTVWY").unwrap();
+        assert_eq!(score.rare_runs(Stringency::Strict), vec![]);
     }
 
     #[test]

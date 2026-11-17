@@ -65,6 +65,13 @@ enum Cmd {
         #[arg(long)]
         max_domains: Option<usize>,
     },
+    /// Measure a built dataset against what it claims, and write the report.
+    ///
+    /// Only `humanness` has one. It is not a validation score -- the measure
+    /// is a count, so there is nothing to validate -- but whether the table
+    /// separates the antibody cohorts it should is a checkable claim, and an
+    /// uncheckable one would not be worth making.
+    Evaluate { dataset: String },
 }
 
 fn default_threads() -> usize {
@@ -100,6 +107,10 @@ fn run(cli: Cli) -> Result<()> {
                 }
             }
         }
+        Cmd::Evaluate { dataset } => match dataset.as_str() {
+            "humanness" => opendna_data::evaluate::humanness(&cli.out_dir)?,
+            other => anyhow::bail!("no evaluation for {other:?}; only `humanness` has one"),
+        },
         Cmd::Verify => {
             let cache = Cache::open(&cli.cache_dir, &cli.lockfile, false, true)?;
             let mut bad = 0;
